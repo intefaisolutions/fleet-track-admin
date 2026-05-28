@@ -1,0 +1,22 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-fleet-50: #f0f9ff;
+  --color-fleet-100: #e0f2fe;
+  --color-fleet-500: #00aeef;
+  --color-fleet-600: #0096d6;
+  --color-fleet-700: #0078b3;
+  --color-surface: #f8fafc;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-surface);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
