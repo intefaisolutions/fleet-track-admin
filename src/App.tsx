@@ -3,6 +3,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { SignInPage } from './pages/auth/SignInPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { SetupSuperAdminPage } from './pages/auth/SetupSuperAdminPage';
 import { RegisterCompanyPage } from './pages/auth/RegisterCompanyPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
@@ -25,6 +26,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path={ROUTES.SIGN_IN} element={<SignInPage />} />
+          <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
           <Route path={ROUTES.SETUP_SUPER_ADMIN} element={<SetupSuperAdminPage />} />
           <Route path={ROUTES.REGISTER_COMPANY} element={<RegisterCompanyPage />} />
 

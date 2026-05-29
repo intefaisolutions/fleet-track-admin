@@ -31,4 +31,18 @@ export const authService = {
   logout: () => postData('/auth/logout'),
 
   profile: () => getData<AuthUser>('/auth/profile'),
+
+  forgotPassword: (email: string) =>
+    postData<{ expiresAt?: string; otp?: string }>('/auth/forgot-password', {
+      email,
+    }),
+
+  verifyResetOtp: (email: string, otp: string) =>
+    postData('/auth/verify-reset-otp', { email, otp }),
+
+  resetPassword: (payload: {
+    email: string;
+    token: string;
+    password: string;
+  }) => postData('/auth/reset-password', payload),
 };

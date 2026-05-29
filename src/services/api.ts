@@ -44,6 +44,7 @@ api.interceptors.response.use(
           requestUrl.includes('/auth/login') ||
           requestUrl.includes('/auth/setup-super-admin') ||
           requestUrl.includes('/auth/forgot-password') ||
+          requestUrl.includes('/auth/verify-reset-otp') ||
           requestUrl.includes('/auth/reset-password') ||
           requestUrl.includes('/auth/refresh') ||
           requestUrl.includes('/auth/refresh-token');

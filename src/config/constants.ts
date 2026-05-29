@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
 
 export const ROUTES = {
   SIGN_IN: '/signin',
+  FORGOT_PASSWORD: '/forgot-password',
   SETUP_SUPER_ADMIN: '/setup-super-admin',
   REGISTER_COMPANY: '/register-company',
   // Company Owner (Super Admin)

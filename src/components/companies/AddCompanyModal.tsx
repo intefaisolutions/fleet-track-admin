@@ -17,6 +17,8 @@ const initialForm = {
   name: '',
   email: '',
   phone: '',
+  adminFullName: '',
+  adminPassword: '',
   address: '',
   city: '',
   country: '',
@@ -56,10 +58,11 @@ export function AddCompanyModal({ open, onClose, onSuccess }: AddCompanyModalPro
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
+        adminFullName: form.adminFullName.trim(),
+        adminPassword: form.adminPassword,
         address: form.address.trim() || undefined,
         city: form.city.trim() || undefined,
         country: form.country.trim() || undefined,
-        isActive: true,
       });
       toast.success(res.message || 'Company created successfully');
       setForm(initialForm);
@@ -136,6 +139,38 @@ export function AddCompanyModal({ open, onClose, onSuccess }: AddCompanyModalPro
               className={inputClass('email')}
             />
             <FieldError message={errors.email} />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Admin Full Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              required
+              value={form.adminFullName}
+              onChange={(e) => setForm({ ...form, adminFullName: e.target.value })}
+              placeholder="Ramesh Kumar"
+              className={inputClass('adminFullName')}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Admin Login Password <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={form.adminPassword}
+              onChange={(e) => setForm({ ...form, adminPassword: e.target.value })}
+              placeholder="Min 8 characters"
+              className={inputClass('adminPassword')}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Company admin will sign in with the company email and this password.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

@@ -173,14 +173,13 @@ export function SignInPage() {
                   >
                     Password
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => toast.info('Forgot password — coming soon')}
+                  <Link
+                    to={ROUTES.FORGOT_PASSWORD}
                     className="text-sm font-medium hover:underline"
                     style={{ color: '#00AEEF' }}
                   >
                     Forgot Password?
-                  </button>
+                  </Link>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />

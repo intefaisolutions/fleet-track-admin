@@ -34,7 +34,6 @@ export interface Company {
   address?: string;
   city?: string;
   country?: string;
-  isActive?: boolean;
   status?: string;
   createdAt?: string;
 }
@@ -43,10 +42,12 @@ export interface CreateCompanyPayload {
   name: string;
   email: string;
   phone: string;
+  adminFullName: string;
+  adminPassword: string;
   address?: string;
   city?: string;
   country?: string;
-  isActive?: boolean;
+  status?: string;
 }
 
 export interface DashboardStats {
