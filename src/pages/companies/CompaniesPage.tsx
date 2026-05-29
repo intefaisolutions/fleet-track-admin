@@ -14,7 +14,7 @@ export function CompaniesPage() {
     setLoading(true);
     companiesService
       .getAll()
-      .then((r) => setCompanies(r.data ?? []))
+      .then((r) => setCompanies((r.data ?? []) as Company[]))
       .catch(() => toast.error('Failed to load companies'))
       .finally(() => setLoading(false));
   };

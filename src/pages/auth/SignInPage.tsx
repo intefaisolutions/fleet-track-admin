@@ -11,7 +11,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { ROUTES } from '../../config/constants';
+import { ROUTES, homeRouteForRole } from '../../config/constants';
 
 function GoogleIcon() {
   return (
@@ -57,9 +57,9 @@ export function SignInPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login({ email, password });
+      const role = await login({ email, password });
       toast.success('Welcome back!');
-      navigate(ROUTES.DASHBOARD);
+      navigate(homeRouteForRole(role));
     } catch (err: unknown) {
       const msg =
         err &&
@@ -250,7 +250,7 @@ export function SignInPage() {
             <p className="mt-8 text-center text-sm text-slate-500">
               Don&apos;t have an account?{' '}
               <Link
-                to={ROUTES.SETUP_SUPER_ADMIN}
+                to={ROUTES.REGISTER_COMPANY}
                 className="font-semibold hover:underline"
                 style={{ color: '#00AEEF' }}
               >

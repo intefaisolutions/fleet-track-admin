@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { STORAGE_KEYS, SUPER_ADMIN_ROLE } from '../config/constants';
+import { STORAGE_KEYS, ROLES } from '../config/constants';
 import { authService, type LoginPayload } from '../services/auth.service';
 import type { AuthUser } from '../types/api';
 import { AuthContext } from './auth-context';
@@ -44,8 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await authService.login(payload);
       if (!res.data) throw new Error(res.message || 'Login failed');
 
-      if (res.data.user.role !== SUPER_ADMIN_ROLE) {
-        throw new Error('Only Super Admin can access this portal');
+      const allowed = Object.values(ROLES) as string[];
+      if (!allowed.includes(res.data.user.role)) {
+        throw new Error('Your role is not supported in this portal yet');
       }
 
       persistSession(
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         res.data.refreshToken,
         res.data.user,
       );
+      return res.data.user.role;
     },
     [persistSession],
   );
@@ -71,7 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isAuthenticated: !!user,
-      isSuperAdmin: user?.role === SUPER_ADMIN_ROLE,
+      isSuperAdmin: user?.role === ROLES.SUPER_ADMIN,
+      role: user?.role ?? null,
       loading,
       login,
       logout,

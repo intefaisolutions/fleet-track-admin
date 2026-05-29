@@ -6,8 +6,9 @@ export interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
+  role: string | null;
   loading: boolean;
-  login: (payload: LoginPayload) => Promise<void>;
+  login: (payload: LoginPayload) => Promise<string>;
   logout: () => Promise<void>;
   setUser: (user: AuthUser | null) => void;
 }
