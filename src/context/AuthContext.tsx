@@ -1,5 +1,4 @@
 import {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -10,18 +9,7 @@ import {
 import { STORAGE_KEYS, SUPER_ADMIN_ROLE } from '../config/constants';
 import { authService, type LoginPayload } from '../services/auth.service';
 import type { AuthUser } from '../types/api';
-
-interface AuthContextValue {
-  user: AuthUser | null;
-  isAuthenticated: boolean;
-  isSuperAdmin: boolean;
-  loading: boolean;
-  login: (payload: LoginPayload) => Promise<void>;
-  logout: () => Promise<void>;
-  setUser: (user: AuthUser | null) => void;
-}
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+import { AuthContext } from './auth-context';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -97,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
   return ctx;
 }

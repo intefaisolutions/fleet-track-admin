@@ -1,7 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { SignInPage } from './pages/auth/SignInPage';
@@ -15,7 +14,7 @@ import { ROUTES } from './config/constants';
 
 function App() {
   return (
-    <AuthProvider>
+    <>
       <BrowserRouter>
         <Routes>
           <Route path={ROUTES.SIGN_IN} element={<SignInPage />} />
@@ -36,7 +35,7 @@ function App() {
         </Routes>
       </BrowserRouter>
       <ToastContainer position="top-right" autoClose={3000} />
-    </AuthProvider>
+    </>
   );
 }
 

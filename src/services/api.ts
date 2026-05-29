@@ -30,12 +30,33 @@ api.interceptors.response.use(
       const status = (error.response as { status: number }).status;
 
       if (status === 401) {
-        toast.error('Session expired. Please login again.');
-        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.ADMIN_USER);
-        localStorage.removeItem(STORAGE_KEYS.ROLE);
-        window.location.href = ROUTES.SIGN_IN;
+        const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+        const requestUrl =
+          'config' in error &&
+          error.config &&
+          typeof error.config === 'object' &&
+          'url' in error.config &&
+          typeof error.config.url === 'string'
+            ? error.config.url
+            : '';
+
+        const isAuthRoute =
+          requestUrl.includes('/auth/login') ||
+          requestUrl.includes('/auth/setup-super-admin') ||
+          requestUrl.includes('/auth/forgot-password') ||
+          requestUrl.includes('/auth/reset-password') ||
+          requestUrl.includes('/auth/refresh') ||
+          requestUrl.includes('/auth/refresh-token');
+
+        // Show "Session expired" only for protected routes after login.
+        if (token && !isAuthRoute) {
+          toast.error('Session expired. Please login again.');
+          localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+          localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+          localStorage.removeItem(STORAGE_KEYS.ADMIN_USER);
+          localStorage.removeItem(STORAGE_KEYS.ROLE);
+          window.location.href = ROUTES.SIGN_IN;
+        }
       } else if (status === 403) {
         toast.error("Access denied. You don't have permission for this action.");
       }
