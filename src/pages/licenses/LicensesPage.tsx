@@ -17,6 +17,7 @@ import {
   licensesService,
   type CreateLicensePayload,
 } from '../../services/licenses.service';
+import { platformService } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
 const PLAN_TYPES = ['FREE', 'BASIC', 'STANDARD', 'PREMIUM', 'ENTERPRISE'] as const;
@@ -96,6 +97,25 @@ function CreateLicensePanel({
 }) {
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
+  const [planOptions, setPlanOptions] = useState<{ planType: string; label: string }[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    platformService
+      .getPlans()
+      .then((res) => {
+        const plans = (res.data ?? []) as { planType: string; displayName?: string }[];
+        setPlanOptions(
+          plans.map((p) => ({
+            planType: p.planType,
+            label: p.displayName ?? planLabel(p.planType),
+          })),
+        );
+      })
+      .catch(() => {
+        setPlanOptions(PLAN_TYPES.map((p) => ({ planType: p, label: planLabel(p) })));
+      });
+  }, [open]);
 
   if (!open) return null;
 
@@ -177,9 +197,12 @@ function CreateLicensePanel({
                 onChange={(e) => setForm({ ...form, planType: e.target.value })}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
               >
-                {PLAN_TYPES.map((p) => (
-                  <option key={p} value={p}>
-                    {planLabel(p)}
+                {(planOptions.length ? planOptions : PLAN_TYPES.map((p) => ({
+                  planType: p,
+                  label: planLabel(p),
+                }))).map((p) => (
+                  <option key={p.planType} value={p.planType}>
+                    {p.label}
                   </option>
                 ))}
               </select>

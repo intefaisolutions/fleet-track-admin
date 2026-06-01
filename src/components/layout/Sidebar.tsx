@@ -16,7 +16,7 @@ const navItems = [
   { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
   { to: ROUTES.COMPANIES, label: 'Client Companies', icon: Building2 },
   { to: ROUTES.LICENSES, label: 'License Keys', icon: KeyRound },
-  { to: ROUTES.PRICING, label: 'Pricing', icon: CreditCard },
+  { to: ROUTES.PRICING, label: 'Subscription Plans', icon: CreditCard },
   { to: ROUTES.PAYMENT_SETTINGS, label: 'Payment Configuration', icon: CreditCard },
   { to: ROUTES.PENDING_PAYMENTS, label: 'Pending Payments', icon: CreditCard },
   { to: ROUTES.REVENUE, label: 'Revenue Overview', icon: TrendingUp },
