@@ -59,7 +59,7 @@ export function homeRouteForRole(role: string): string {
     case ROLES.COMPANY_ADMIN:
       return ROUTES.COMPANY_DASHBOARD;
     case ROLES.VEHICLE_OWNER:
-      return ROUTES.OWNER_DASHBOARD;
+      return ROUTES.OWNER_VEHICLES;
     case ROLES.DRIVER:
       return ROUTES.DRIVER_DASHBOARD;
     default:

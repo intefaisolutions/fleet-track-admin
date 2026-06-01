@@ -9,13 +9,18 @@ export function CompanyTopBar({ companyName }: CompanyTopBarProps) {
   const { user } = useAuth();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-slate-200 bg-white px-6">
-      <div className="min-w-0 shrink-0 text-center sm:text-left">
+    <header className="sticky top-0 z-30 relative flex h-16 items-center gap-4 border-b border-slate-200 bg-white px-6">
+      <div className="absolute left-1/2 hidden min-w-0 -translate-x-1/2 text-center md:block">
         <p className="truncate text-sm font-bold text-slate-900">
           {companyName ?? 'Your Company'}
         </p>
         <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
           Company Dashboard
+        </p>
+      </div>
+      <div className="min-w-0 max-w-[140px] shrink-0 md:hidden">
+        <p className="truncate text-sm font-bold text-slate-900">
+          {companyName ?? 'Your Company'}
         </p>
       </div>
 
@@ -44,7 +49,7 @@ export function CompanyTopBar({ companyName }: CompanyTopBarProps) {
         >
           <HelpCircle className="h-5 w-5" />
         </button>
-        <div className="ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-fleet-100 text-sm font-semibold text-fleet-700">
+        <div className="ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-white">
           {user?.fullName?.charAt(0) ?? 'A'}
         </div>
       </div>

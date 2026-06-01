@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
+  ChevronLeft,
+  ChevronRight,
   Download,
   Filter,
+  Headphones,
   MoreHorizontal,
   Plus,
-  Truck,
-  Users,
+  Search,
 } from 'lucide-react';
 import { ROLES, ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
@@ -68,13 +70,13 @@ function exportCsv(rows: UserRecord[], tab: Tab, vehicleCounts: Record<string, n
 }
 
 export function CompanyUsersPage() {
-  const ctx = useOutletContext<{ companyName?: string } | undefined>();
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>('owners');
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [vehicleCounts, setVehicleCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
@@ -150,71 +152,86 @@ export function CompanyUsersPage() {
   };
 
   return (
-    <div className="flex gap-6">
-      <div className="min-w-0 flex-1 space-y-6">
-        {/* Breadcrumb + header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-400">
-              <Link to={ROUTES.COMPANY_DASHBOARD} className="hover:text-fleet-600">
-                FleetTrack
-              </Link>
-              <span className="mx-1.5">›</span>
-              <span className="text-slate-600">Users</span>
-            </p>
-            <h1 className="mt-2 text-2xl font-bold text-slate-900">Users Management</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
-              Efficiently manage your fleet network. Handle vehicle owners and drivers profile,
-              monitor their activity status, and manage access permissions from a single
-              interface.
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-2">
+    <div className="space-y-5">
+      <section>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-400">
+            <Link to={ROUTES.COMPANY_DASHBOARD} className="hover:text-fleet-600">
+              FleetTrack
+            </Link>
+            <span className="mx-1.5 text-slate-300">/</span>
+            <span className="text-slate-600">Users</span>
+          </p>
+          <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+            Users Management
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 md:text-[15px]">
+            Efficiently manage your fleet network. Handle vehicle owners and drivers profile,
+            monitor their activity status, and manage access permissions from a single
+            interface.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
             <button
               type="button"
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              onClick={() => toast.info('Support — contact your platform administrator')}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
             >
+              <Headphones className="h-4 w-4" />
               Support
             </button>
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fleet-600"
+              className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600"
             >
               <Plus className="h-4 w-4" />
               Add New
             </button>
           </div>
         </div>
+      </section>
 
-        {/* Tabs + tools */}
-        <div className="flex flex-col gap-3 border-b border-slate-200 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-6">
+      {/* Tabs + filter / export */}
+      <section className="border-b border-slate-200">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-8">
             <button
               type="button"
               onClick={() => setTab('owners')}
-              className={`border-b-2 pb-3 text-sm font-semibold transition ${
+              className={`flex items-center gap-2 border-b-2 pb-3 text-sm font-semibold transition ${
                 tab === 'owners'
                   ? 'border-fleet-500 text-fleet-600'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
               Vehicle Owners
-              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs">
+              <span
+                className={`rounded-md px-2 py-0.5 text-xs font-bold ${
+                  tab === 'owners'
+                    ? 'bg-fleet-500 text-white'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
                 {owners.length}
               </span>
             </button>
             <button
               type="button"
               onClick={() => setTab('drivers')}
-              className={`border-b-2 pb-3 text-sm font-semibold transition ${
+              className={`flex items-center gap-2 border-b-2 pb-3 text-sm font-semibold transition ${
                 tab === 'drivers'
                   ? 'border-fleet-500 text-fleet-600'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
               Drivers
-              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs">
+              <span
+                className={`rounded-md px-2 py-0.5 text-xs font-bold ${
+                  tab === 'drivers'
+                    ? 'bg-fleet-500 text-white'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
                 {drivers.length}
               </span>
             </button>
@@ -222,178 +239,177 @@ export function CompanyUsersPage() {
           <div className="flex items-center gap-2 pb-3">
             <button
               type="button"
-              className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
-              aria-label="Filter"
+              onClick={() => setShowSearch((v) => !v)}
+              className={`rounded-lg border p-2.5 shadow-sm transition ${
+                showSearch
+                  ? 'border-fleet-500 bg-fleet-50 text-fleet-600'
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+              }`}
+              aria-label="Filter / search"
             >
               <Filter className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={() => exportCsv(filtered, tab, vehicleCounts)}
-              className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
-              aria-label="Export"
+              className="rounded-lg border border-slate-200 bg-white p-2.5 text-slate-500 shadow-sm hover:bg-slate-50"
+              aria-label="Export CSV"
             >
               <Download className="h-4 w-4" />
             </button>
           </div>
         </div>
+      </section>
 
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search users, IDs, or vehicles..."
-          className="w-full max-w-md rounded-lg border border-slate-200 px-4 py-2 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
-        />
+      {showSearch && (
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search users, IDs, or vehicles..."
+            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+            autoFocus
+          />
+        </div>
+      )}
 
-        {/* Table */}
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-5 py-3">Full Name</th>
-                  <th className="px-5 py-3">Email</th>
-                  <th className="px-5 py-3">Phone</th>
-                  {tab === 'owners' && <th className="px-5 py-3">Vehicles</th>}
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Actions</th>
+      {/* Table */}
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-5 py-3.5">Full Name</th>
+                <th className="px-5 py-3.5">Email</th>
+                <th className="px-5 py-3.5">Phone</th>
+                {tab === 'owners' && <th className="px-5 py-3.5">Vehicles</th>}
+                <th className="px-5 py-3.5">Status</th>
+                <th className="px-5 py-3.5">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={tab === 'owners' ? 6 : 5}
+                    className="px-5 py-16 text-center text-slate-400"
+                  >
+                    Loading users...
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={tab === 'owners' ? 6 : 5} className="px-5 py-12 text-center text-slate-400">
-                      Loading users...
+              ) : pageRows.length === 0 ? (
+                <tr>
+                  <td colSpan={tab === 'owners' ? 6 : 5} className="px-5 py-14">
+                    <div className="flex flex-col items-center text-center">
+                      <p className="font-semibold text-slate-700">
+                        No {tab === 'owners' ? 'vehicle owners' : 'drivers'} yet
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Click <span className="font-medium">Add New</span> to create one.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                pageRows.map((u) => (
+                  <tr
+                    key={u._id}
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60"
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700">
+                          {initials(u.fullName)}
+                        </span>
+                        <span className="font-semibold text-slate-900">{u.fullName}</span>
+                      </div>
                     </td>
-                  </tr>
-                ) : pageRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={tab === 'owners' ? 6 : 5} className="px-5 py-12 text-center text-slate-400">
-                      No {tab === 'owners' ? 'vehicle owners' : 'drivers'} yet. Click Add New to
-                      create one.
-                    </td>
-                  </tr>
-                ) : (
-                  pageRows.map((u) => (
-                    <tr
-                      key={u._id}
-                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50"
-                    >
+                    <td className="px-5 py-4 text-slate-600">{u.email}</td>
+                    <td className="px-5 py-4 text-slate-700">{u.phone}</td>
+                    {tab === 'owners' && (
                       <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fleet-100 text-xs font-bold text-fleet-700">
-                            {initials(u.fullName)}
-                          </span>
-                          <span className="font-medium text-slate-900">{u.fullName}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">{u.email}</td>
-                      <td className="px-5 py-4 text-slate-600">{u.phone}</td>
-                      {tab === 'owners' && (
-                        <td className="px-5 py-4 font-medium text-slate-900">
+                        <span className="inline-flex min-w-[2rem] justify-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                           {String(vehicleCounts[u._id] ?? 0).padStart(2, '0')}
-                        </td>
+                        </span>
+                      </td>
+                    )}
+                    <td className="px-5 py-4">
+                      <StatusBadge status={u.status} />
+                    </td>
+                    <td className="relative px-5 py-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMenuOpenId(menuOpenId === u._id ? null : u._id)
+                        }
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        aria-label="Actions"
+                      >
+                        <MoreHorizontal className="h-5 w-5" />
+                      </button>
+                      {menuOpenId === u._id && (
+                        <div className="absolute right-5 top-12 z-10 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                          <button
+                            type="button"
+                            onClick={() => toggleSuspend(u)}
+                            className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                          </button>
+                        </div>
                       )}
-                      <td className="px-5 py-4">
-                        <StatusBadge status={u.status} />
-                      </td>
-                      <td className="relative px-5 py-4">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setMenuOpenId(menuOpenId === u._id ? null : u._id)
-                          }
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                        >
-                          <MoreHorizontal className="h-5 w-5" />
-                        </button>
-                        {menuOpenId === u._id && (
-                          <div className="absolute right-5 top-12 z-10 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                            <button
-                              type="button"
-                              onClick={() => toggleSuspend(u)}
-                              className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                            >
-                              {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-500">
-              {filtered.length === 0
-                ? '0 users'
-                : `Showing ${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length} users`}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-40"
-              >
-                Previous
-              </button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPage(p)}
-                  className={`min-w-8 rounded-lg px-2 py-1.5 text-sm font-medium ${
-                    p === page
-                      ? 'bg-fleet-500 text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      </div>
 
-      {/* Side illustration */}
-      <div
-        className="hidden w-56 shrink-0 xl:block"
-        aria-hidden
-      >
-        <div className="sticky top-24 rounded-2xl bg-gradient-to-br from-sky-50 to-fleet-50 p-6">
-          <div className="flex justify-center gap-1">
-            {[Users, Truck, Users].map((Icon, i) => (
-              <div
-                key={i}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm"
-              >
-                <Icon className="h-5 w-5 text-fleet-500" />
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex items-center justify-center gap-2">
-            <Truck className="h-5 w-5 text-fleet-600" />
-            <span className="text-sm font-bold tracking-wide text-fleet-700">FLEETTRACK</span>
-          </div>
-          <p className="mt-3 text-center text-xs text-slate-500">
-            {ctx?.companyName ?? 'Your fleet team'}
+        <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-500">
+            {filtered.length === 0
+              ? '0 users'
+              : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length} users`}
           </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+              aria-label="Previous"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPage(p)}
+                className={`min-w-8 rounded-lg px-2.5 py-1 text-sm font-medium ${
+                  p === page
+                    ? 'bg-fleet-500 text-white'
+                    : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+              aria-label="Next"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
       <AddUserModal
         open={modalOpen}

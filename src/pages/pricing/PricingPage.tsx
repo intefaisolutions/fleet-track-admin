@@ -8,6 +8,7 @@ import {
   Sparkles,
   Star,
 } from 'lucide-react';
+import { ASSETS } from '../../config/assets';
 import { ROUTES } from '../../config/constants';
 import { CreatePlanModal } from '../../components/pricing/CreatePlanModal';
 import {
@@ -359,7 +360,7 @@ export function PricingPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <img
-            src="/pricing-plans-icon.png"
+            src={ASSETS.pricingPlansIcon}
             alt=""
             className="h-11 w-11 object-contain"
           />

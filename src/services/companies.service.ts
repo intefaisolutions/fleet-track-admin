@@ -23,6 +23,26 @@ export interface CompanyDetail {
   vehicleLimit?: number;
 }
 
+export interface CompanySubAdmin {
+  name: string;
+  email: string;
+  permissions: string[];
+  status: string;
+  invitedAt?: string;
+}
+
+export interface CompanySubAdminsStats {
+  total: number;
+  active: number;
+  pending: number;
+  rolesDefined: number;
+}
+
+export interface CompanySubAdminsPayload {
+  admins: CompanySubAdmin[];
+  stats: CompanySubAdminsStats;
+}
+
 export const companiesService = {
   list: (status?: string) =>
     getData<unknown[]>(status ? `/companies?status=${status}` : '/companies'),
@@ -37,4 +57,12 @@ export const companiesService = {
   reject: (id: string) => patchData(`/companies/${id}/reject`),
   suspend: (id: string) => patchData(`/companies/${id}/suspend`),
   delete: (id: string) => deleteData(`/companies/${id}`),
+  getSubAdmins: () =>
+    getData<CompanySubAdminsPayload>('/companies/me/sub-admins'),
+  addSubAdmin: (data: { name: string; email: string; permissions: string[] }) =>
+    postData<CompanySubAdminsPayload>('/companies/me/sub-admins', data),
+  removeSubAdmin: (email: string) =>
+    deleteData<CompanySubAdminsPayload>(
+      `/companies/me/sub-admins/${encodeURIComponent(email)}`,
+    ),
 };

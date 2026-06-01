@@ -19,9 +19,12 @@ import { CompanyVehiclesPage } from './pages/company/CompanyVehiclesPage';
 import { CompanyUsersPage } from './pages/company/CompanyUsersPage';
 import { CompanyExpensesPage } from './pages/company/CompanyExpensesPage';
 import { CompanySettingsPage } from './pages/company/CompanySettingsPage';
+import { CompanyAdminsPage } from './pages/company/CompanyAdminsPage';
 import { CompanyPlaceholderPage } from './pages/company/CompanyPlaceholderPage';
 import { CompanyLayout } from './components/layout/CompanyLayout';
 import { OwnerDashboardPage } from './pages/owner/OwnerDashboardPage';
+import { OwnerVehiclesPage } from './pages/owner/OwnerVehiclesPage';
+import { OwnerLayout } from './components/layout/OwnerLayout';
 import { DriverDashboardPage } from './pages/driver/DriverDashboardPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RoleProtectedRoute } from './routes/RoleProtectedRoute';
@@ -60,10 +63,7 @@ function App() {
                 path={ROUTES.COMPANY_SUBSCRIPTION}
                 element={<CompanyPlaceholderPage title="Subscription" />}
               />
-              <Route
-                path={ROUTES.COMPANY_ADMINS}
-                element={<CompanyPlaceholderPage title="Admins" />}
-              />
+              <Route path={ROUTES.COMPANY_ADMINS} element={<CompanyAdminsPage />} />
               <Route
                 path={ROUTES.COMPANY_REPORTS}
                 element={<CompanyPlaceholderPage title="Reports" />}
@@ -77,7 +77,26 @@ function App() {
           </Route>
 
           <Route element={<RoleProtectedRoute allowedRoles={[ROLES.VEHICLE_OWNER]} />}>
-            <Route path={ROUTES.OWNER_DASHBOARD} element={<OwnerDashboardPage />} />
+            <Route element={<OwnerLayout />}>
+              <Route path={ROUTES.OWNER_DASHBOARD} element={<OwnerDashboardPage />} />
+              <Route path={ROUTES.OWNER_VEHICLES} element={<OwnerVehiclesPage />} />
+              <Route
+                path={ROUTES.OWNER_EXPENSES}
+                element={
+                  <div className="rounded-xl bg-white p-8 text-slate-500">
+                    Expenses — coming soon
+                  </div>
+                }
+              />
+              <Route
+                path={ROUTES.OWNER_UPGRADE}
+                element={
+                  <div className="rounded-xl bg-white p-8 text-slate-500">
+                    Upgrade plan — coming soon
+                  </div>
+                }
+              />
+            </Route>
           </Route>
 
           <Route element={<RoleProtectedRoute allowedRoles={[ROLES.DRIVER]} />}>
