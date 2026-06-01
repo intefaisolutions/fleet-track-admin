@@ -1,29 +1,32 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Building2,
-  KeyRound,
-  CreditCard,
-  TrendingUp,
+  Users,
   Truck,
-  LogOut,
+  Receipt,
+  CreditCard,
+  UserCog,
+  BarChart3,
+  Car,
   Settings,
+  LogOut,
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
-  { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-  { to: ROUTES.COMPANIES, label: 'Client Companies', icon: Building2 },
-  { to: ROUTES.LICENSES, label: 'License Keys', icon: KeyRound },
-  { to: ROUTES.PRICING, label: 'Pricing', icon: CreditCard },
-  { to: ROUTES.PAYMENT_SETTINGS, label: 'Payment Configuration', icon: CreditCard },
-  { to: ROUTES.PENDING_PAYMENTS, label: 'Pending Payments', icon: CreditCard },
-  { to: ROUTES.REVENUE, label: 'Revenue Overview', icon: TrendingUp },
-  { to: ROUTES.SETTINGS, label: 'Settings', icon: Settings },
+  { to: ROUTES.COMPANY_DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+  { to: ROUTES.COMPANY_USERS, label: 'Users', icon: Users },
+  { to: ROUTES.COMPANY_VEHICLES, label: 'Vehicles', icon: Truck },
+  { to: ROUTES.COMPANY_EXPENSES, label: 'Expenses', icon: Receipt },
+  { to: ROUTES.COMPANY_SUBSCRIPTION, label: 'Subscription', icon: CreditCard },
+  { to: ROUTES.COMPANY_ADMINS, label: 'Admins', icon: UserCog },
+  { to: ROUTES.COMPANY_REPORTS, label: 'Reports', icon: BarChart3 },
+  { to: ROUTES.COMPANY_DRIVERS, label: 'Drivers', icon: Car },
+  { to: ROUTES.COMPANY_SETTINGS, label: 'Settings', icon: Settings },
 ];
 
-export function Sidebar() {
+export function CompanySidebar() {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -39,12 +42,12 @@ export function Sidebar() {
           <Truck className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-sm font-bold text-slate-900">FleetTrack Admin</p>
-          <p className="text-xs text-slate-500">Super Admin Portal</p>
+          <p className="text-sm font-bold text-slate-900">FleetTrack</p>
+          <p className="text-xs text-slate-500">Company Admin</p>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}

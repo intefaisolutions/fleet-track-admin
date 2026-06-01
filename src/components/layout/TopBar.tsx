@@ -10,7 +10,7 @@ export function TopBar() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="search"
-          placeholder="Search accounts or data..."
+          placeholder="Search across fleet, companies, or revenue..."
           className="w-full rounded-full border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm outline-none focus:border-fleet-500 focus:ring-1 focus:ring-fleet-500"
         />
       </div>
@@ -18,10 +18,11 @@ export function TopBar() {
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+          className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"
           aria-label="Notifications"
         >
           <Bell className="h-5 w-5" />
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
         </button>
         <button
           type="button"
@@ -51,7 +52,7 @@ export function TopBar() {
           )}
           <div className="hidden md:block">
             <p className="text-sm font-medium text-slate-900">{user?.fullName}</p>
-            <p className="text-xs text-slate-500">Super Admin</p>
+            <p className="text-xs text-slate-500">Super Administrator</p>
           </div>
         </div>
       </div>

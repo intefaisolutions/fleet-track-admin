@@ -28,6 +28,10 @@ export const ROUTES = {
   COMPANY_VEHICLES: '/company/vehicles',
   COMPANY_EXPENSES: '/company/expenses',
   COMPANY_SUBSCRIPTION: '/company/subscription',
+  COMPANY_ADMINS: '/company/admins',
+  COMPANY_REPORTS: '/company/reports',
+  COMPANY_DRIVERS: '/company/drivers',
+  COMPANY_SETTINGS: '/company/settings',
   // Vehicle Owner
   OWNER_DASHBOARD: '/owner/dashboard',
   OWNER_VEHICLES: '/owner/vehicles',

@@ -1,4 +1,4 @@
-import { getData, patchData, postData } from './api';
+import { deleteData, getData, patchData, postData } from './api';
 import type { CreateCompanyPayload } from '../types/api';
 
 export interface RegisterCompanyPayload {
@@ -10,14 +10,31 @@ export interface RegisterCompanyPayload {
   password: string;
 }
 
+export interface CompanyDetail {
+  _id?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  status?: string;
+  planType?: string;
+  vehicleLimit?: number;
+}
+
 export const companiesService = {
   list: (status?: string) =>
     getData<unknown[]>(status ? `/companies?status=${status}` : '/companies'),
   getAll: () => getData<unknown[]>('/companies'),
+  getById: (id: string) => getData<CompanyDetail>(`/companies/${id}`),
+  update: (id: string, data: Partial<CompanyDetail>) =>
+    patchData<CompanyDetail>(`/companies/${id}`, data),
   create: (data: CreateCompanyPayload) => postData('/companies', data),
   register: (data: RegisterCompanyPayload) =>
     postData('/companies/register', data),
   approve: (id: string) => patchData(`/companies/${id}/approve`),
   reject: (id: string) => patchData(`/companies/${id}/reject`),
   suspend: (id: string) => patchData(`/companies/${id}/suspend`),
+  delete: (id: string) => deleteData(`/companies/${id}`),
 };

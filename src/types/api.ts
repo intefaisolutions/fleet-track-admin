@@ -35,6 +35,9 @@ export interface Company {
   city?: string;
   country?: string;
   status?: string;
+  planType?: string;
+  vehicleLimit?: number;
+  vehicleCount?: number;
   createdAt?: string;
 }
 

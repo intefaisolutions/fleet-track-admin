@@ -1,4 +1,4 @@
-import { postData, getData } from './api';
+import { postData, getData, patchData } from './api';
 import type { AuthUser, LoginResponse } from '../types/api';
 
 export interface LoginPayload {
@@ -31,6 +31,12 @@ export const authService = {
   logout: () => postData('/auth/logout'),
 
   profile: () => getData<AuthUser>('/auth/profile'),
+
+  updateProfile: (data: { fullName?: string; phone?: string; profileImage?: string }) =>
+    patchData<AuthUser>('/auth/profile', data),
+
+  changePassword: (oldPassword: string, newPassword: string) =>
+    postData('/auth/change-password', { oldPassword, newPassword }),
 
   forgotPassword: (email: string) =>
     postData<{ expiresAt?: string; otp?: string }>('/auth/forgot-password', {

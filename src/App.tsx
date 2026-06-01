@@ -11,9 +11,16 @@ import { CompaniesPage } from './pages/companies/CompaniesPage';
 import { LicensesPage } from './pages/licenses/LicensesPage';
 import { PricingPage } from './pages/pricing/PricingPage';
 import { PaymentSettingsPage } from './pages/settings/PaymentSettingsPage';
+import { SettingsPage } from './pages/settings/SettingsPage';
 import { PendingPaymentsPage } from './pages/payments/PendingPaymentsPage';
 import { RevenueOverviewPage } from './pages/revenue/RevenueOverviewPage';
 import { CompanyDashboardPage } from './pages/company/CompanyDashboardPage';
+import { CompanyVehiclesPage } from './pages/company/CompanyVehiclesPage';
+import { CompanyUsersPage } from './pages/company/CompanyUsersPage';
+import { CompanyExpensesPage } from './pages/company/CompanyExpensesPage';
+import { CompanySettingsPage } from './pages/company/CompanySettingsPage';
+import { CompanyPlaceholderPage } from './pages/company/CompanyPlaceholderPage';
+import { CompanyLayout } from './components/layout/CompanyLayout';
 import { OwnerDashboardPage } from './pages/owner/OwnerDashboardPage';
 import { DriverDashboardPage } from './pages/driver/DriverDashboardPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
@@ -39,11 +46,34 @@ function App() {
               <Route path={ROUTES.PAYMENT_SETTINGS} element={<PaymentSettingsPage />} />
               <Route path={ROUTES.PENDING_PAYMENTS} element={<PendingPaymentsPage />} />
               <Route path={ROUTES.REVENUE} element={<RevenueOverviewPage />} />
+              <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
             </Route>
           </Route>
 
           <Route element={<RoleProtectedRoute allowedRoles={[ROLES.COMPANY_ADMIN]} />}>
-            <Route path={ROUTES.COMPANY_DASHBOARD} element={<CompanyDashboardPage />} />
+            <Route element={<CompanyLayout />}>
+              <Route path={ROUTES.COMPANY_DASHBOARD} element={<CompanyDashboardPage />} />
+              <Route path={ROUTES.COMPANY_VEHICLES} element={<CompanyVehiclesPage />} />
+              <Route path={ROUTES.COMPANY_USERS} element={<CompanyUsersPage />} />
+              <Route path={ROUTES.COMPANY_EXPENSES} element={<CompanyExpensesPage />} />
+              <Route
+                path={ROUTES.COMPANY_SUBSCRIPTION}
+                element={<CompanyPlaceholderPage title="Subscription" />}
+              />
+              <Route
+                path={ROUTES.COMPANY_ADMINS}
+                element={<CompanyPlaceholderPage title="Admins" />}
+              />
+              <Route
+                path={ROUTES.COMPANY_REPORTS}
+                element={<CompanyPlaceholderPage title="Reports" />}
+              />
+              <Route
+                path={ROUTES.COMPANY_DRIVERS}
+                element={<CompanyPlaceholderPage title="Drivers" />}
+              />
+              <Route path={ROUTES.COMPANY_SETTINGS} element={<CompanySettingsPage />} />
+            </Route>
           </Route>
 
           <Route element={<RoleProtectedRoute allowedRoles={[ROLES.VEHICLE_OWNER]} />}>
