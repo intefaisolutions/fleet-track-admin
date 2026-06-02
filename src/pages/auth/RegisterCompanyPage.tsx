@@ -75,6 +75,7 @@ export function RegisterCompanyPage() {
 
   const inputClass =
     'w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20';
+  const requiredAsterisk = <span className="ml-1 text-red-500">*</span>;
 
   useEffect(() => {
     const key = searchParams.get('licenseKey')?.trim() ?? '';
@@ -219,6 +220,7 @@ export function RegisterCompanyPage() {
                     className="mb-1.5 block text-sm font-medium text-slate-700"
                   >
                     License Key
+                    {requiredAsterisk}
                   </label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
@@ -304,6 +306,7 @@ export function RegisterCompanyPage() {
                     className="mb-1.5 block text-sm font-medium text-slate-700"
                   >
                     Admin Full Name
+                    {requiredAsterisk}
                   </label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -324,6 +327,7 @@ export function RegisterCompanyPage() {
                     className="mb-1.5 block text-sm font-medium text-slate-700"
                   >
                     Phone Number
+                    {requiredAsterisk}
                   </label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -345,6 +349,7 @@ export function RegisterCompanyPage() {
                     className="mb-1.5 block text-sm font-medium text-slate-700"
                   >
                     Admin Email
+                    {requiredAsterisk}
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -375,6 +380,7 @@ export function RegisterCompanyPage() {
                     className="mb-1.5 block text-sm font-medium text-slate-700"
                   >
                     Password
+                    {requiredAsterisk}
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -410,6 +416,7 @@ export function RegisterCompanyPage() {
                     className="mb-1.5 block text-sm font-medium text-slate-700"
                   >
                     Confirm Password
+                    {requiredAsterisk}
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />

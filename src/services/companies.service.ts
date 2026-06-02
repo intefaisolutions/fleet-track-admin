@@ -56,6 +56,7 @@ export const companiesService = {
   approve: (id: string) => patchData(`/companies/${id}/approve`),
   reject: (id: string) => patchData(`/companies/${id}/reject`),
   suspend: (id: string) => patchData(`/companies/${id}/suspend`),
+  activate: (id: string) => patchData(`/companies/${id}/activate`),
   delete: (id: string) => deleteData(`/companies/${id}`),
   getSubAdmins: () =>
     getData<CompanySubAdminsPayload>('/companies/me/sub-admins'),

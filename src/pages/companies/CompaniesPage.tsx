@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
+  Ban,
   Building2,
+  CheckCircle2,
   Mail,
   RotateCcw,
   Search,
@@ -44,14 +46,18 @@ function PlanBadge({ plan }: { plan?: string }) {
 function CompanyCard({
   company,
   onSuspend,
+  onActivate,
   onDelete,
   suspending,
+  activating,
   deleting,
 }: {
   company: Company;
   onSuspend: (id: string) => void;
+  onActivate: (id: string) => void;
   onDelete: (id: string) => void;
   suspending: boolean;
+  activating: boolean;
   deleting: boolean;
 }) {
   const isSuspended = company.status === 'SUSPENDED';
@@ -93,14 +99,27 @@ function CompanyCard({
       )}
 
       <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-4">
-        <button
-          type="button"
-          disabled={!canSuspend || suspending}
-          onClick={() => onSuspend(company._id)}
-          className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {suspending ? 'Suspending...' : 'Suspend'}
-        </button>
+        {isSuspended ? (
+          <button
+            type="button"
+            disabled={activating}
+            onClick={() => onActivate(company._id)}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {activating ? 'Reactivating...' : 'Reactivate'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!canSuspend || suspending}
+            onClick={() => onSuspend(company._id)}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-amber-200 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Ban className="h-4 w-4" />
+            {suspending ? 'Suspending...' : 'Suspend'}
+          </button>
+        )}
         <button
           type="button"
           disabled={deleting}
@@ -120,7 +139,7 @@ export function CompaniesPage() {
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('');
   const [actionId, setActionId] = useState<string | null>(null);
-  const [actionType, setActionType] = useState<'suspend' | 'delete' | null>(null);
+  const [actionType, setActionType] = useState<'suspend' | 'activate' | 'delete' | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -199,6 +218,26 @@ export function CompaniesPage() {
     }
   };
 
+  const handleActivate = async (id: string) => {
+    const company = companies.find((c) => c._id === id);
+    if (!company) return;
+    if (!window.confirm(`Reactivate "${company.name}"? Company access will be restored.`)) {
+      return;
+    }
+    setActionId(id);
+    setActionType('activate');
+    try {
+      await companiesService.activate(id);
+      toast.success('Company reactivated');
+      load();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to reactivate company'));
+    } finally {
+      setActionId(null);
+      setActionType(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -271,8 +310,10 @@ export function CompaniesPage() {
               key={company._id}
               company={company}
               onSuspend={handleSuspend}
+              onActivate={handleActivate}
               onDelete={handleDelete}
               suspending={actionId === company._id && actionType === 'suspend'}
+              activating={actionId === company._id && actionType === 'activate'}
               deleting={actionId === company._id && actionType === 'delete'}
             />
           ))}

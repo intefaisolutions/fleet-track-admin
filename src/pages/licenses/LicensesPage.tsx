@@ -104,6 +104,7 @@ function CreateLicensePanel({
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [planOptions, setPlanOptions] = useState<{ planType: string; label: string }[]>([]);
+  const requiredAsterisk = <span className="ml-1 text-red-500">*</span>;
 
   useEffect(() => {
     if (!open) return;
@@ -210,7 +211,10 @@ function CreateLicensePanel({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Plan Type</label>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Plan Type
+                {requiredAsterisk}
+              </label>
               <select
                 value={form.planType}
                 onChange={(e) => setForm({ ...form, planType: e.target.value })}
@@ -242,6 +246,7 @@ function CreateLicensePanel({
                   <div key={key}>
                     <label className="mb-1 block text-xs font-medium text-slate-600">
                       {label}
+                      {requiredAsterisk}
                     </label>
                     <input
                       type="number"
@@ -259,6 +264,7 @@ function CreateLicensePanel({
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Max Vehicles
+                {requiredAsterisk}
               </label>
               <input
                 type="number"
@@ -273,6 +279,7 @@ function CreateLicensePanel({
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Valid Until
+                {requiredAsterisk}
               </label>
               <input
                 type="date"
