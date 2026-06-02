@@ -16,7 +16,6 @@ import {
 import { driversService, type DriverRecord } from '../../services/drivers.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
 import { subscriptionsService } from '../../services/subscriptions.service';
-import { platformService } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
 function formatExpiry(iso?: string) {
@@ -27,30 +26,6 @@ function formatExpiry(iso?: string) {
     year: 'numeric',
   });
 }
-
-const DUMMY_DRIVERS: DriverRecord[] = [
-  { _id: 'dummy-driver-1', fullName: 'Suresh Kumar', phone: '9876543210', status: 'ACTIVE' },
-  { _id: 'dummy-driver-2', fullName: 'Ramesh Yadav', phone: '9988776655', status: 'ACTIVE' },
-];
-
-const DUMMY_DRIVER_VEHICLES: VehicleRecord[] = [
-  {
-    _id: 'dummy-vehicle-1',
-    registrationNumber: 'HR26AB1234',
-    make: 'Tata',
-    modelName: 'Ace',
-    status: 'ACTIVE',
-    assignedDriverId: { _id: 'dummy-driver-1', fullName: 'Suresh Kumar', phone: '9876543210' },
-  },
-  {
-    _id: 'dummy-vehicle-2',
-    registrationNumber: 'DL01CD5678',
-    make: 'Mahindra',
-    modelName: 'Bolero Pickup',
-    status: 'ACTIVE',
-    assignedDriverId: { _id: 'dummy-driver-2', fullName: 'Ramesh Yadav', phone: '9988776655' },
-  },
-];
 
 export function CompanySettingsPage() {
   const { user } = useAuth();
@@ -72,6 +47,8 @@ export function CompanySettingsPage() {
   });
   const [licenseKey, setLicenseKey] = useState('—');
   const [periodEnd, setPeriodEnd] = useState<string>();
+  const [planType, setPlanType] = useState('—');
+  const [subscriptionStatus, setSubscriptionStatus] = useState('—');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
@@ -86,31 +63,39 @@ export function CompanySettingsPage() {
       ]);
       const c = companyRes.data ?? null;
       setCompany(c);
-      const apiDrivers = driversRes.data ?? [];
-      const apiVehicles = vehiclesRes.data ?? [];
-      setDrivers(apiDrivers.length === 0 ? DUMMY_DRIVERS : apiDrivers);
-      setVehicles(apiVehicles.length === 0 ? DUMMY_DRIVER_VEHICLES : apiVehicles);
+      setDrivers(driversRes.data ?? []);
+      setVehicles(vehiclesRes.data ?? []);
       if (c) {
         setCompanyForm({
           name: c.name ?? '',
-          phone: user.phone,
+          phone: c.phone ?? user.phone,
           address: c.address ?? '',
           city: c.city ?? '',
           country: c.country ?? '',
           logoUrl: c.logoUrl ?? '',
         });
         setLicenseKey(c.licenseKey ?? '—');
+        setPeriodEnd(c.licenseValidUntil);
       }
       const subs = subRes.data ?? [];
-      if (subs[0]) {
-        setPeriodEnd(subs[0].currentPeriodEnd);
+      const activeSub =
+        subs.find((s) => s.status === 'ACTIVE') ??
+        subs.find((s) => s.status === 'TRIAL') ??
+        subs[0];
+      setPlanType(activeSub?.planType ?? c?.planType ?? 'FREE');
+      setSubscriptionStatus(activeSub?.status ?? 'ACTIVE');
+      if (activeSub?.currentPeriodEnd) {
+        setPeriodEnd(activeSub.currentPeriodEnd);
       }
-    } catch {
-      /* ignore */
+    } catch (err: unknown) {
+      setDrivers([]);
+      setVehicles([]);
+      toast.error(getApiErrorMessage(err, 'Failed to load settings'));
     }
   }, [user]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
@@ -415,11 +400,35 @@ export function CompanySettingsPage() {
             </p>
             <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
               <p className="text-xs text-slate-500">License Key</p>
-              <p className="mt-1 font-semibold text-slate-900">{licenseKey}</p>
+              <input
+                readOnly
+                value={licenseKey}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700"
+              />
             </div>
             <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3">
               <p className="text-xs text-slate-500">Valid Until</p>
-              <p className="mt-1 font-semibold text-slate-900">{formatExpiry(periodEnd)}</p>
+              <input
+                readOnly
+                value={formatExpiry(periodEnd)}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700"
+              />
+            </div>
+            <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs text-slate-500">Plan Type</p>
+              <input
+                readOnly
+                value={planType}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold uppercase text-slate-700"
+              />
+            </div>
+            <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs text-slate-500">Subscription Status</p>
+              <input
+                readOnly
+                value={subscriptionStatus}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold uppercase text-slate-700"
+              />
             </div>
             <p className="mt-4 text-xs text-slate-500">
               Logo appears on exported reports and app header.
