@@ -173,16 +173,7 @@ export function CompanyDashboardPage() {
               </button>
             </div>
           </div>
-          <div className="relative hidden justify-end md:flex">
-            <img
-              src={ASSETS.companyDashboardHero}
-              alt=""
-              className="max-h-40 w-auto object-contain"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = ASSETS.vehiclesFleetHero;
-              }}
-            />
-          </div>
+        
         </div>
       </section>
 
