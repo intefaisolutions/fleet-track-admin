@@ -14,10 +14,10 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { ROUTES } from '../../config/constants';
 import { StatCard } from '../../components/ui/StatCard';
-import { platformService } from '../../services/platform.service';
+import { platformService, type SuperAdminDashboardData, type SuperAdminPaymentRow } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
-interface DashboardData {
+type DashboardData = SuperAdminDashboardData & {
   revenueThisMonth?: number;
   revenueTarget?: number;
   revenueGoalPercent?: number;
@@ -26,25 +26,11 @@ interface DashboardData {
   activeLicenses?: number;
   expiringSoon?: number;
   monthlyRevenue?: { label: string; amount: number }[];
-  topCompanies?: {
-    id: string;
-    name: string;
-    planType?: string;
-    mrrInr: number;
-    vehicleCount: number;
-    licenseCount: number;
-  }[];
-  recentPayments?: PaymentRow[];
-}
+};
 
-interface PaymentRow {
-  _id: string;
-  transactionId: string;
-  amount: number;
-  status: string;
-  createdAt?: string;
+type PaymentRow = SuperAdminPaymentRow & {
   companyId?: { name?: string } | string;
-}
+};
 
 function formatInr(amount: number) {
   return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -57,8 +43,9 @@ function formatInrShort(amount: number) {
 }
 
 function companyName(row: PaymentRow): string {
+  if (row.companyName) return row.companyName;
   const c = row.companyId;
-  if (c && typeof c === 'object' && c.name) return c.name;
+  if (c && typeof c === 'object' && 'name' in c && c.name) return c.name;
   return 'Client Company';
 }
 
@@ -124,7 +111,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     platformService
-      .ownerDashboard()
+      .getDashboard()
       .then((res) => setData((res.data as DashboardData) ?? null))
       .catch((err: unknown) =>
         toast.error(getApiErrorMessage(err, 'Failed to load dashboard')),
@@ -132,9 +119,18 @@ export function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const monthlyRevenue = data?.monthlyRevenue ?? [];
+  const stats = data?.stats;
+  const revenueThisMonth = stats?.revenueThisMonth ?? data?.revenueThisMonth ?? 0;
+  const revenueTarget = stats?.revenueTarget ?? data?.revenueTarget ?? 170000;
+  const revenueGoalPercent = stats?.revenueGoalPercent ?? data?.revenueGoalPercent ?? 0;
+  const activeCompanies = stats?.activeCompanies ?? data?.activeCompanies ?? 0;
+  const totalLicenses = stats?.totalLicensesCreated ?? data?.totalLicenses ?? 0;
+  const activeLicenses = stats?.activeLicenses ?? data?.activeLicenses ?? 0;
+  const expiringSoon = stats?.expiringSoon ?? data?.expiringSoon ?? 0;
+  const monthlyRevenue = data?.revenueChart ?? data?.monthlyRevenue ?? [];
   const maxBar = Math.max(...monthlyRevenue.map((m) => m.amount), 1);
   const recentPayments = data?.recentPayments ?? [];
+  const topCompanies = data?.topCompanies ?? [];
 
   const firstName = user?.fullName?.split(' ')[0] ?? 'Super Admin';
 
@@ -149,8 +145,8 @@ export function DashboardPage() {
           <h1 className="text-2xl font-bold">Welcome back, {firstName}.</h1>
           <p className="mt-2 max-w-lg text-sm text-white/90">
             Your platform has{' '}
-            <span className="font-semibold">{data?.activeLicenses ?? 0} active licenses</span>{' '}
-            across {data?.activeCompanies ?? 0} companies. Keep growing your fleet SaaS
+            <span className="font-semibold">{activeLicenses} active licenses</span>{' '}
+            across {activeCompanies} companies. Keep growing your fleet SaaS
             business.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
@@ -172,16 +168,16 @@ export function DashboardPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-medium text-slate-500">Revenue Goal</p>
           <p className="mt-2 text-3xl font-bold text-slate-900">
-            {loading ? '—' : `${data?.revenueGoalPercent ?? 0}%`}
+            {loading ? '—' : `${revenueGoalPercent}%`}
           </p>
           <p className="mt-1 text-sm text-slate-600">
-            {formatInrShort(data?.revenueThisMonth ?? 0)} /{' '}
-            {formatInrShort(data?.revenueTarget ?? 170000)} Target
+            {formatInrShort(revenueThisMonth)} /{' '}
+            {formatInrShort(revenueTarget)} Target
           </p>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
             <div
               className="h-full rounded-full bg-fleet-500 transition-all"
-              style={{ width: `${data?.revenueGoalPercent ?? 0}%` }}
+              style={{ width: `${revenueGoalPercent}%` }}
             />
           </div>
           <p className="mt-3 text-xs text-slate-400">
@@ -194,29 +190,29 @@ export function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Revenue This Month"
-          value={loading ? '—' : formatInr(data?.revenueThisMonth ?? 0)}
+          value={loading ? '—' : formatInr(revenueThisMonth)}
           trend="Verified payments"
           icon={<IndianRupee className="h-5 w-5" />}
         />
         <StatCard
           title="Active Companies"
-          value={loading ? '—' : String(data?.activeCompanies ?? 0)}
-          trend={`${data?.totalLicenses ?? 0} licenses issued`}
+          value={loading ? '—' : String(activeCompanies)}
+          trend={`${totalLicenses} licenses issued`}
           icon={<Building2 className="h-5 w-5" />}
           iconBg="bg-blue-50 text-blue-600"
         />
         <StatCard
           title="Total Licenses"
-          value={loading ? '—' : String(data?.totalLicenses ?? 0)}
-          trend={`${data?.activeLicenses ?? 0} active now`}
+          value={loading ? '—' : String(totalLicenses)}
+          trend={`${activeLicenses} active now`}
           icon={<KeyRound className="h-5 w-5" />}
           iconBg="bg-emerald-50 text-emerald-600"
         />
         <StatCard
           title="Expiring Soon"
-          value={loading ? '—' : String(data?.expiringSoon ?? 0)}
-          trend={(data?.expiringSoon ?? 0) > 0 ? 'Action required' : 'All good'}
-          trendUp={(data?.expiringSoon ?? 0) === 0}
+          value={loading ? '—' : String(expiringSoon)}
+          trend={expiringSoon > 0 ? 'Action required' : 'All good'}
+          trendUp={expiringSoon === 0}
           icon={<AlertCircle className="h-5 w-5" />}
           iconBg="bg-amber-50 text-amber-600"
         />
@@ -288,10 +284,10 @@ export function DashboardPage() {
             <TrendingUp className="h-5 w-5 text-fleet-500" />
           </div>
           <ul className="space-y-4">
-            {(data?.topCompanies ?? []).length === 0 ? (
+            {topCompanies.length === 0 ? (
               <li className="text-sm text-slate-400">No companies yet.</li>
             ) : (
-              (data?.topCompanies ?? []).map((c) => (
+              topCompanies.map((c) => (
                 <li key={c.id} className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate font-medium text-slate-900">{c.name}</p>
@@ -301,9 +297,9 @@ export function DashboardPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-semibold text-slate-900">
-                      {formatInrShort(c.mrrInr)}
+                      {formatInrShort(c.mrrInr ?? c.totalPaidInr)}
                     </p>
-                    <p className="text-xs text-slate-400">MRR</p>
+                    <p className="text-xs text-slate-400">Total paid</p>
                   </div>
                 </li>
               ))

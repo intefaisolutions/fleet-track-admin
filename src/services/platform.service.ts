@@ -37,11 +37,60 @@ export interface CreatePlanPayload {
   features?: string[];
 }
 
+export interface SuperAdminDashboardStats {
+  revenueThisMonth: number;
+  revenueTarget: number;
+  revenueGoalPercent: number;
+  activeCompanies: number;
+  totalLicensesCreated: number;
+  activeLicenses: number;
+  expiringSoon: number;
+}
+
+export interface SuperAdminRevenuePoint {
+  label: string;
+  amount: number;
+  month: number;
+  year: number;
+}
+
+export interface SuperAdminPaymentRow {
+  _id: string;
+  transactionId: string;
+  amount: number;
+  status: string;
+  planType?: string;
+  createdAt?: string;
+  verifiedAt?: string;
+  companyId?: string;
+  companyName: string;
+}
+
+export interface SuperAdminTopCompany {
+  id: string;
+  name: string;
+  email?: string;
+  planType?: string;
+  vehicleCount: number;
+  totalPaidInr: number;
+  mrrInr: number;
+}
+
+export interface SuperAdminDashboardData {
+  stats: SuperAdminDashboardStats;
+  revenueChart: SuperAdminRevenuePoint[];
+  recentPayments: SuperAdminPaymentRow[];
+  topCompanies: SuperAdminTopCompany[];
+}
+
 export const platformService = {
   getPlans: () => getData<unknown[]>('/platform/plans'),
   getPricingOverview: () => getData<PricingOverview>('/platform/pricing-overview'),
   createPlan: (data: CreatePlanPayload) => postData<SubscriptionPlanRecord>('/platform/plans', data),
-  ownerDashboard: () => getData('/platform/owner-dashboard'),
+  /** Super Admin dashboard — SRS 4.1 */
+  getDashboard: () => getData<SuperAdminDashboardData>('/platform/dashboard'),
+  /** @deprecated use getDashboard */
+  ownerDashboard: () => getData<SuperAdminDashboardData>('/platform/dashboard'),
   getPaymentSettings: () => getData('/platform/payment-settings'),
   updatePaymentSettings: (data: Record<string, string>) =>
     patchData('/platform/payment-settings', data),

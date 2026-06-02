@@ -108,16 +108,19 @@ export function ForgotPasswordPage() {
     }
   };
 
-  const handleSendOtp = async (e: FormEvent) => {
-    e.preventDefault();
+  const sendOtp = async () => {
     setLoading(true);
     try {
       const res = await authService.forgotPassword(email.trim());
-      const data = res.data as { otp?: string } | undefined;
-      toast.success('OTP sent to your email if the account exists');
-      if (data?.otp) {
-        toast.info(`Dev OTP: ${data.otp}`, { autoClose: 15000 });
-        setOtp(data.otp.split('').slice(0, 6));
+      const data = res.data as { otp?: string; emailed?: boolean } | undefined;
+      if (data?.emailed) {
+        toast.success('OTP sent to your email. Check your inbox.');
+      } else {
+        toast.success('If an account exists, a reset code was generated.');
+        if (data?.otp) {
+          toast.info(`Dev mode (SMTP not set): OTP ${data.otp}`, { autoClose: 20000 });
+          setOtp(data.otp.split('').slice(0, 6));
+        }
       }
       setStep(2);
     } catch (err: unknown) {
@@ -125,6 +128,11 @@ export function ForgotPasswordPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSendOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    await sendOtp();
   };
 
   const handleVerifyOtp = async (e: FormEvent) => {
@@ -279,10 +287,11 @@ export function ForgotPasswordPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStep(1)}
-                  className="w-full text-sm text-fleet-600 hover:underline"
+                  disabled={loading}
+                  onClick={() => sendOtp()}
+                  className="w-full text-sm text-fleet-600 hover:underline disabled:opacity-50"
                 >
-                  Resend OTP
+                  {loading ? 'Resending...' : 'Resend OTP'}
                 </button>
               </form>
             )}
