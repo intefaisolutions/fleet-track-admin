@@ -17,6 +17,33 @@ import { getApiErrorMessage } from '../../utils/validation';
 
 const PAGE_SIZE = 10;
 
+const DUMMY_VEHICLES: VehicleRecord[] = [
+  {
+    _id: 'dummy-vehicle-1',
+    registrationNumber: 'HR26AB1234',
+    make: 'Tata',
+    modelName: 'Ace',
+    vehicleType: 'TRUCK',
+    fuelType: 'DIESEL',
+    status: 'ACTIVE',
+    currentOdometerKm: 45230,
+    ownerId: { _id: 'dummy-owner-1', fullName: 'Rajesh Sharma', email: 'rajesh@abc.com' },
+    assignedDriverId: { _id: 'dummy-driver-1', fullName: 'Suresh Kumar', phone: '9876543210' },
+  },
+  {
+    _id: 'dummy-vehicle-2',
+    registrationNumber: 'DL01CD5678',
+    make: 'Mahindra',
+    modelName: 'Bolero Pickup',
+    vehicleType: 'TRUCK',
+    fuelType: 'DIESEL',
+    status: 'MAINTENANCE',
+    currentOdometerKm: 38910,
+    ownerId: { _id: 'dummy-owner-2', fullName: 'Priya Verma', email: 'priya@abc.com' },
+    assignedDriverId: { _id: 'dummy-driver-2', fullName: 'Ramesh Yadav', phone: '9988776655' },
+  },
+];
+
 function refName(
   ref?: { fullName?: string } | string | null,
   fallback = '—',
@@ -130,10 +157,17 @@ export function CompanyVehiclesPage() {
     vehiclesService
       .list()
       .then((res) => {
-        setVehicles(res.data ?? []);
+        const items = res.data ?? [];
+        if (items.length === 0) {
+          setVehicles(DUMMY_VEHICLES);
+          toast.info('Showing demo vehicles (no backend data found)');
+          return;
+        }
+        setVehicles(items);
       })
       .catch((err: unknown) => {
-        setVehicles([]);
+        setVehicles(DUMMY_VEHICLES);
+        toast.info('Showing demo vehicles (backend unavailable)');
         toast.error(getApiErrorMessage(err, 'Failed to load vehicles'));
       })
       .finally(() => setLoading(false));

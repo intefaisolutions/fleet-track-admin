@@ -1,21 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { CheckCircle2, Clock3, CreditCard, Wallet } from 'lucide-react';
 import { subscriptionsService, type SubscriptionRecord } from '../../services/subscriptions.service';
 import {
   platformService,
-  type PaymentSettingsRecord,
   type SubscriptionPlanRecord,
 } from '../../services/platform.service';
-import { paymentsService, type PaymentRecord } from '../../services/payments.service';
-import { reportsService } from '../../services/reports.service';
+import { paymentsService } from '../../services/payments.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
 function formatInr(amount: number) {
   return `₹${amount.toLocaleString('en-IN')}`;
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value?: string) {
   if (!value) return '—';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
@@ -26,75 +24,61 @@ function formatDate(value?: string | null) {
   });
 }
 
-function planLabel(plan: SubscriptionPlanRecord) {
-  return plan.displayName?.trim() || plan.planType;
-}
-
 type PaymentStatus = 'NOT_PAID' | 'PENDING' | 'VERIFIED' | 'REJECTED';
-
-function resolvePaymentStatus(rows: PaymentRecord[]): PaymentStatus {
-  const latest = rows[0]?.status?.toUpperCase();
-  if (latest === 'VERIFIED') return 'VERIFIED';
-  if (latest === 'PENDING') return 'PENDING';
-  if (latest === 'REJECTED') return 'REJECTED';
-  return 'NOT_PAID';
-}
 
 export function CompanySubscriptionPage() {
   const [plans, setPlans] = useState<SubscriptionPlanRecord[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionRecord | null>(
     null,
   );
-  const [dashboardPlanType, setDashboardPlanType] = useState<string | null>(null);
-  const [dashboardExpiresAt, setDashboardExpiresAt] = useState<string | null>(null);
-  const [paymentSettings, setPaymentSettings] = useState<PaymentSettingsRecord>({});
+  const [paymentSettings, setPaymentSettings] = useState<Record<string, string>>({});
   const [latestPaymentStatus, setLatestPaymentStatus] = useState<PaymentStatus>('NOT_PAID');
   const [selectedPlanType, setSelectedPlanType] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(() => {
+  useEffect(() => {
     setLoading(true);
-    Promise.all([
+    Promise.allSettled([
       subscriptionsService.list(),
       platformService.getPlans(),
       platformService.getPaymentSettings(),
       paymentsService.list(),
-      reportsService.getCompanyDashboard(),
     ])
-      .then(([subsRes, plansRes, settingsRes, paymentsRes, dashboardRes]) => {
-        const list = subsRes.data ?? [];
-        const active =
-          list.find((s) => s.status === 'ACTIVE') ??
-          list.find((s) => s.status === 'TRIAL') ??
-          list[0] ??
-          null;
-        setCurrentSubscription(active);
+      .then(([subsResult, plansResult, settingsResult, paymentsResult]) => {
+        if (subsResult.status === 'fulfilled') {
+          const list = subsResult.value.data ?? [];
+          const active =
+            list.find((s) => s.status === 'ACTIVE') ??
+            list.find((s) => s.status === 'TRIAL') ??
+            list[0] ??
+            null;
+          setCurrentSubscription(active);
+        }
 
-        const planRows = (plansRes.data as SubscriptionPlanRecord[]) ?? [];
-        setPlans(planRows);
+        if (plansResult.status === 'fulfilled') {
+          setPlans((plansResult.value.data as SubscriptionPlanRecord[]) ?? []);
+        }
 
-        setPaymentSettings(settingsRes.data ?? {});
+        if (settingsResult.status === 'fulfilled') {
+          setPaymentSettings((settingsResult.value.data as Record<string, string>) ?? {});
+        } else {
+          setPaymentSettings({});
+        }
 
-        const paymentRows = paymentsRes.data ?? [];
-        setLatestPaymentStatus(resolvePaymentStatus(paymentRows));
-
-        const dash = dashboardRes.data;
-        if (dash?.subscription) {
-          setDashboardPlanType(dash.subscription.planType ?? null);
-          setDashboardExpiresAt(dash.subscription.expiresAt ?? null);
+        if (paymentsResult.status === 'fulfilled') {
+          const rows = (paymentsResult.value.data as Array<{ status?: string }>) ?? [];
+          const latest = rows[0]?.status?.toUpperCase();
+          if (latest === 'VERIFIED') setLatestPaymentStatus('VERIFIED');
+          else if (latest === 'PENDING') setLatestPaymentStatus('PENDING');
+          else if (latest === 'REJECTED') setLatestPaymentStatus('REJECTED');
+          else setLatestPaymentStatus('NOT_PAID');
         }
       })
-      .catch((err: unknown) => {
-        toast.error(getApiErrorMessage(err, 'Failed to load subscription data'));
-      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const sortedPlans = useMemo(
     () => [...plans].sort((a, b) => a.monthlyPriceInr - b.monthlyPriceInr),
@@ -106,11 +90,8 @@ export function CompanySubscriptionPage() {
     [plans, selectedPlanType],
   );
 
-  const currentPlanType =
-    currentSubscription?.planType ?? dashboardPlanType ?? 'FREE';
-  const currentPlanMeta = plans.find((p) => p.planType === currentPlanType);
-  const currentPlanDisplay =
-    currentPlanMeta?.displayName?.trim() || currentPlanType;
+  const currentPlanLabel = currentSubscription?.planType ?? 'FREE';
+  const currentPlanMeta = plans.find((p) => p.planType === currentPlanLabel);
 
   const handleMarkAsPaid = async () => {
     if (!selectedPlan) {
@@ -130,8 +111,8 @@ export function CompanySubscriptionPage() {
         transactionId: transactionId.trim(),
       });
       toast.success('Payment submitted. Waiting for manual verification.');
+      setLatestPaymentStatus('PENDING');
       setTransactionId('');
-      load();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Failed to submit payment'));
     } finally {
@@ -154,58 +135,34 @@ export function CompanySubscriptionPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             View Current Plan
           </p>
-          {loading ? (
-            <p className="mt-3 text-sm text-slate-400">Loading...</p>
-          ) : (
-            <>
-              <p className="mt-2 text-xl font-bold text-slate-900">
-                {currentPlanDisplay} Plan
-              </p>
-              <p className="mt-1 text-sm text-slate-600">
-                Vehicle Limit:{' '}
-                {currentSubscription?.vehicleLimit ??
-                  currentPlanMeta?.vehicleLimit ??
-                  0}
-              </p>
-              <p className="mt-1 text-sm text-slate-600">
-                Expires:{' '}
-                {formatDate(
-                  currentSubscription?.currentPeriodEnd ?? dashboardExpiresAt,
-                )}
-              </p>
-            </>
-          )}
+          <p className="mt-2 text-xl font-bold text-slate-900">
+            {currentPlanLabel} Plan
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            Vehicle Limit: {currentSubscription?.vehicleLimit ?? currentPlanMeta?.vehicleLimit ?? 0}
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            Expires: {formatDate(currentSubscription?.currentPeriodEnd)}
+          </p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             View Payment Details
           </p>
-          {loading ? (
-            <p className="mt-3 text-sm text-slate-400">Loading...</p>
-          ) : (
-            <div className="mt-3 space-y-2 text-sm text-slate-700">
-              <p className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-fleet-600" />
-                UPI: {paymentSettings.upiId?.trim() || '—'}
-              </p>
-              <p className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-fleet-600" />
-                A/C: {paymentSettings.bankAccountNumber?.trim() || '—'}
-              </p>
-              {paymentSettings.ifscCode?.trim() && (
-                <p className="text-slate-600">IFSC: {paymentSettings.ifscCode}</p>
-              )}
-              {paymentSettings.accountHolderName?.trim() && (
-                <p className="text-slate-600">
-                  Account name: {paymentSettings.accountHolderName}
-                </p>
-              )}
-              <p className="text-xs text-slate-500">
-                Verification is manual by Company Owner after statement check.
-              </p>
-            </div>
-          )}
+          <div className="mt-3 space-y-2 text-sm text-slate-700">
+            <p className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-fleet-600" />
+              UPI: {paymentSettings.upiId || 'business@okhdfcbank'}
+            </p>
+            <p className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-fleet-600" />
+              A/C: {paymentSettings.bankAccountNumber || 'XXXXXXXX1234'}
+            </p>
+            <p className="text-xs text-slate-500">
+              Verification is manual by Company Owner after statement check.
+            </p>
+          </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -213,9 +170,7 @@ export function CompanySubscriptionPage() {
             Check Payment Status
           </p>
           <div className="mt-3">
-            {loading ? (
-              <p className="text-sm text-slate-400">Loading...</p>
-            ) : latestPaymentStatus === 'VERIFIED' ? (
+            {latestPaymentStatus === 'VERIFIED' ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Active (Verified)
@@ -243,12 +198,9 @@ export function CompanySubscriptionPage() {
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {loading ? (
             <p className="text-sm text-slate-400">Loading plans...</p>
-          ) : sortedPlans.length === 0 ? (
-            <p className="text-sm text-slate-400">No plans available.</p>
           ) : (
             sortedPlans.map((plan) => {
               const active = selectedPlanType === plan.planType;
-              const isCurrent = plan.planType === currentPlanType;
               return (
                 <button
                   key={plan.planType}
@@ -260,16 +212,7 @@ export function CompanySubscriptionPage() {
                       : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {planLabel(plan)}
-                    </p>
-                    {isCurrent && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                        Current
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-sm font-semibold text-slate-900">{plan.planType}</p>
                   <p className="mt-1 text-sm text-slate-600">
                     {formatInr(plan.monthlyPriceInr)}/month
                   </p>
@@ -291,19 +234,13 @@ export function CompanySubscriptionPage() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            Current: <span className="font-semibold">{currentPlanDisplay}</span>
+            Current: <span className="font-semibold">{currentPlanLabel}</span>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            Selected:{' '}
-            <span className="font-semibold">
-              {selectedPlan ? planLabel(selectedPlan) : '—'}
-            </span>
+            Selected: <span className="font-semibold">{selectedPlan?.planType ?? '—'}</span>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            Amount:{' '}
-            <span className="font-semibold">
-              {formatInr(selectedPlan?.monthlyPriceInr ?? 0)}
-            </span>
+            Amount: <span className="font-semibold">{formatInr(selectedPlan?.monthlyPriceInr ?? 0)}</span>
           </div>
         </div>
 
@@ -317,7 +254,7 @@ export function CompanySubscriptionPage() {
           <button
             type="button"
             onClick={handleMarkAsPaid}
-            disabled={submitting || loading}
+            disabled={submitting}
             className="rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
           >
             {submitting ? 'Submitting...' : 'I Have Paid'}

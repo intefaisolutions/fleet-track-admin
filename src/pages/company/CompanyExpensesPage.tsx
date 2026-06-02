@@ -15,6 +15,68 @@ import { getApiErrorMessage } from '../../utils/validation';
 
 const PAGE_SIZE = 10;
 
+const DUMMY_VEHICLES: VehicleRecord[] = [
+  {
+    _id: 'dummy-vehicle-1',
+    registrationNumber: 'HR26AB1234',
+    make: 'Tata',
+    modelName: 'Ace',
+    status: 'ACTIVE',
+  },
+  {
+    _id: 'dummy-vehicle-2',
+    registrationNumber: 'DL01CD5678',
+    make: 'Mahindra',
+    modelName: 'Bolero Pickup',
+    status: 'MAINTENANCE',
+  },
+];
+
+const DUMMY_EXPENSES: ExpenseRecord[] = [
+  {
+    _id: 'dummy-exp-1',
+    vehicleId: {
+      _id: 'dummy-vehicle-1',
+      registrationNumber: 'HR26AB1234',
+      make: 'Tata',
+      modelName: 'Ace',
+    },
+    category: 'FUEL',
+    amount: 18500,
+    description: 'Fuel refill - Delhi route',
+    expenseDate: new Date().toISOString(),
+    recordedBy: { _id: 'dummy-owner-1', fullName: 'Rajesh Sharma', role: 'VEHICLE_OWNER' },
+  },
+  {
+    _id: 'dummy-exp-2',
+    vehicleId: {
+      _id: 'dummy-vehicle-2',
+      registrationNumber: 'DL01CD5678',
+      make: 'Mahindra',
+      modelName: 'Bolero Pickup',
+    },
+    category: 'SERVICE',
+    amount: 26500,
+    description: 'Brake service and oil change',
+    expenseDate: new Date().toISOString(),
+    recordedBy: { _id: 'dummy-owner-2', fullName: 'Priya Verma', role: 'VEHICLE_OWNER' },
+  },
+  {
+    _id: 'dummy-exp-3',
+    vehicleId: {
+      _id: 'dummy-vehicle-1',
+      registrationNumber: 'HR26AB1234',
+      make: 'Tata',
+      modelName: 'Ace',
+    },
+    category: 'TOLL',
+    amount: 6200,
+    description: 'Highway toll slips',
+    expenseDate: new Date().toISOString(),
+    recordedBy: { _id: 'dummy-driver-1', fullName: 'Suresh Kumar', role: 'DRIVER' },
+  },
+];
+
 const CATEGORIES = [
   'FUEL',
   'SERVICE',
@@ -122,12 +184,21 @@ export function CompanyExpensesPage() {
     setLoading(true);
     Promise.all([expensesService.list(), vehiclesService.list()])
       .then(([expRes, vehRes]) => {
-        setExpenses(expRes.data ?? []);
-        setVehicles(vehRes.data ?? []);
+        const apiExpenses = expRes.data ?? [];
+        const apiVehicles = vehRes.data ?? [];
+        if (apiExpenses.length === 0) {
+          setExpenses(DUMMY_EXPENSES);
+          setVehicles(apiVehicles.length === 0 ? DUMMY_VEHICLES : apiVehicles);
+          toast.info('Showing demo expenses (no backend data found)');
+        } else {
+          setExpenses(apiExpenses);
+          setVehicles(apiVehicles);
+        }
       })
       .catch((err: unknown) => {
-        setExpenses([]);
-        setVehicles([]);
+        setExpenses(DUMMY_EXPENSES);
+        setVehicles(DUMMY_VEHICLES);
+        toast.info('Showing demo expenses (backend unavailable)');
         toast.error(getApiErrorMessage(err, 'Failed to load expenses'));
       })
       .finally(() => setLoading(false));

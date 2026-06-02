@@ -1,10 +1,52 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Download, FileBarChart2 } from 'lucide-react';
 import { expensesService, type ExpenseRecord } from '../../services/expenses.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
 type GroupRow = { name: string; amount: number };
+
+const DUMMY_REPORT_EXPENSES: ExpenseRecord[] = [
+  {
+    _id: 'dummy-r-1',
+    category: 'FUEL',
+    amount: 120000,
+    expenseDate: new Date().toISOString(),
+    vehicleId: {
+      _id: 'dummy-v-1',
+      registrationNumber: 'HR26AB1234',
+      make: 'Tata',
+      modelName: 'Ace',
+      ownerId: { _id: 'dummy-o-1', fullName: 'Rajesh' },
+    },
+  },
+  {
+    _id: 'dummy-r-2',
+    category: 'SERVICE',
+    amount: 60000,
+    expenseDate: new Date().toISOString(),
+    vehicleId: {
+      _id: 'dummy-v-2',
+      registrationNumber: 'DL01CD5678',
+      make: 'Mahindra',
+      modelName: 'Bolero',
+      ownerId: { _id: 'dummy-o-2', fullName: 'Priya' },
+    },
+  },
+  {
+    _id: 'dummy-r-3',
+    category: 'TOLL',
+    amount: 65000,
+    expenseDate: new Date().toISOString(),
+    vehicleId: {
+      _id: 'dummy-v-1',
+      registrationNumber: 'HR26AB1234',
+      make: 'Tata',
+      modelName: 'Ace',
+      ownerId: { _id: 'dummy-o-1', fullName: 'Rajesh' },
+    },
+  },
+];
 
 function formatInr(amount: number) {
   return `₹${amount.toLocaleString('en-IN')}`;
@@ -39,20 +81,6 @@ function expenseDate(record: ExpenseRecord) {
   const raw = record.expenseDate ?? record.createdAt;
   const d = raw ? new Date(raw) : null;
   return d && !Number.isNaN(d.getTime()) ? d : null;
-}
-
-function ownerLabel(record: ExpenseRecord): string {
-  const vehicle = record.vehicleId;
-  if (vehicle && typeof vehicle === 'object' && vehicle.ownerId) {
-    if (typeof vehicle.ownerId === 'object' && vehicle.ownerId.fullName) {
-      return vehicle.ownerId.fullName;
-    }
-  }
-  const recorder = record.recordedBy;
-  if (recorder && typeof recorder === 'object' && recorder.fullName) {
-    return recorder.fullName;
-  }
-  return 'Unassigned';
 }
 
 function buildCsv(
@@ -135,21 +163,26 @@ export function CompanyReportsPage() {
     new Date().toISOString().slice(0, 7),
   );
 
-  const load = useCallback(() => {
+  useEffect(() => {
     setLoading(true);
     expensesService
       .list()
-      .then((res) => setExpenses(res.data ?? []))
+      .then((res) => {
+        const rows = res.data ?? [];
+        if (rows.length === 0) {
+          setExpenses(DUMMY_REPORT_EXPENSES);
+          toast.info('Showing demo report data (no backend data found)');
+        } else {
+          setExpenses(rows);
+        }
+      })
       .catch((err: unknown) => {
-        setExpenses([]);
+        setExpenses(DUMMY_REPORT_EXPENSES);
+        toast.info('Showing demo report data (backend unavailable)');
         toast.error(getApiErrorMessage(err, 'Failed to load reports'));
       })
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const monthExpenses = useMemo(() => {
     return expenses.filter((e) => {
@@ -182,7 +215,12 @@ export function CompanyReportsPage() {
   const ownerWise = useMemo(() => {
     const map = new Map<string, number>();
     monthExpenses.forEach((e) => {
-      const owner = ownerLabel(e);
+      const owner =
+        typeof e.vehicleId === 'object' && e.vehicleId?.ownerId
+          ? typeof e.vehicleId.ownerId === 'object' && e.vehicleId.ownerId?.fullName
+            ? e.vehicleId.ownerId.fullName
+            : 'Unknown Owner'
+          : 'Unknown Owner';
       map.set(owner, (map.get(owner) ?? 0) + Number(e.amount || 0));
     });
     return Array.from(map.entries())
