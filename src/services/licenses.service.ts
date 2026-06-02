@@ -3,6 +3,7 @@ import { getData, patchData, postData } from './api';
 export interface CreateLicensePayload {
   intendedCompanyName?: string;
   contactEmail?: string;
+  contactPhone?: string;
   planType: string;
   maxAdmins?: number;
   maxOwners?: number;
@@ -17,6 +18,9 @@ export interface LicenseValidateResult {
   message?: string;
   plan?: string;
   planLabel?: string;
+  intendedCompanyName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
   maxAdmins?: number;
   maxOwners?: number;
   maxDrivers?: number;
@@ -29,6 +33,7 @@ export interface CreatedLicense {
   licenseKey: string;
   intendedCompanyName?: string;
   contactEmail?: string;
+  contactPhone?: string;
   planType: string;
   validUntil?: string;
   emailed?: boolean;

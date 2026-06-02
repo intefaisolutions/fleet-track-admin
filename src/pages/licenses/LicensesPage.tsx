@@ -83,6 +83,7 @@ function StatusBadge({ status }: { status: string }) {
 const initialForm = {
   intendedCompanyName: '',
   contactEmail: '',
+  contactPhone: '',
   planType: 'PREMIUM',
   maxAdmins: '1',
   maxOwners: '2',
@@ -131,6 +132,7 @@ function CreateLicensePanel({
       const payload: CreateLicensePayload = {
         intendedCompanyName: form.intendedCompanyName.trim() || undefined,
         contactEmail: form.contactEmail.trim() || undefined,
+        contactPhone: form.contactPhone.trim() || undefined,
         planType: form.planType,
         validUntil: new Date(form.validUntil).toISOString(),
         maxAdmins: Number(form.maxAdmins),
@@ -192,6 +194,18 @@ function CreateLicensePanel({
                 value={form.contactEmail}
                 onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
                 placeholder="admin@company.com"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Contact Phone
+              </label>
+              <input
+                type="tel"
+                value={form.contactPhone}
+                onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
+                placeholder="+91 9876543210"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
               />
             </div>

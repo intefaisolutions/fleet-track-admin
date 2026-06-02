@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   ArrowRight,
@@ -54,6 +54,7 @@ function FleetIllustration() {
 
 export function RegisterCompanyPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [licenseVerified, setLicenseVerified] = useState(false);
@@ -69,9 +70,35 @@ export function RegisterCompanyPage() {
     password: '',
     confirmPassword: '',
   });
+  const [lockedEmail, setLockedEmail] = useState('');
+  const [suggestedCompanyName, setSuggestedCompanyName] = useState('');
 
   const inputClass =
     'w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20';
+
+  useEffect(() => {
+    const key = searchParams.get('licenseKey')?.trim() ?? '';
+    const email = searchParams.get('email')?.trim() ?? '';
+    const company = searchParams.get('companyName')?.trim() ?? '';
+    const phone = searchParams.get('phone')?.trim() ?? '';
+
+    if (!key && !email && !company && !phone) return;
+
+    setForm((prev) => ({
+      ...prev,
+      licenseKey: key || prev.licenseKey,
+      email: email || prev.email,
+      companyName: company || prev.companyName,
+      phone: phone || prev.phone,
+    }));
+    if (email) setLockedEmail(email);
+    if (company) setSuggestedCompanyName(company);
+  }, [searchParams]);
+
+  const effectiveCompanyName = useMemo(
+    () => form.companyName.trim() || suggestedCompanyName.trim(),
+    [form.companyName, suggestedCompanyName],
+  );
 
   const handleVerifyLicense = async () => {
     const key = form.licenseKey.trim();
@@ -90,6 +117,17 @@ export function RegisterCompanyPage() {
         return;
       }
       setLicensePreview(preview);
+      if (preview.intendedCompanyName) {
+        setSuggestedCompanyName(preview.intendedCompanyName);
+        setForm((prev) => ({
+          ...prev,
+          companyName: prev.companyName || preview.intendedCompanyName || '',
+        }));
+      }
+      if (preview.contactEmail) {
+        setLockedEmail(preview.contactEmail);
+        setForm((prev) => ({ ...prev, email: preview.contactEmail || prev.email }));
+      }
       setLicenseVerified(true);
       toast.success('License key verified');
     } catch (err: unknown) {
@@ -98,6 +136,15 @@ export function RegisterCompanyPage() {
       setVerifying(false);
     }
   };
+
+  useEffect(() => {
+    const prefilledKey = searchParams.get('licenseKey')?.trim();
+    if (!prefilledKey) return;
+    if (licenseVerified || verifying) return;
+    if (form.licenseKey.trim() !== prefilledKey) return;
+    void handleVerifyLicense();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.licenseKey, licenseVerified, verifying, searchParams]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -113,11 +160,15 @@ export function RegisterCompanyPage() {
       toast.error('Passwords do not match');
       return;
     }
+    if (!effectiveCompanyName) {
+      toast.error('Company name missing in license. Please enter company name.');
+      return;
+    }
     setLoading(true);
     try {
       await companiesService.register({
         licenseKey: form.licenseKey.trim(),
-        companyName: form.companyName.trim(),
+        companyName: effectiveCompanyName,
         adminName: form.adminName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
@@ -234,13 +285,17 @@ export function RegisterCompanyPage() {
                     <Building2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <input
                       id="companyName"
-                      required
                       value={form.companyName}
                       onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-                      placeholder="e.g. Global Logistics Inc."
+                      placeholder={suggestedCompanyName || 'e.g. Global Logistics Inc.'}
                       className={inputClass}
                     />
                   </div>
+                  {suggestedCompanyName && !form.companyName.trim() && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Auto-filled from license: <strong>{suggestedCompanyName}</strong>
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -299,11 +354,19 @@ export function RegisterCompanyPage() {
                       autoComplete="email"
                       required
                       value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      onChange={(e) => {
+                        if (!lockedEmail) setForm({ ...form, email: e.target.value });
+                      }}
                       placeholder="admin@company.com"
                       className={inputClass}
+                      readOnly={!!lockedEmail}
                     />
                   </div>
+                  {lockedEmail && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Email is locked from license invitation.
+                    </p>
+                  )}
                 </div>
 
                 <div>
