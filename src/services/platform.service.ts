@@ -90,6 +90,13 @@ export interface RevenueOverviewCompanyRow {
   status: string;
 }
 
+export interface PaymentSettingsRecord {
+  upiId?: string;
+  bankAccountNumber?: string;
+  ifscCode?: string;
+  accountHolderName?: string;
+}
+
 export interface RevenueOverviewData {
   selectedMonth: number;
   selectedYear: number;
@@ -124,7 +131,7 @@ export const platformService = {
   getDashboard: () => getData<SuperAdminDashboardData>('/platform/dashboard'),
   /** @deprecated use getDashboard */
   ownerDashboard: () => getData<SuperAdminDashboardData>('/platform/dashboard'),
-  getPaymentSettings: () => getData('/platform/payment-settings'),
+  getPaymentSettings: () => getData<PaymentSettingsRecord>('/platform/payment-settings'),
   updatePaymentSettings: (data: Record<string, string>) =>
     patchData('/platform/payment-settings', data),
   updatePlanPricing: (planType: string, data: Record<string, number>) =>
