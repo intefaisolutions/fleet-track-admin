@@ -3,12 +3,10 @@ import { toast } from 'react-toastify';
 import {
   Building2,
   Mail,
-  Plus,
   RotateCcw,
   Search,
   Truck,
 } from 'lucide-react';
-import { AddCompanyModal } from '../../components/companies/AddCompanyModal';
 import { companiesService } from '../../services/companies.service';
 import type { Company } from '../../types/api';
 import { getApiErrorMessage } from '../../utils/validation';
@@ -119,7 +117,6 @@ function CompanyCard({
 export function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('');
   const [actionId, setActionId] = useState<string | null>(null);
@@ -204,23 +201,13 @@ export function CompaniesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Client Companies</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            <span className="text-slate-400">FleetOps</span>
-            <span className="mx-1.5 text-slate-300">/</span>
-            Companies
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600"
-        >
-          <Plus className="h-4 w-4" />
-          Add New Company
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Client Companies</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          <span className="text-slate-400">FleetOps</span>
+          <span className="mx-1.5 text-slate-300">/</span>
+          Companies
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -264,18 +251,10 @@ export function CompaniesPage() {
         <div className="rounded-xl border border-slate-200 bg-white py-16 text-center">
           <p className="text-slate-500">
             {companies.length === 0
-              ? 'No companies yet.'
+              ? 'No companies yet. Clients register using a license key.'
               : 'No companies match your filters.'}
           </p>
-          {companies.length === 0 ? (
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="mt-2 text-sm font-medium text-fleet-600 hover:underline"
-            >
-              Add your first client company
-            </button>
-          ) : (
+          {companies.length > 0 && (
             <button
               type="button"
               onClick={handleReset}
@@ -299,12 +278,6 @@ export function CompaniesPage() {
           ))}
         </div>
       )}
-
-      <AddCompanyModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSuccess={load}
-      />
     </div>
   );
 }

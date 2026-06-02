@@ -15,6 +15,10 @@ import {
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
 import { companiesService } from '../../services/companies.service';
+import {
+  licensesService,
+  type LicenseValidateResult,
+} from '../../services/licenses.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
 function FleetIllustration() {
@@ -51,6 +55,9 @@ function FleetIllustration() {
 export function RegisterCompanyPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [licenseVerified, setLicenseVerified] = useState(false);
+  const [licensePreview, setLicensePreview] = useState<LicenseValidateResult | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [form, setForm] = useState({
@@ -66,8 +73,38 @@ export function RegisterCompanyPage() {
   const inputClass =
     'w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20';
 
+  const handleVerifyLicense = async () => {
+    const key = form.licenseKey.trim();
+    if (!key) {
+      toast.error('Enter a license key first');
+      return;
+    }
+    setVerifying(true);
+    setLicenseVerified(false);
+    setLicensePreview(null);
+    try {
+      const res = await licensesService.validateKey(key);
+      const preview = res.data as LicenseValidateResult | undefined;
+      if (!preview?.valid) {
+        toast.error(preview?.message ?? 'Invalid license key');
+        return;
+      }
+      setLicensePreview(preview);
+      setLicenseVerified(true);
+      toast.success('License key verified');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Could not verify license key'));
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!licenseVerified) {
+      toast.error('Please verify your license key before registering');
+      return;
+    }
     if (form.password.length < 8) {
       toast.error('Password must be at least 8 characters');
       return;
@@ -132,17 +169,58 @@ export function RegisterCompanyPage() {
                   >
                     License Key
                   </label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      id="licenseKey"
-                      required
-                      value={form.licenseKey}
-                      onChange={(e) => setForm({ ...form, licenseKey: e.target.value })}
-                      placeholder="Enter valid license key"
-                      className={inputClass}
-                    />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <input
+                        id="licenseKey"
+                        required
+                        value={form.licenseKey}
+                        onChange={(e) => {
+                          setForm({ ...form, licenseKey: e.target.value });
+                          setLicenseVerified(false);
+                          setLicensePreview(null);
+                        }}
+                        placeholder="FLT-XXXX-XXXX-XXXX"
+                        className={inputClass}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleVerifyLicense}
+                      disabled={verifying || !form.licenseKey.trim()}
+                      className="shrink-0 rounded-lg border border-[#00AEEF] px-4 py-3 text-sm font-semibold text-[#00AEEF] transition hover:bg-sky-50 disabled:opacity-50"
+                    >
+                      {verifying ? 'Checking...' : licenseVerified ? 'Verified ✓' : 'Verify'}
+                    </button>
                   </div>
+                  {licensePreview?.valid && (
+                    <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                      <p className="font-semibold">
+                        Plan: {licensePreview.planLabel ?? licensePreview.plan}
+                      </p>
+                      <ul className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-emerald-800">
+                        {licensePreview.maxAdmins != null && (
+                          <li>Admins: {licensePreview.maxAdmins}</li>
+                        )}
+                        {licensePreview.maxOwners != null && (
+                          <li>Owners: {licensePreview.maxOwners}</li>
+                        )}
+                        {licensePreview.maxDrivers != null && (
+                          <li>Drivers: {licensePreview.maxDrivers}</li>
+                        )}
+                        {licensePreview.maxVehicles != null && (
+                          <li>Vehicles: {licensePreview.maxVehicles}</li>
+                        )}
+                      </ul>
+                      {licensePreview.validUntil && (
+                        <p className="mt-1.5 text-xs text-emerald-700">
+                          Valid until{' '}
+                          {new Date(licensePreview.validUntil).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -301,7 +379,7 @@ export function RegisterCompanyPage() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !licenseVerified}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
                   style={{ backgroundColor: '#00AEEF' }}
                 >

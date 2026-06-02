@@ -14,8 +14,13 @@ import {
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
 import {
+  LicenseSuccessModal,
+  type GeneratedLicense,
+} from '../../components/licenses/LicenseSuccessModal';
+import {
   licensesService,
   type CreateLicensePayload,
+  type CreatedLicense,
 } from '../../services/licenses.service';
 import { platformService } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
@@ -89,11 +94,11 @@ const initialForm = {
 function CreateLicensePanel({
   open,
   onClose,
-  onSuccess,
+  onGenerated,
 }: {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onGenerated: (license: CreatedLicense) => void;
 }) {
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
@@ -134,14 +139,14 @@ function CreateLicensePanel({
         maxVehicles: Number(form.maxVehicles),
       };
       const res = await licensesService.create(payload);
-      const created = res.data as { licenseKey?: string } | undefined;
-      toast.success('License generated successfully');
-      if (created?.licenseKey) {
-        toast.info(`Key: ${created.licenseKey}`, { autoClose: 15000 });
+      const created = res.data as CreatedLicense | undefined;
+      if (!created?.licenseKey) {
+        toast.error('License created but key missing in response');
+        return;
       }
       setForm(initialForm);
-      onSuccess();
       onClose();
+      onGenerated(created);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Failed to generate license'));
     } finally {
@@ -297,6 +302,10 @@ export function LicensesPage() {
   const [planFilter, setPlanFilter] = useState('');
   const [page, setPage] = useState(1);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [generatedLicense, setGeneratedLicense] = useState<GeneratedLicense | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [extendTarget, setExtendTarget] = useState<LicenseRow | null>(null);
+  const [extendDate, setExtendDate] = useState('');
   const [menuId, setMenuId] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -338,12 +347,64 @@ export function LicensesPage() {
   };
 
   const handleRevoke = async (id: string) => {
+    if (!window.confirm('Revoke this license? The company will not be able to use it.')) return;
     try {
       await licensesService.revoke(id);
       toast.success('License revoked');
       load();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Revoke failed'));
+    } finally {
+      setMenuId(null);
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    if (!window.confirm('Cancel this license permanently?')) return;
+    try {
+      await licensesService.cancel(id);
+      toast.success('License cancelled');
+      load();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Cancel failed'));
+    } finally {
+      setMenuId(null);
+    }
+  };
+
+  const handleExtendSubmit = async () => {
+    if (!extendTarget || !extendDate) return;
+    try {
+      await licensesService.extend(extendTarget._id, new Date(extendDate).toISOString());
+      toast.success('License extended');
+      setExtendTarget(null);
+      setExtendDate('');
+      load();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Extend failed'));
+    }
+  };
+
+  const handleSendEmail = async (license: GeneratedLicense) => {
+    setSendingEmail(true);
+    try {
+      await licensesService.sendEmail(license._id);
+      toast.success('License key emailed');
+      setGeneratedLicense((prev) => (prev ? { ...prev, emailed: true } : prev));
+      load();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to send email'));
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleResendFromTable = async (id: string) => {
+    try {
+      await licensesService.sendEmail(id);
+      toast.success('License key emailed');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to send email'));
     } finally {
       setMenuId(null);
     }
@@ -475,7 +536,7 @@ export function LicensesPage() {
                         <MoreHorizontal className="h-5 w-5" />
                       </button>
                       {menuId === l._id && (
-                        <div className="absolute right-5 top-12 z-10 w-36 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                        <div className="absolute right-5 top-12 z-10 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
                           <button
                             type="button"
                             onClick={() => copyKey(l.licenseKey)}
@@ -484,14 +545,45 @@ export function LicensesPage() {
                             <Copy className="h-3.5 w-3.5" />
                             Copy Key
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExtendTarget(l);
+                              setExtendDate(
+                                l.validUntil
+                                  ? new Date(l.validUntil).toISOString().slice(0, 10)
+                                  : '',
+                              );
+                              setMenuId(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            Extend
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleResendFromTable(l._id)}
+                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            Resend Email
+                          </button>
                           {l.status !== 'REVOKED' && l.status !== 'CANCELLED' && (
-                            <button
-                              type="button"
-                              onClick={() => handleRevoke(l._id)}
-                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                            >
-                              Revoke
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleRevoke(l._id)}
+                                className="w-full px-4 py-2 text-left text-sm text-amber-700 hover:bg-amber-50"
+                              >
+                                Revoke
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCancel(l._id)}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                              >
+                                Cancel
+                              </button>
+                            </>
                           )}
                         </div>
                       )}
@@ -545,8 +637,59 @@ export function LicensesPage() {
       <CreateLicensePanel
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
-        onSuccess={load}
+        onGenerated={(license) => {
+          setGeneratedLicense(license);
+          load();
+        }}
       />
+
+      {generatedLicense && (
+        <LicenseSuccessModal
+          license={generatedLicense}
+          onClose={() => setGeneratedLicense(null)}
+          onSendEmail={() => handleSendEmail(generatedLicense)}
+          sendingEmail={sendingEmail}
+        />
+      )}
+
+      {extendTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/40"
+            onClick={() => setExtendTarget(null)}
+          />
+          <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-900">Extend License</h3>
+            <p className="mt-1 font-mono text-xs text-slate-500">{extendTarget.licenseKey}</p>
+            <label className="mt-4 block text-sm font-medium text-slate-700">
+              New expiry date
+            </label>
+            <input
+              type="date"
+              value={extendDate}
+              onChange={(e) => setExtendDate(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
+            />
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setExtendTarget(null)}
+                className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExtendSubmit}
+                className="flex-1 rounded-lg bg-fleet-500 py-2.5 text-sm font-semibold text-white"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

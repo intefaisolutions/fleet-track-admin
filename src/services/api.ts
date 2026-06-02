@@ -47,7 +47,9 @@ api.interceptors.response.use(
           requestUrl.includes('/auth/verify-reset-otp') ||
           requestUrl.includes('/auth/reset-password') ||
           requestUrl.includes('/auth/refresh') ||
-          requestUrl.includes('/auth/refresh-token');
+          requestUrl.includes('/auth/refresh-token') ||
+          requestUrl.includes('/licenses/validate') ||
+          requestUrl.includes('/companies/register');
 
         // Show "Session expired" only for protected routes after login.
         if (token && !isAuthRoute) {
