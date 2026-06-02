@@ -221,7 +221,7 @@ export function CompanyDashboardPage() {
           }
         />
         <MetricCard
-          label="Expenses This Month"
+          label="Total Expenses (This Month)"
           value={loading ? '—' : formatInr(data?.expensesThisMonth ?? 0)}
           icon={<Banknote className="h-5 w-5" />}
           iconClass="bg-red-50 text-red-500"
@@ -339,7 +339,7 @@ export function CompanyDashboardPage() {
                   </div>
                   <div className="sm:w-48 sm:text-right">
                     <p className="mb-1.5 text-sm font-semibold text-slate-800">
-                      {owner.fleetSize} Vehicles
+                      {owner.name.split(' ')[0]}: {owner.fleetSize} vehicles
                     </p>
                     <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                       <div

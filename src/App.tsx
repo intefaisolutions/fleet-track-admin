@@ -18,6 +18,8 @@ import { CompanyDashboardPage } from './pages/company/CompanyDashboardPage';
 import { CompanyVehiclesPage } from './pages/company/CompanyVehiclesPage';
 import { CompanyUsersPage } from './pages/company/CompanyUsersPage';
 import { CompanyExpensesPage } from './pages/company/CompanyExpensesPage';
+import { CompanySubscriptionPage } from './pages/company/CompanySubscriptionPage';
+import { CompanyReportsPage } from './pages/company/CompanyReportsPage';
 import { CompanySettingsPage } from './pages/company/CompanySettingsPage';
 import { CompanyAdminsPage } from './pages/company/CompanyAdminsPage';
 import { CompanyPlaceholderPage } from './pages/company/CompanyPlaceholderPage';
@@ -59,15 +61,9 @@ function App() {
               <Route path={ROUTES.COMPANY_VEHICLES} element={<CompanyVehiclesPage />} />
               <Route path={ROUTES.COMPANY_USERS} element={<CompanyUsersPage />} />
               <Route path={ROUTES.COMPANY_EXPENSES} element={<CompanyExpensesPage />} />
-              <Route
-                path={ROUTES.COMPANY_SUBSCRIPTION}
-                element={<CompanyPlaceholderPage title="Subscription" />}
-              />
+              <Route path={ROUTES.COMPANY_SUBSCRIPTION} element={<CompanySubscriptionPage />} />
               <Route path={ROUTES.COMPANY_ADMINS} element={<CompanyAdminsPage />} />
-              <Route
-                path={ROUTES.COMPANY_REPORTS}
-                element={<CompanyPlaceholderPage title="Reports" />}
-              />
+              <Route path={ROUTES.COMPANY_REPORTS} element={<CompanyReportsPage />} />
               <Route
                 path={ROUTES.COMPANY_DRIVERS}
                 element={<CompanyPlaceholderPage title="Drivers" />}

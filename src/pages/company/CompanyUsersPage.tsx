@@ -6,21 +6,66 @@ import {
   ChevronRight,
   Download,
   Filter,
+  KeyRound,
   Headphones,
   MoreHorizontal,
+  Pencil,
   Plus,
   Search,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { ROLES, ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 import { usersService, type UserRecord } from '../../services/users.service';
 import { vehiclesService } from '../../services/vehicles.service';
+import { authService } from '../../services/auth.service';
 import { AddUserModal } from '../../components/company/AddUserModal';
 import { getApiErrorMessage } from '../../utils/validation';
 
 type Tab = 'owners' | 'drivers';
 
 const PAGE_SIZE = 10;
+
+const DUMMY_USERS: UserRecord[] = [
+  {
+    _id: 'dummy-owner-1',
+    fullName: 'Rajesh Sharma',
+    email: 'rajesh@abc.com',
+    phone: '9876500011',
+    role: ROLES.VEHICLE_OWNER,
+    status: 'ACTIVE',
+  },
+  {
+    _id: 'dummy-owner-2',
+    fullName: 'Priya Verma',
+    email: 'priya@abc.com',
+    phone: '9876500022',
+    role: ROLES.VEHICLE_OWNER,
+    status: 'ACTIVE',
+  },
+  {
+    _id: 'dummy-driver-1',
+    fullName: 'Suresh Kumar',
+    email: 'suresh@abc.com',
+    phone: '9876500033',
+    role: ROLES.DRIVER,
+    status: 'ACTIVE',
+  },
+  {
+    _id: 'dummy-driver-2',
+    fullName: 'Ramesh Yadav',
+    email: 'ramesh@abc.com',
+    phone: '9876500044',
+    role: ROLES.DRIVER,
+    status: 'SUSPENDED',
+  },
+];
+
+const DUMMY_OWNER_VEHICLE_COUNTS: Record<string, number> = {
+  'dummy-owner-1': 12,
+  'dummy-owner-2': 8,
+};
 
 function initials(name: string) {
   return name
@@ -80,12 +125,17 @@ export function CompanyUsersPage() {
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
+  const [editForm, setEditForm] = useState({ fullName: '', email: '', phone: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<UserRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
     Promise.all([usersService.list(), vehiclesService.list()])
       .then(([usersRes, vehiclesRes]) => {
-        setUsers(usersRes.data ?? []);
+        const apiUsers = usersRes.data ?? [];
         const counts: Record<string, number> = {};
         (vehiclesRes.data ?? []).forEach((v) => {
           const owner = v.ownerId;
@@ -97,11 +147,21 @@ export function CompanyUsersPage() {
                 : null;
           if (ownerId) counts[ownerId] = (counts[ownerId] ?? 0) + 1;
         });
-        setVehicleCounts(counts);
+        if (apiUsers.length === 0) {
+          setUsers(DUMMY_USERS);
+          setVehicleCounts(DUMMY_OWNER_VEHICLE_COUNTS);
+          toast.info('Showing demo users (no backend data found)');
+        } else {
+          setUsers(apiUsers);
+          setVehicleCounts(counts);
+        }
       })
-      .catch((err: unknown) =>
-        toast.error(getApiErrorMessage(err, 'Failed to load users')),
-      )
+      .catch((err: unknown) => {
+        setUsers(DUMMY_USERS);
+        setVehicleCounts(DUMMY_OWNER_VEHICLE_COUNTS);
+        toast.info('Showing demo users (backend unavailable)');
+        toast.error(getApiErrorMessage(err, 'Failed to load users'));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -151,6 +211,62 @@ export function CompanyUsersPage() {
     }
   };
 
+  const openEdit = (u: UserRecord) => {
+    setEditForm({
+      fullName: u.fullName,
+      email: u.email,
+      phone: u.phone,
+    });
+    setEditingUser(u);
+    setMenuOpenId(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editingUser) return;
+    setSavingEdit(true);
+    try {
+      await usersService.update(editingUser._id, editForm);
+      toast.success('User updated successfully');
+      setEditingUser(null);
+      load();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to update user'));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const requestDelete = (u: UserRecord) => {
+    setDeletingUser(u);
+    setMenuOpenId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingUser) return;
+    setDeleting(true);
+    try {
+      await usersService.remove(deletingUser._id);
+      toast.success('User deleted successfully');
+      setDeletingUser(null);
+      load();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Delete failed'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const resetPassword = async (u: UserRecord) => {
+    try {
+      await authService.forgotPassword(u.email);
+      toast.success(`Password reset email sent to ${u.email}`);
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to send reset email'));
+    } finally {
+      setMenuOpenId(null);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <section>
@@ -170,6 +286,26 @@ export function CompanyUsersPage() {
             monitor their activity status, and manage access permissions from a single
             interface.
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+              Create Owner
+            </span>
+            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+              Create Driver
+            </span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              Edit User
+            </span>
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+              Suspend User
+            </span>
+            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+              Delete User
+            </span>
+            <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
+              Reset Password
+            </span>
+          </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <button
               type="button"
@@ -353,10 +489,34 @@ export function CompanyUsersPage() {
                         <div className="absolute right-5 top-12 z-10 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
                           <button
                             type="button"
+                            onClick={() => openEdit(u)}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => toggleSuspend(u)}
                             className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                           >
                             {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => resetPassword(u)}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                            Reset Password
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => requestDelete(u)}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
                           </button>
                         </div>
                       )}
@@ -418,6 +578,107 @@ export function CompanyUsersPage() {
         onClose={() => setModalOpen(false)}
         onSuccess={load}
       />
+
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/50"
+            onClick={() => setEditingUser(null)}
+            aria-label="Close"
+          />
+          <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <h2 className="text-lg font-bold text-slate-900">Edit User</h2>
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 px-6 py-5">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Full Name</label>
+                <input
+                  value={editForm.fullName}
+                  onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Phone</label>
+                <input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+                />
+              </div>
+              <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveEdit}
+                  disabled={savingEdit}
+                  className="rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {savingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/50"
+            onClick={() => setDeletingUser(null)}
+            aria-label="Close"
+          />
+          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-900">Delete User?</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              This will permanently remove <span className="font-semibold">{deletingUser.fullName}</span>.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingUser(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

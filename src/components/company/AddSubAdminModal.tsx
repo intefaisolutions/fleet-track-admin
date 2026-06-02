@@ -5,9 +5,14 @@ import { companiesService } from '../../services/companies.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
 export const COMPANY_SUB_ADMIN_PERMISSIONS = [
-  { value: 'expenses:read', label: 'View Expenses' },
   { value: 'users:read', label: 'View Users' },
-  { value: 'vehicles:write', label: 'Manage Fleet' },
+  { value: 'users:write', label: 'Edit Users' },
+  { value: 'users:delete', label: 'Delete Users' },
+  { value: 'expenses:read', label: 'View Expenses' },
+  { value: 'expenses:write', label: 'Edit Expenses' },
+  { value: 'expenses:delete', label: 'Delete Expenses' },
+  { value: 'vehicles:read', label: 'View Vehicles' },
+  { value: 'vehicles:write', label: 'Edit Vehicles' },
 ] as const;
 
 export function permissionLabel(key: string) {
@@ -73,7 +78,7 @@ export function AddSubAdminModal({
       />
       <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-900">Add Sub-Admin</h2>
+          <h2 className="text-lg font-bold text-slate-900">Create Sub-Admin</h2>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X className="h-5 w-5" />
           </button>
@@ -85,7 +90,7 @@ export function AddSubAdminModal({
             </label>
             <input
               required
-              placeholder="John Dawson"
+              placeholder="e.g. Payal Sharma"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
@@ -98,14 +103,17 @@ export function AddSubAdminModal({
             <input
               type="email"
               required
-              placeholder="john@company.com"
+              placeholder="e.g. payal@abc.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
           </div>
           <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">Permissions</p>
+            <p className="mb-2 text-sm font-medium text-slate-700">Set Permissions</p>
+            <p className="mb-2 text-xs text-slate-500">
+              Choose what this sub-admin can view, edit, or delete.
+            </p>
             <div className="flex flex-wrap gap-2">
               {COMPANY_SUB_ADMIN_PERMISSIONS.map((p) => (
                 <button

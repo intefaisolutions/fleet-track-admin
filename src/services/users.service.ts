@@ -25,6 +25,10 @@ export const usersService = {
   list: (status?: string) =>
     getData<UserRecord[]>(status ? `/users?status=${status}` : '/users'),
   create: (data: CreateUserPayload) => postData('/users', data),
+  update: (
+    id: string,
+    data: Partial<Pick<UserRecord, 'fullName' | 'email' | 'phone'>>,
+  ) => patchData(`/users/${id}`, data),
   updateStatus: (id: string, status: string) =>
     patchData(`/users/${id}/status`, { status }),
   remove: (id: string) => deleteData(`/users/${id}`),

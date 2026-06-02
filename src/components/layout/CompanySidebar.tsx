@@ -7,7 +7,6 @@ import {
   CreditCard,
   Shield,
   BarChart3,
-  CircleUser,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -22,7 +21,6 @@ const navItems = [
   { to: ROUTES.COMPANY_SUBSCRIPTION, label: 'Subscription', icon: CreditCard },
   { to: ROUTES.COMPANY_ADMINS, label: 'Admins', icon: Shield },
   { to: ROUTES.COMPANY_REPORTS, label: 'Reports', icon: BarChart3 },
-  { to: ROUTES.COMPANY_DRIVERS, label: 'Drivers', icon: CircleUser },
   { to: ROUTES.COMPANY_SETTINGS, label: 'Settings', icon: Settings },
 ];
 

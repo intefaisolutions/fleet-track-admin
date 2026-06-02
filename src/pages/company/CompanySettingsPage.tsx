@@ -1,34 +1,23 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 import {
-  ArrowRight,
-  Check,
-  UserCircle,
-  X,
+  Building2,
+  KeyRound,
+  Lock,
+  Upload,
+  UserRound,
 } from 'lucide-react';
-import { ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/auth.service';
 import {
   companiesService,
   type CompanyDetail,
 } from '../../services/companies.service';
+import { driversService, type DriverRecord } from '../../services/drivers.service';
+import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
 import { subscriptionsService } from '../../services/subscriptions.service';
 import { platformService } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
-
-const PLAN_LABELS: Record<string, string> = {
-  FREE: 'Free Plan',
-  BASIC: 'Basic Plan',
-  STANDARD: 'Standard Plan',
-  PREMIUM: 'Premium Plan',
-  ENTERPRISE: 'Enterprise Plan',
-};
-
-function planLabel(type?: string) {
-  return PLAN_LABELS[type ?? 'FREE'] ?? 'Free Plan';
-}
 
 function formatExpiry(iso?: string) {
   if (!iso) return '—';
@@ -39,33 +28,49 @@ function formatExpiry(iso?: string) {
   });
 }
 
-function planFeatures(planType: string, vehicleLimit: number) {
-  const premiumPlus = ['PREMIUM', 'ENTERPRISE'].includes(planType);
-  const notFree = planType !== 'FREE';
-  return [
-    { label: `Up to ${vehicleLimit} vehicles`, included: true },
-    { label: 'Standard analytics', included: notFree },
-    { label: 'Real-time tracking', included: premiumPlus },
-  ];
-}
+const DUMMY_DRIVERS: DriverRecord[] = [
+  { _id: 'dummy-driver-1', fullName: 'Suresh Kumar', phone: '9876543210', status: 'ACTIVE' },
+  { _id: 'dummy-driver-2', fullName: 'Ramesh Yadav', phone: '9988776655', status: 'ACTIVE' },
+];
+
+const DUMMY_DRIVER_VEHICLES: VehicleRecord[] = [
+  {
+    _id: 'dummy-vehicle-1',
+    registrationNumber: 'HR26AB1234',
+    make: 'Tata',
+    modelName: 'Ace',
+    status: 'ACTIVE',
+    assignedDriverId: { _id: 'dummy-driver-1', fullName: 'Suresh Kumar', phone: '9876543210' },
+  },
+  {
+    _id: 'dummy-vehicle-2',
+    registrationNumber: 'DL01CD5678',
+    make: 'Mahindra',
+    modelName: 'Bolero Pickup',
+    status: 'ACTIVE',
+    assignedDriverId: { _id: 'dummy-driver-2', fullName: 'Ramesh Yadav', phone: '9988776655' },
+  },
+];
 
 export function CompanySettingsPage() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const [company, setCompany] = useState<CompanyDetail | null>(null);
-  const [profile, setProfile] = useState({
-    fullName: '',
-    email: '',
+  const [companyForm, setCompanyForm] = useState({
+    name: '',
     phone: '',
     address: '',
+    city: '',
+    country: '',
+    logoUrl: '',
   });
+  const [drivers, setDrivers] = useState<DriverRecord[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [passwords, setPasswords] = useState({
     oldPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
-  const [planType, setPlanType] = useState('FREE');
-  const [vehicleLimit, setVehicleLimit] = useState(5);
-  const [monthlyPrice, setMonthlyPrice] = useState(0);
+  const [licenseKey, setLicenseKey] = useState('—');
   const [periodEnd, setPeriodEnd] = useState<string>();
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -73,36 +78,33 @@ export function CompanySettingsPage() {
   const load = useCallback(async () => {
     if (!user?.companyId) return;
     try {
-      const [companyRes, subRes, plansRes] = await Promise.all([
+      const [companyRes, subRes, driversRes, vehiclesRes] = await Promise.all([
         companiesService.getById(user.companyId),
         subscriptionsService.list(),
-        platformService.getPlans(),
+        driversService.list(),
+        vehiclesService.list(),
       ]);
       const c = companyRes.data ?? null;
       setCompany(c);
+      const apiDrivers = driversRes.data ?? [];
+      const apiVehicles = vehiclesRes.data ?? [];
+      setDrivers(apiDrivers.length === 0 ? DUMMY_DRIVERS : apiDrivers);
+      setVehicles(apiVehicles.length === 0 ? DUMMY_DRIVER_VEHICLES : apiVehicles);
       if (c) {
-        const addr = [c.address, c.city, c.country].filter(Boolean).join(', ');
-        setProfile({
-          fullName: user.fullName,
-          email: user.email,
+        setCompanyForm({
+          name: c.name ?? '',
           phone: user.phone,
-          address: addr,
+          address: c.address ?? '',
+          city: c.city ?? '',
+          country: c.country ?? '',
+          logoUrl: c.logoUrl ?? '',
         });
-        setPlanType(c.planType ?? 'FREE');
-        setVehicleLimit(c.vehicleLimit ?? 5);
+        setLicenseKey(c.licenseKey ?? '—');
       }
       const subs = subRes.data ?? [];
       if (subs[0]) {
-        setPlanType(subs[0].planType);
-        setVehicleLimit(subs[0].vehicleLimit);
         setPeriodEnd(subs[0].currentPeriodEnd);
       }
-      const plans = (plansRes.data ?? []) as {
-        planType: string;
-        monthlyPriceInr: number;
-      }[];
-      const match = plans.find((p) => p.planType === (subs[0]?.planType ?? c?.planType));
-      if (match) setMonthlyPrice(match.monthlyPriceInr);
     } catch {
       /* ignore */
     }
@@ -117,20 +119,15 @@ export function CompanySettingsPage() {
     if (!user?.companyId) return;
     setSavingProfile(true);
     try {
-      const res = await authService.updateProfile({
-        fullName: profile.fullName.trim(),
-        phone: profile.phone.trim(),
-      });
-      if (res.data && user) {
-        setUser({ ...user, ...res.data });
-      }
-      const addressParts = profile.address.split(',').map((s) => s.trim());
       await companiesService.update(user.companyId, {
-        address: addressParts[0] || undefined,
-        city: addressParts[1] || undefined,
-        country: addressParts[2] || undefined,
+        name: companyForm.name.trim(),
+        phone: companyForm.phone.trim(),
+        address: companyForm.address.trim() || undefined,
+        city: companyForm.city.trim() || undefined,
+        country: companyForm.country.trim() || undefined,
+        logoUrl: companyForm.logoUrl || undefined,
       });
-      toast.success('Profile saved');
+      toast.success('Company profile updated');
       load();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Save failed'));
@@ -161,56 +158,81 @@ export function CompanySettingsPage() {
     }
   };
 
-  const features = planFeatures(planType, vehicleLimit);
+  const driverVehicleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    vehicles.forEach((v) => {
+      const assigned = v.assignedDriverId;
+      if (assigned && typeof assigned === 'object') {
+        const keyById = assigned._id;
+        if (keyById) map.set(keyById, v.registrationNumber);
+        if (assigned.fullName) map.set(assigned.fullName.toLowerCase(), v.registrationNumber);
+      }
+    });
+    return map;
+  }, [vehicles]);
+
+  const onLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+      if (dataUrl) {
+        setCompanyForm((prev) => ({ ...prev, logoUrl: dataUrl }));
+        toast.success('Logo selected');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Settings &amp; Profile</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Manage your account preferences and fleet settings.
+          Manage company profile, admin account settings, license details, and drivers.
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left column — profile + security */}
+        {/* Left column — company profile + password */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Personal Profile */}
           <form
             onSubmit={handleSaveProfile}
             className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8"
           >
-            <h2 className="text-lg font-bold text-slate-900">Personal Profile</h2>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+              <Building2 className="h-5 w-5 text-fleet-600" />
+              Update Company Profile
+            </h2>
             <div className="mt-6 flex flex-col gap-8 sm:flex-row">
               <div className="flex flex-col items-center gap-2">
-                {user?.profileImage ? (
+                {companyForm.logoUrl ? (
                   <img
-                    src={user.profileImage}
-                    alt={profile.fullName}
+                    src={companyForm.logoUrl}
+                    alt="Company logo"
                     className="h-24 w-24 rounded-full object-cover"
                   />
                 ) : (
                   <div className="flex h-24 w-24 items-center justify-center rounded-full bg-fleet-100">
-                    <UserCircle className="h-16 w-16 text-fleet-500" />
+                    <Building2 className="h-14 w-14 text-fleet-500" />
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => toast.info('Photo upload — coming soon')}
-                  className="text-sm font-medium text-fleet-600 hover:underline"
-                >
-                  Change Photo
-                </button>
+                <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  <Upload className="h-4 w-4" />
+                  Upload Company Logo
+                  <input type="file" accept="image/*" className="hidden" onChange={onLogoUpload} />
+                </label>
               </div>
 
               <div className="grid flex-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                    Full Name
+                    Company Name
                   </label>
                   <input
-                    value={profile.fullName}
-                    onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
+                    value={companyForm.name}
+                    onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
                   />
                 </div>
@@ -219,8 +241,8 @@ export function CompanySettingsPage() {
                     Phone Number
                   </label>
                   <input
-                    value={profile.phone}
-                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                    value={companyForm.phone}
+                    onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
                   />
                 </div>
@@ -230,19 +252,34 @@ export function CompanySettingsPage() {
                   </label>
                   <input
                     readOnly
-                    value={profile.email}
+                    value={company?.email ?? '—'}
                     className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
                   />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                    Business Address
+                    Address
                   </label>
-                  <textarea
-                    rows={3}
-                    value={profile.address}
-                    onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                    placeholder="Street, city, country"
+                  <input
+                    value={companyForm.address}
+                    onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
+                    placeholder="Street address"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">City</label>
+                  <input
+                    value={companyForm.city}
+                    onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Country</label>
+                  <input
+                    value={companyForm.country}
+                    onChange={(e) => setCompanyForm({ ...companyForm, country: e.target.value })}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
                   />
                 </div>
@@ -264,7 +301,10 @@ export function CompanySettingsPage() {
             onSubmit={handleUpdatePassword}
             className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8"
           >
-            <h2 className="text-lg font-bold text-slate-900">Security</h2>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+              <Lock className="h-5 w-5 text-fleet-600" />
+              Change Password
+            </h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -321,77 +361,69 @@ export function CompanySettingsPage() {
             </div>
           </form>
 
-          {/* Company Information */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-            <h2 className="text-lg font-bold text-slate-900">Company Information</h2>
-            <div className="mt-4 space-y-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Company Name
-                </p>
-                <div className="mt-1 flex items-center gap-2">
-                  <p className="font-semibold text-slate-900">{company?.name ?? '—'}</p>
-                  {company?.status === 'ACTIVE' && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                      VERIFIED
-                    </span>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+              <UserRound className="h-5 w-5 text-fleet-600" />
+              View Drivers Page
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              List of all drivers with assigned vehicles.
+            </p>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
+                    <th className="py-2">Driver Name</th>
+                    <th className="py-2">Phone</th>
+                    <th className="py-2">Assigned Vehicle</th>
+                    <th className="py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drivers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-slate-400">
+                        No drivers found.
+                      </td>
+                    </tr>
+                  ) : (
+                    drivers.map((d) => {
+                      const vehicleById = d.userId ? driverVehicleMap.get(d.userId) : null;
+                      const vehicleByName = driverVehicleMap.get(d.fullName.toLowerCase());
+                      return (
+                        <tr key={d._id} className="border-b border-slate-50 last:border-0">
+                          <td className="py-3 font-medium text-slate-900">{d.fullName}</td>
+                          <td className="py-3 text-slate-700">{d.phone}</td>
+                          <td className="py-3 text-slate-700">{vehicleById || vehicleByName || '—'}</td>
+                          <td className="py-3 text-slate-700">{d.status}</td>
+                        </tr>
+                      );
+                    })
                   )}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Admin Contact
-                </p>
-                <p className="mt-1 text-slate-700">{company?.email ?? '—'}</p>
-              </div>
-              <p className="text-xs text-slate-400">
-                Contact platform admin to update company name or verification status.
-              </p>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
-        {/* Right — Plan & Subscription */}
+        {/* Right — license details */}
         <div className="lg:col-span-1">
-          <div className="sticky top-24 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 p-6 text-white shadow-lg">
-            <p className="text-xs font-semibold uppercase tracking-wider text-white/60">
-              Plan &amp; Subscription
+          <div className="sticky top-24 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <KeyRound className="h-4 w-4 text-fleet-600" />
+              View License Details
             </p>
-            <div className="mt-4 flex items-baseline justify-between">
-              <h3 className="text-xl font-bold">{planLabel(planType)}</h3>
-              <span className="text-lg font-semibold text-fleet-300">
-                {monthlyPrice === 0 ? '₹0' : `₹${monthlyPrice.toLocaleString('en-IN')}`}
-                <span className="text-sm font-normal text-white/60">/mo</span>
-              </span>
+            <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs text-slate-500">License Key</p>
+              <p className="mt-1 font-semibold text-slate-900">{licenseKey}</p>
             </div>
-
-            <div className="mt-4 rounded-xl bg-white/10 px-4 py-3">
-              <p className="text-xs text-white/60">Expiry Date</p>
-              <p className="text-lg font-bold">{formatExpiry(periodEnd)}</p>
+            <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-xs text-slate-500">Valid Until</p>
+              <p className="mt-1 font-semibold text-slate-900">{formatExpiry(periodEnd)}</p>
             </div>
-
-            <ul className="mt-6 space-y-3">
-              {features.map((f) => (
-                <li key={f.label} className="flex items-center gap-2 text-sm">
-                  {f.included ? (
-                    <Check className="h-4 w-4 shrink-0 text-emerald-400" />
-                  ) : (
-                    <X className="h-4 w-4 shrink-0 text-white/30" />
-                  )}
-                  <span className={f.included ? 'text-white/90' : 'text-white/40'}>
-                    {f.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
-
-            <Link
-              to={ROUTES.COMPANY_SUBSCRIPTION}
-              className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-fleet-300 hover:text-fleet-200"
-            >
-              Upgrade Plan
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            <p className="mt-4 text-xs text-slate-500">
+              Logo appears on exported reports and app header.
+            </p>
           </div>
         </div>
       </div>

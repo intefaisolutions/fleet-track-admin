@@ -7,6 +7,7 @@ export interface ExpenseRecord {
     registrationNumber?: string;
     make?: string;
     modelName?: string;
+    ownerId?: { _id: string; fullName?: string } | string;
   } | string;
   recordedBy?: { _id: string; fullName?: string; role?: string } | string;
   category: string;

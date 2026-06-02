@@ -1,16 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
   ChevronLeft,
   ChevronRight,
-  FileSpreadsheet,
-  FileText,
-  Lightbulb,
+  Download,
   Paperclip,
-  Pencil,
-  Plus,
-  Trash2,
-  X,
 } from 'lucide-react';
 import {
   expensesService,
@@ -20,6 +14,68 @@ import { vehiclesService, type VehicleRecord } from '../../services/vehicles.ser
 import { getApiErrorMessage } from '../../utils/validation';
 
 const PAGE_SIZE = 10;
+
+const DUMMY_VEHICLES: VehicleRecord[] = [
+  {
+    _id: 'dummy-vehicle-1',
+    registrationNumber: 'HR26AB1234',
+    make: 'Tata',
+    modelName: 'Ace',
+    status: 'ACTIVE',
+  },
+  {
+    _id: 'dummy-vehicle-2',
+    registrationNumber: 'DL01CD5678',
+    make: 'Mahindra',
+    modelName: 'Bolero Pickup',
+    status: 'MAINTENANCE',
+  },
+];
+
+const DUMMY_EXPENSES: ExpenseRecord[] = [
+  {
+    _id: 'dummy-exp-1',
+    vehicleId: {
+      _id: 'dummy-vehicle-1',
+      registrationNumber: 'HR26AB1234',
+      make: 'Tata',
+      modelName: 'Ace',
+    },
+    category: 'FUEL',
+    amount: 18500,
+    description: 'Fuel refill - Delhi route',
+    expenseDate: new Date().toISOString(),
+    recordedBy: { _id: 'dummy-owner-1', fullName: 'Rajesh Sharma', role: 'VEHICLE_OWNER' },
+  },
+  {
+    _id: 'dummy-exp-2',
+    vehicleId: {
+      _id: 'dummy-vehicle-2',
+      registrationNumber: 'DL01CD5678',
+      make: 'Mahindra',
+      modelName: 'Bolero Pickup',
+    },
+    category: 'SERVICE',
+    amount: 26500,
+    description: 'Brake service and oil change',
+    expenseDate: new Date().toISOString(),
+    recordedBy: { _id: 'dummy-owner-2', fullName: 'Priya Verma', role: 'VEHICLE_OWNER' },
+  },
+  {
+    _id: 'dummy-exp-3',
+    vehicleId: {
+      _id: 'dummy-vehicle-1',
+      registrationNumber: 'HR26AB1234',
+      make: 'Tata',
+      modelName: 'Ace',
+    },
+    category: 'TOLL',
+    amount: 6200,
+    description: 'Highway toll slips',
+    expenseDate: new Date().toISOString(),
+    recordedBy: { _id: 'dummy-driver-1', fullName: 'Suresh Kumar', role: 'DRIVER' },
+  },
+];
 
 const CATEGORIES = [
   'FUEL',
@@ -88,125 +144,6 @@ function recorderName(r?: ExpenseRecord['recordedBy']): string {
   return r.role === 'COMPANY_ADMIN' ? 'Admin' : 'User';
 }
 
-function recorderInitial(r?: ExpenseRecord['recordedBy']): string {
-  const name = typeof r === 'object' && r?.fullName ? r.fullName : 'Admin';
-  return (name.trim()[0] ?? 'A').toUpperCase();
-}
-
-function AddExpenseModal({
-  open,
-  vehicles,
-  onClose,
-  onSuccess,
-}: {
-  open: boolean;
-  vehicles: VehicleRecord[];
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [form, setForm] = useState({
-    vehicleId: '',
-    category: 'FUEL',
-    amount: '',
-    description: '',
-    expenseDate: new Date().toISOString().slice(0, 10),
-  });
-  const [loading, setLoading] = useState(false);
-
-  if (!open) return null;
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await expensesService.create({
-        vehicleId: form.vehicleId,
-        category: form.category,
-        amount: Number(form.amount),
-        description: form.description.trim() || undefined,
-        expenseDate: new Date(form.expenseDate).toISOString(),
-      });
-      toast.success('Expense added');
-      onSuccess();
-      onClose();
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Failed to add expense'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-slate-900/50" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-bold">Add Expense</h2>
-          <button type="button" onClick={onClose}>
-            <X className="h-5 w-5 text-slate-400" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
-          <select
-            required
-            value={form.vehicleId}
-            onChange={(e) => setForm({ ...form, vehicleId: e.target.value })}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-          >
-            <option value="">Select vehicle</option>
-            {vehicles.map((v) => (
-              <option key={v._id} value={v._id}>
-                {v.registrationNumber} — {v.make} {v.modelName}
-              </option>
-            ))}
-          </select>
-          <select
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {categoryLabel(c)}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            required
-            min={0}
-            placeholder="Amount (₹)"
-            value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-          />
-          <input
-            type="date"
-            required
-            value={form.expenseDate}
-            onChange={(e) => setForm({ ...form, expenseDate: e.target.value })}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-          />
-          <textarea
-            placeholder="Description"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-            rows={2}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-fleet-500 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            {loading ? 'Saving...' : 'Save Expense'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 function exportCsv(rows: ExpenseRecord[]) {
   const header = ['Date', 'Vehicle', 'Category', 'Description', 'Amount', 'Recorded By'];
   const lines = rows.map((r) => {
@@ -228,7 +165,7 @@ function exportCsv(rows: ExpenseRecord[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'expenses_export.csv';
+  a.download = 'company_expenses.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -242,18 +179,28 @@ export function CompanyExpensesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
-  const [modalOpen, setModalOpen] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
     Promise.all([expensesService.list(), vehiclesService.list()])
       .then(([expRes, vehRes]) => {
-        setExpenses(expRes.data ?? []);
-        setVehicles(vehRes.data ?? []);
+        const apiExpenses = expRes.data ?? [];
+        const apiVehicles = vehRes.data ?? [];
+        if (apiExpenses.length === 0) {
+          setExpenses(DUMMY_EXPENSES);
+          setVehicles(apiVehicles.length === 0 ? DUMMY_VEHICLES : apiVehicles);
+          toast.info('Showing demo expenses (no backend data found)');
+        } else {
+          setExpenses(apiExpenses);
+          setVehicles(apiVehicles);
+        }
       })
-      .catch((err: unknown) =>
-        toast.error(getApiErrorMessage(err, 'Failed to load expenses')),
-      )
+      .catch((err: unknown) => {
+        setExpenses(DUMMY_EXPENSES);
+        setVehicles(DUMMY_VEHICLES);
+        toast.info('Showing demo expenses (backend unavailable)');
+        toast.error(getApiErrorMessage(err, 'Failed to load expenses'));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -276,18 +223,22 @@ export function CompanyExpensesPage() {
     });
   }, [expenses, vehicleFilter, categoryFilter, dateFrom, dateTo]);
 
-  const totalAmount = useMemo(
+  const filteredTotalAmount = useMemo(
     () => filtered.reduce((s, e) => s + Number(e.amount), 0),
     [filtered],
   );
 
-  const fuelShare = useMemo(() => {
-    if (filtered.length === 0) return 0;
-    const fuel = filtered
-      .filter((e) => e.category === 'FUEL')
-      .reduce((s, e) => s + Number(e.amount), 0);
-    return Math.round((fuel / totalAmount) * 100) || 0;
-  }, [filtered, totalAmount]);
+  const companyThisMonthTotal = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    return expenses
+      .filter((e) => {
+        const d = new Date(e.expenseDate ?? e.createdAt ?? '');
+        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+      })
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+  }, [expenses]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -309,38 +260,25 @@ export function CompanyExpensesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">My Expenses</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Company Expenses</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            View-only page. Company Admin can review all expense records across the company.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => toast.info('PDF export — coming soon')}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <FileText className="h-4 w-4" />
-            Export PDF
-          </button>
-          <button
-            type="button"
             onClick={() => exportCsv(filtered)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Export Excel
-          </button>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fleet-600"
           >
-            <Plus className="h-4 w-4" />
-            Add Expense
+            <Download className="h-4 w-4" />
+            Export Report (CSV)
           </button>
         </div>
       </div>
 
-      {/* Filters + total card */}
       <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
         <div className="grid gap-3 sm:grid-cols-3">
           <select
@@ -389,22 +327,24 @@ export function CompanyExpensesPage() {
           className="rounded-xl px-6 py-4 text-white shadow-sm"
           style={{ background: 'linear-gradient(135deg, #00AEEF, #0078b3)' }}
         >
-          <p className="text-xs font-medium text-white/80">Total Expenses (Selected Period)</p>
+          <p className="text-xs font-medium text-white/80">Company Total (This Month)</p>
           <div className="mt-1 flex items-end gap-3">
-            <p className="text-2xl font-bold">{formatInr(totalAmount)}</p>
+            <p className="text-2xl font-bold">{formatInr(companyThisMonthTotal)}</p>
             {filtered.length > 0 && (
               <span className="mb-1 rounded-full bg-emerald-400/20 px-2 py-0.5 text-xs font-semibold text-emerald-100">
                 {filtered.length} entries
               </span>
             )}
           </div>
+          <p className="mt-1 text-xs text-white/80">
+            Filtered view total: {formatInr(filteredTotalAmount)}
+          </p>
         </div>
       </div>
 
-      {/* Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-sm">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-5 py-3">Date</th>
@@ -414,19 +354,18 @@ export function CompanyExpensesPage() {
                 <th className="px-5 py-3">Amount</th>
                 <th className="px-5 py-3">Recorded By</th>
                 <th className="px-5 py-3">Receipt</th>
-                <th className="px-5 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
                     Loading expenses...
                   </td>
                 </tr>
               ) : pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
                     No expenses yet. Vehicle owners and drivers record expenses from their
                     panels.
                   </td>
@@ -461,14 +400,7 @@ export function CompanyExpensesPage() {
                       <td className="px-5 py-4 font-semibold text-slate-900">
                         {formatInr(Number(e.amount))}
                       </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700">
-                            {recorderInitial(e.recordedBy)}
-                          </span>
-                          <span className="text-slate-700">{recorderName(e.recordedBy)}</span>
-                        </div>
-                      </td>
+                      <td className="px-5 py-4 text-slate-700">{recorderName(e.recordedBy)}</td>
                       <td className="px-5 py-4">
                         {e.receiptUrl ? (
                           <a
@@ -482,24 +414,6 @@ export function CompanyExpensesPage() {
                         ) : (
                           <Paperclip className="h-4 w-4 text-slate-300" />
                         )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => toast.info('Edit expense — coming soon')}
-                            className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-fleet-600"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(e._id)}
-                            className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   );
@@ -547,43 +461,6 @@ export function CompanyExpensesPage() {
           </div>
         </div>
       </div>
-
-      {/* Bottom cards */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
-          <h3 className="font-semibold text-slate-900">Expense Analysis</h3>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            {totalAmount > 0
-              ? `Fuel accounts for ${fuelShare}% of your selected expenditure. Explore optimization reports to reduce costs.`
-              : 'Add expenses to see category breakdown and optimization insights.'}
-          </p>
-          <button
-            type="button"
-            className="mt-4 text-sm font-semibold text-fleet-600 hover:underline"
-          >
-            View Deep Insights
-          </button>
-        </div>
-        <div className="rounded-xl border border-sky-100 bg-sky-50 p-6">
-          <div className="flex gap-3">
-            <Lightbulb className="h-5 w-5 shrink-0 text-amber-500" />
-            <div>
-              <h3 className="font-semibold text-slate-900">Did you know?</h3>
-              <p className="mt-2 text-sm text-slate-600">
-                Scheduled maintenance reminders appear when vehicles have service dates on
-                record. Keep odometer and service logs updated in the Vehicles module.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <AddExpenseModal
-        open={modalOpen}
-        vehicles={vehicles}
-        onClose={() => setModalOpen(false)}
-        onSuccess={load}
-      />
     </div>
   );
 }

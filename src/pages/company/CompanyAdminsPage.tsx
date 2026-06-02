@@ -155,11 +155,14 @@ export function CompanyAdminsPage() {
               FleetTrack Administration
             </p>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              Company Admins
+              Admins (Sub-Admins)
             </h1>
             <p className="mt-1 max-w-xl text-sm text-slate-500">
-              Manage administrative access and permissions for your FleetTrack
-              ecosystem.
+              Add and manage company sub-admins with limited permissions to help
+              in daily operations.
+            </p>
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              Example: Can view expenses, but cannot delete users.
             </p>
           </div>
         </div>
@@ -189,6 +192,9 @@ export function CompanyAdminsPage() {
       </section>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-slate-50/40 px-5 py-3 text-sm text-slate-600">
+          View All Admins: {admins.length} admin{admins.length === 1 ? '' : 's'} managing company
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>

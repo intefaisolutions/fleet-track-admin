@@ -18,6 +18,9 @@ export interface CompanyDetail {
   address?: string;
   city?: string;
   country?: string;
+  logoUrl?: string;
+  licenseKey?: string;
+  licenseValidUntil?: string;
   status?: string;
   planType?: string;
   vehicleLimit?: number;
