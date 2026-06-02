@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   Eye,
@@ -17,6 +17,7 @@ import {
   subscriptionsService,
   type SubscriptionRecord,
 } from '../../services/subscriptions.service';
+import { ROUTES } from '../../config/constants';
 import { OwnerVehicleFormDrawer } from '../../components/owner/OwnerVehicleFormDrawer';
 import { OwnerVehicleDetailModal } from '../../components/owner/OwnerVehicleDetailModal';
 import { getApiErrorMessage } from '../../utils/validation';
@@ -113,6 +114,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function OwnerVehiclesPage() {
+  const navigate = useNavigate();
   const { search = '' } = useOutletContext<{ search?: string }>();
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionRecord | null>(null);
@@ -260,6 +262,15 @@ export function OwnerVehiclesPage() {
             {subscription?.planType ?? 'Plan'} subscription
             {demoMode ? ' (demo data)' : ''}
           </p>
+          {atLimit && !demoMode && (
+            <button
+              type="button"
+              onClick={() => navigate(ROUTES.OWNER_UPGRADE)}
+              className="mt-2 inline-flex rounded-md bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700"
+            >
+              Upgrade Plan
+            </button>
+          )}
         </div>
       </div>
 

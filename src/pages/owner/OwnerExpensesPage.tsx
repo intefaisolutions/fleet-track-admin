@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {  ChevronLeft,
   ChevronRight,
@@ -12,6 +12,7 @@ import {  ChevronLeft,
 } from 'lucide-react';
 import { expensesService, type CreateExpensePayload, type ExpenseRecord } from '../../services/expenses.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
+import { ROUTES } from '../../config/constants';
 import { getApiErrorMessage } from '../../utils/validation';
 
 const PAGE_SIZE = 10;
@@ -222,6 +223,7 @@ function ExpenseFormModal({
 }
 
 export function OwnerExpensesPage() {
+  const navigate = useNavigate();
   const { search = '' } = useOutletContext<{ search?: string }>();
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
@@ -361,7 +363,7 @@ export function OwnerExpensesPage() {
           <button type="button" onClick={() => exportCsv(filtered)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Download className="h-4 w-4" /> Export CSV
           </button>
-          <button type="button" onClick={() => { setEditExpense(null); setOpen(true); }} className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fleet-600">
+          <button type="button" onClick={() => navigate(ROUTES.OWNER_ADD_EXPENSE)} className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fleet-600">
             <Plus className="h-4 w-4" /> Add Expense
           </button>
         </div>
@@ -438,6 +440,7 @@ export function OwnerExpensesPage() {
     </div>
   );
 }
+
 
 
 

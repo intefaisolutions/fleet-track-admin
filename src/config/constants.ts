@@ -38,6 +38,8 @@ export const ROUTES = {
   OWNER_DRIVERS: '/owner/drivers',
   OWNER_EXPENSES: '/owner/expenses',
   OWNER_ADD_EXPENSE: '/owner/expenses/add',
+  OWNER_REPORTS: '/owner/reports',
+  OWNER_SETTINGS: '/owner/settings',
   OWNER_UPGRADE: '/owner/upgrade',
   // Driver
   DRIVER_DASHBOARD: '/driver/dashboard',

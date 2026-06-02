@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Car, LayoutDashboard, Receipt, Users } from 'lucide-react';
+import { BarChart3, Car, CreditCard, LayoutDashboard, Receipt, Settings, Users } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
 
 const links = [
@@ -7,6 +7,9 @@ const links = [
   { to: ROUTES.OWNER_VEHICLES, label: 'My Vehicles', icon: Car },
   { to: ROUTES.OWNER_DRIVERS, label: 'Driver Management', icon: Users },
   { to: ROUTES.OWNER_EXPENSES, label: 'Expenses', icon: Receipt },
+  { to: ROUTES.OWNER_REPORTS, label: 'Reports', icon: BarChart3 },
+  { to: ROUTES.OWNER_SETTINGS, label: 'Settings', icon: Settings },
+  { to: ROUTES.OWNER_UPGRADE, label: 'Upgrade Plan', icon: CreditCard },
 ];
 
 export function OwnerSidebar() {

@@ -28,6 +28,10 @@ import { OwnerDashboardPage } from './pages/owner/OwnerDashboardPage';
 import { OwnerVehiclesPage } from './pages/owner/OwnerVehiclesPage';
 import { OwnerDriversPage } from './pages/owner/OwnerDriversPage';
 import { OwnerExpensesPage } from './pages/owner/OwnerExpensesPage';
+import { OwnerAddExpensePage } from './pages/owner/OwnerAddExpensePage';
+import { OwnerReportsPage } from './pages/owner/OwnerReportsPage';
+import { OwnerSettingsPage } from './pages/owner/OwnerSettingsPage';
+import { OwnerUpgradePlanPage } from './pages/owner/OwnerUpgradePlanPage';
 import { OwnerLayout } from './components/layout/OwnerLayout';
 import { DriverDashboardPage } from './pages/driver/DriverDashboardPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
@@ -77,6 +81,10 @@ function App() {
               <Route path={ROUTES.OWNER_VEHICLES} element={<OwnerVehiclesPage />} />
               <Route path={ROUTES.OWNER_DRIVERS} element={<OwnerDriversPage />} />
               <Route path={ROUTES.OWNER_EXPENSES} element={<OwnerExpensesPage />} />
+              <Route path={ROUTES.OWNER_ADD_EXPENSE} element={<OwnerAddExpensePage />} />
+              <Route path={ROUTES.OWNER_REPORTS} element={<OwnerReportsPage />} />
+              <Route path={ROUTES.OWNER_SETTINGS} element={<OwnerSettingsPage />} />
+              <Route path={ROUTES.OWNER_UPGRADE} element={<OwnerUpgradePlanPage />} />
             </Route>
           </Route>
 
@@ -94,5 +102,6 @@ function App() {
 }
 
 export default App;
+
 
 
