@@ -206,8 +206,8 @@ export function OwnerSettingsPage() {
           <div className="space-y-1 text-sm">
             <p className="font-semibold text-slate-900">{company?.name ?? 'ABC Transport Pvt Ltd'}</p>
             <p className="text-slate-600">{company?.email ?? 'company@fleettrack.com'}</p>
-            <p className="text-slate-600">{company?.phone ?? '—'}</p>
-            <p className="text-slate-500">Company ID: {user?.companyId ?? '—'}</p>
+            <p className="text-slate-600">{company?.phone ?? '-'}</p>
+            <p className="text-slate-500">Company ID: {user?.companyId ?? '-'}</p>
           </div>
         </div>
 

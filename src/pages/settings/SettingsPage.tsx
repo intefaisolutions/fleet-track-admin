@@ -18,7 +18,7 @@ import { getApiErrorMessage } from '../../utils/validation';
 interface SupportAdmin {
   name: string;
   email: string;
-  phone: string;
+  phone?: string;
   permissions: string[];
   status?: string;
   createdAt?: string;

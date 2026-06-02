@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import {  ChevronLeft,
+import {
+  ChevronLeft,
   ChevronRight,
   Download,
   Paperclip,
@@ -47,9 +48,9 @@ function formatInr(n: number) {
 }
 
 function formatDate(iso?: string) {
-  if (!iso) return 'ù';
+  if (!iso) return '-';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 'ù';
+  if (Number.isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -60,8 +61,8 @@ function vehicleId(v?: ExpenseRecord['vehicleId']): string {
 }
 
 function vehicleReg(v?: ExpenseRecord['vehicleId']): string {
-  if (!v || typeof v === 'string') return 'ù';
-  return v.registrationNumber ?? 'ù';
+  if (!v || typeof v === 'string') return '-';
+  return v.registrationNumber ?? '-';
 }
 
 function exportCsv(rows: ExpenseRecord[]) {
@@ -343,7 +344,7 @@ export function OwnerExpensesPage() {
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${CATEGORY_STYLES[e.category] ?? CATEGORY_STYLES.OTHER}`}>{categoryLabel(e.category)}</span>
                   </td>
-                  <td className="max-w-[220px] truncate px-4 py-3 text-slate-600">{e.description ?? 'ù'}</td>
+                  <td className="max-w-[220px] truncate px-4 py-3 text-slate-600">{e.description ?? '-'}</td>
                   <td className="px-4 py-3 font-semibold text-slate-900">{formatInr(Number(e.amount))}</td>
                   <td className="px-4 py-3">{e.receiptUrl ? <a href={e.receiptUrl} target="_blank" rel="noreferrer" className="text-fleet-600"><Paperclip className="h-4 w-4" /></a> : <Paperclip className="h-4 w-4 text-slate-300" />}</td>
                   <td className="px-4 py-3">
@@ -371,7 +372,3 @@ export function OwnerExpensesPage() {
     </div>
   );
 }
-
-
-
-

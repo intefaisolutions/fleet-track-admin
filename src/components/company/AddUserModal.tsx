@@ -28,6 +28,8 @@ const initialDriver = {
   licenseNumber: '',
 };
 
+type SharedFormFields = keyof typeof initialOwner;
+
 export function AddUserModal({
   open,
   tab,
@@ -76,7 +78,14 @@ export function AddUserModal({
   };
 
   const form = tab === 'owners' ? ownerForm : driverForm;
-  const setForm = tab === 'owners' ? setOwnerForm : setDriverForm;
+
+  const updateSharedField = (field: SharedFormFields, value: string) => {
+    if (tab === 'owners') {
+      setOwnerForm((prev) => ({ ...prev, [field]: value }));
+    } else {
+      setDriverForm((prev) => ({ ...prev, [field]: value }));
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -101,7 +110,7 @@ export function AddUserModal({
             <input
               required
               value={form.fullName}
-              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              onChange={(e) => updateSharedField('fullName', e.target.value)}
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
           </div>
@@ -111,7 +120,7 @@ export function AddUserModal({
               type="email"
               required
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) => updateSharedField('email', e.target.value)}
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
           </div>
@@ -121,7 +130,7 @@ export function AddUserModal({
               type="tel"
               required
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) => updateSharedField('phone', e.target.value)}
               placeholder="+91 9876543210"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
@@ -150,7 +159,7 @@ export function AddUserModal({
               required
               minLength={8}
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onChange={(e) => updateSharedField('password', e.target.value)}
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
           </div>

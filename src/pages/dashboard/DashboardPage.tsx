@@ -45,7 +45,11 @@ function formatInrShort(amount: number) {
 function companyName(row: PaymentRow): string {
   if (row.companyName) return row.companyName;
   const c = row.companyId;
-  if (c && typeof c === 'object' && 'name' in c && c.name) return c.name;
+  if (typeof c === 'object' && c !== null && 'name' in c) {
+    const name = (c as { name?: string }).name;
+    if (name) return name;
+  }
+  if (typeof c === 'string' && c.trim()) return c;
   return 'Client Company';
 }
 

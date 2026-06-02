@@ -176,17 +176,6 @@ export function CompanyExpensesPage() {
     setPage(1);
   }, [vehicleFilter, categoryFilter, dateFrom, dateTo]);
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this expense?')) return;
-    try {
-      await expensesService.remove(id);
-      toast.success('Expense deleted');
-      load();
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Delete failed'));
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

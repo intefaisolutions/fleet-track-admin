@@ -15,7 +15,6 @@ import {
   Wrench,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { ASSETS } from '../../config/assets';
 import { ROUTES } from '../../config/constants';
 import {
   reportsService,

@@ -16,7 +16,6 @@ import {
 import { driversService, type DriverRecord } from '../../services/drivers.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
 import { subscriptionsService } from '../../services/subscriptions.service';
-import { platformService } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
 function formatExpiry(iso?: string) {
@@ -132,6 +131,12 @@ export function CompanySettingsPage() {
     } finally {
       setSavingPassword(false);
     }
+  };
+
+  const driverUserId = (ref: (typeof drivers)[number]['userId']): string | undefined => {
+    if (!ref) return undefined;
+    if (typeof ref === 'string') return ref;
+    return ref._id;
   };
 
   const driverVehicleMap = useMemo(() => {
@@ -364,7 +369,8 @@ export function CompanySettingsPage() {
                     </tr>
                   ) : (
                     drivers.map((d) => {
-                      const vehicleById = d.userId ? driverVehicleMap.get(d.userId) : null;
+                      const uid = driverUserId(d.userId);
+                      const vehicleById = uid ? driverVehicleMap.get(uid) : null;
                       const vehicleByName = driverVehicleMap.get(d.fullName.toLowerCase());
                       return (
                         <tr key={d._id} className="border-b border-slate-50 last:border-0">
