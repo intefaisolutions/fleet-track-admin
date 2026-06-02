@@ -35,7 +35,7 @@ export function OwnerTopBar({ search, onSearchChange }: OwnerTopBarProps) {
           <p className="text-sm font-semibold text-slate-900">
             {user?.fullName ?? 'Fleet Manager'}
           </p>
-          <p className="text-xs text-slate-500">Admin Access</p>
+          <p className="text-xs text-slate-500">Vehicle Owner</p>
         </div>
         <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-sm font-semibold text-slate-700">
           {user?.fullName?.charAt(0) ?? 'F'}

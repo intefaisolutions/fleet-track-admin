@@ -32,9 +32,30 @@ export interface CompanyDashboardData {
   };
   recentActivities: CompanyDashboardActivity[];
   topOwners: CompanyDashboardOwner[];
+  myVehiclesLimit?: number;
+  mostExpensiveVehicle?: {
+    registrationNumber: string;
+    label: string;
+    amount: number;
+  } | null;
+  upcomingServices?: Array<{
+    id: string;
+    registrationNumber: string;
+    label: string;
+    dueInKm: number;
+  }>;
+  recentOwnerExpenses?: Array<{
+    id: string;
+    category: string;
+    amount: number;
+    registrationNumber: string;
+    createdAt: string;
+  }>;
 }
 
 export const reportsService = {
   getCompanyDashboard: () =>
+    getData<CompanyDashboardData>('/reports/dashboard'),
+  getOwnerDashboard: () =>
     getData<CompanyDashboardData>('/reports/dashboard'),
 };

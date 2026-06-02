@@ -91,7 +91,7 @@ export function homeRouteForRole(role: string, permissions: string[] = []): stri
     case ROLES.COMPANY_ADMIN:
       return ROUTES.COMPANY_DASHBOARD;
     case ROLES.VEHICLE_OWNER:
-      return ROUTES.OWNER_VEHICLES;
+      return ROUTES.OWNER_DASHBOARD;
     case ROLES.DRIVER:
       return ROUTES.DRIVER_DASHBOARD;
     default:

@@ -38,38 +38,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   OTHER: 'Other',
 };
 
-const DUMMY_VEHICLES: VehicleRecord[] = [
-  { _id: 'owner-v-1', registrationNumber: 'HR 26 AB 1234', make: 'Tata', modelName: 'Ace', status: 'ACTIVE' },
-  { _id: 'owner-v-2', registrationNumber: 'DL 01 CD 5678', make: 'Mahindra', modelName: 'Bolero', status: 'ACTIVE' },
-];
-
-const DUMMY_EXPENSES: ExpenseRecord[] = [
-  {
-    _id: 'owner-exp-1',
-    vehicleId: { _id: 'owner-v-1', registrationNumber: 'HR 26 AB 1234', make: 'Tata', modelName: 'Ace' },
-    category: 'FUEL',
-    amount: 3450,
-    description: 'Indian Oil fuel refill',
-    expenseDate: '2026-03-15T10:00:00.000Z',
-  },
-  {
-    _id: 'owner-exp-2',
-    vehicleId: { _id: 'owner-v-1', registrationNumber: 'HR 26 AB 1234', make: 'Tata', modelName: 'Ace' },
-    category: 'SERVICE',
-    amount: 14000,
-    description: 'Engine service',
-    expenseDate: '2026-03-18T10:00:00.000Z',
-  },
-  {
-    _id: 'owner-exp-3',
-    vehicleId: { _id: 'owner-v-2', registrationNumber: 'DL 01 CD 5678', make: 'Mahindra', modelName: 'Bolero' },
-    category: 'TOLL',
-    amount: 1450,
-    description: 'Delhi-Jaipur toll',
-    expenseDate: '2026-03-19T10:00:00.000Z',
-  },
-];
-
 function categoryLabel(v: string) {
   return CATEGORY_LABELS[v] ?? v;
 }
@@ -79,9 +47,9 @@ function formatInr(n: number) {
 }
 
 function formatDate(iso?: string) {
-  if (!iso) return 'ó';
+  if (!iso) return 'ù';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 'ó';
+  if (Number.isNaN(d.getTime())) return 'ù';
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -92,8 +60,8 @@ function vehicleId(v?: ExpenseRecord['vehicleId']): string {
 }
 
 function vehicleReg(v?: ExpenseRecord['vehicleId']): string {
-  if (!v || typeof v === 'string') return 'ó';
-  return v.registrationNumber ?? 'ó';
+  if (!v || typeof v === 'string') return 'ù';
+  return v.registrationNumber ?? 'ù';
 }
 
 function exportCsv(rows: ExpenseRecord[]) {
@@ -229,7 +197,6 @@ export function OwnerExpensesPage() {
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
   const [vehicleFilter, setVehicleFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -242,25 +209,21 @@ export function OwnerExpensesPage() {
     setLoading(true);
     Promise.allSettled([expensesService.list(), vehiclesService.list()])
       .then(([expRes, vehRes]) => {
-        const apiExpenses = expRes.status === 'fulfilled' ? expRes.value.data ?? [] : [];
-        const apiVehicles = vehRes.status === 'fulfilled' ? vehRes.value.data ?? [] : [];
-
-        if ((expRes.status === 'rejected' || vehRes.status === 'rejected') && apiExpenses.length === 0) {
-          setExpenses(DUMMY_EXPENSES);
-          setVehicles(apiVehicles.length > 0 ? apiVehicles : DUMMY_VEHICLES);
-          setDemoMode(true);
-          toast.info('Showing demo expenses');
+        if (expRes.status === 'fulfilled') {
+          setExpenses(expRes.value.data ?? []);
         } else {
-          setExpenses(apiExpenses);
-          setVehicles(apiVehicles);
-          setDemoMode(false);
+          setExpenses([]);
+          toast.error(getApiErrorMessage(expRes.reason, 'Failed to load expenses'));
+        }
+        if (vehRes.status === 'fulfilled') {
+          setVehicles(vehRes.value.data ?? []);
+        } else {
+          setVehicles([]);
         }
       })
       .catch((err: unknown) => {
-        setExpenses(DUMMY_EXPENSES);
-        setVehicles(DUMMY_VEHICLES);
-        setDemoMode(true);
-        toast.info('Showing demo expenses');
+        setExpenses([]);
+        setVehicles([]);
         toast.error(getApiErrorMessage(err, 'Failed to load expenses'));
       })
       .finally(() => setLoading(false));
@@ -292,41 +255,14 @@ export function OwnerExpensesPage() {
   const handleCreateOrUpdate = async (payload: CreateExpensePayload & { id?: string }) => {
     setSaving(true);
     try {
-      if (demoMode) {
-        const vehicleObj = vehicles.find((v) => v._id === payload.vehicleId);
-        if (payload.id) {
-          setExpenses((prev) => prev.map((x) => x._id === payload.id ? {
-            ...x,
-            category: payload.category,
-            amount: payload.amount,
-            description: payload.description,
-            expenseDate: payload.expenseDate,
-            receiptUrl: payload.receiptUrl,
-            vehicleId: vehicleObj ? { _id: vehicleObj._id, registrationNumber: vehicleObj.registrationNumber, make: vehicleObj.make, modelName: vehicleObj.modelName } : x.vehicleId,
-          } : x));
-          toast.success('Expense updated (demo)');
-        } else {
-          setExpenses((prev) => [{
-            _id: `demo-${Date.now()}`,
-            category: payload.category,
-            amount: payload.amount,
-            description: payload.description,
-            expenseDate: payload.expenseDate,
-            receiptUrl: payload.receiptUrl,
-            vehicleId: vehicleObj ? { _id: vehicleObj._id, registrationNumber: vehicleObj.registrationNumber, make: vehicleObj.make, modelName: vehicleObj.modelName } : payload.vehicleId,
-          }, ...prev]);
-          toast.success('Expense added (demo)');
-        }
+      if (payload.id) {
+        await expensesService.update(payload.id, payload);
+        toast.success('Expense updated');
       } else {
-        if (payload.id) {
-          await expensesService.update(payload.id, payload);
-          toast.success('Expense updated');
-        } else {
-          await expensesService.create(payload);
-          toast.success('Expense added');
-        }
-        load();
+        await expensesService.create(payload);
+        toast.success('Expense added');
       }
+      load();
       setOpen(false);
       setEditExpense(null);
     } catch (err: unknown) {
@@ -339,14 +275,9 @@ export function OwnerExpensesPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this expense?')) return;
     try {
-      if (demoMode) {
-        setExpenses((prev) => prev.filter((x) => x._id !== id));
-        toast.success('Expense deleted (demo)');
-      } else {
-        await expensesService.remove(id);
-        toast.success('Expense deleted');
-        load();
-      }
+      await expensesService.remove(id);
+      toast.success('Expense deleted');
+      load();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Delete failed'));
     }
@@ -412,7 +343,7 @@ export function OwnerExpensesPage() {
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${CATEGORY_STYLES[e.category] ?? CATEGORY_STYLES.OTHER}`}>{categoryLabel(e.category)}</span>
                   </td>
-                  <td className="max-w-[220px] truncate px-4 py-3 text-slate-600">{e.description ?? 'ó'}</td>
+                  <td className="max-w-[220px] truncate px-4 py-3 text-slate-600">{e.description ?? 'ù'}</td>
                   <td className="px-4 py-3 font-semibold text-slate-900">{formatInr(Number(e.amount))}</td>
                   <td className="px-4 py-3">{e.receiptUrl ? <a href={e.receiptUrl} target="_blank" rel="noreferrer" className="text-fleet-600"><Paperclip className="h-4 w-4" /></a> : <Paperclip className="h-4 w-4 text-slate-300" />}</td>
                   <td className="px-4 py-3">
@@ -427,7 +358,7 @@ export function OwnerExpensesPage() {
           </table>
         </div>
         <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-500">{filtered.length === 0 ? '0 entries' : `Showing ${(page - 1) * PAGE_SIZE + 1} to ${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length} entries`}{demoMode ? ' (demo data)' : ''}</p>
+          <p className="text-sm text-slate-500">{filtered.length === 0 ? '0 entries' : `Showing ${(page - 1) * PAGE_SIZE + 1} to ${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length} entries`}</p>
           <div className="flex items-center gap-1">
             <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg p-2 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => <button key={p} type="button" onClick={() => setPage(p)} className={`min-w-8 rounded-lg px-2 py-1 text-sm ${p === page ? 'bg-fleet-500 text-white' : 'hover:bg-slate-100'}`}>{p}</button>)}

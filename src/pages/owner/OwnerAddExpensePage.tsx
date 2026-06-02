@@ -13,11 +13,6 @@ type Category = (typeof CATEGORIES)[number];
 
 type CategoryDetails = Record<string, string>;
 
-const DUMMY_VEHICLES: VehicleRecord[] = [
-  { _id: 'owner-v-1', registrationNumber: 'HR 26 AB 1234', make: 'Tata', modelName: 'Ace', status: 'ACTIVE' },
-  { _id: 'owner-v-2', registrationNumber: 'DL 01 CD 5678', make: 'Mahindra', modelName: 'Bolero', status: 'ACTIVE' },
-];
-
 function categoryLabel(v: string) {
   const map: Record<string, string> = {
     FUEL: 'Fuel',
@@ -137,13 +132,13 @@ export function OwnerAddExpensePage() {
     vehiclesService
       .list()
       .then((res) => {
-        const list = res.data?.length ? res.data : DUMMY_VEHICLES;
+        const list = res.data ?? [];
         setVehicles(list);
         setVehicleId(list[0]?._id ?? '');
       })
-      .catch(() => {
-        setVehicles(DUMMY_VEHICLES);
-        setVehicleId(DUMMY_VEHICLES[0]._id);
+      .catch((err: unknown) => {
+        setVehicles([]);
+        toast.error(getApiErrorMessage(err, 'Failed to load vehicles'));
       });
   }, []);
 

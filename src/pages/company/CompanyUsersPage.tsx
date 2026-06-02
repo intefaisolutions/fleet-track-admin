@@ -27,46 +27,6 @@ type Tab = 'owners' | 'drivers';
 
 const PAGE_SIZE = 10;
 
-const DUMMY_USERS: UserRecord[] = [
-  {
-    _id: 'dummy-owner-1',
-    fullName: 'Rajesh Sharma',
-    email: 'rajesh@abc.com',
-    phone: '9876500011',
-    role: ROLES.VEHICLE_OWNER,
-    status: 'ACTIVE',
-  },
-  {
-    _id: 'dummy-owner-2',
-    fullName: 'Priya Verma',
-    email: 'priya@abc.com',
-    phone: '9876500022',
-    role: ROLES.VEHICLE_OWNER,
-    status: 'ACTIVE',
-  },
-  {
-    _id: 'dummy-driver-1',
-    fullName: 'Suresh Kumar',
-    email: 'suresh@abc.com',
-    phone: '9876500033',
-    role: ROLES.DRIVER,
-    status: 'ACTIVE',
-  },
-  {
-    _id: 'dummy-driver-2',
-    fullName: 'Ramesh Yadav',
-    email: 'ramesh@abc.com',
-    phone: '9876500044',
-    role: ROLES.DRIVER,
-    status: 'SUSPENDED',
-  },
-];
-
-const DUMMY_OWNER_VEHICLE_COUNTS: Record<string, number> = {
-  'dummy-owner-1': 12,
-  'dummy-owner-2': 8,
-};
-
 function initials(name: string) {
   return name
     .split(' ')
@@ -147,19 +107,12 @@ export function CompanyUsersPage() {
                 : null;
           if (ownerId) counts[ownerId] = (counts[ownerId] ?? 0) + 1;
         });
-        if (apiUsers.length === 0) {
-          setUsers(DUMMY_USERS);
-          setVehicleCounts(DUMMY_OWNER_VEHICLE_COUNTS);
-          toast.info('Showing demo users (no backend data found)');
-        } else {
-          setUsers(apiUsers);
-          setVehicleCounts(counts);
-        }
+        setUsers(apiUsers);
+        setVehicleCounts(counts);
       })
       .catch((err: unknown) => {
-        setUsers(DUMMY_USERS);
-        setVehicleCounts(DUMMY_OWNER_VEHICLE_COUNTS);
-        toast.info('Showing demo users (backend unavailable)');
+        setUsers([]);
+        setVehicleCounts({});
         toast.error(getApiErrorMessage(err, 'Failed to load users'));
       })
       .finally(() => setLoading(false));

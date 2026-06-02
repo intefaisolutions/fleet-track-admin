@@ -28,30 +28,6 @@ function formatExpiry(iso?: string) {
   });
 }
 
-const DUMMY_DRIVERS: DriverRecord[] = [
-  { _id: 'dummy-driver-1', fullName: 'Suresh Kumar', phone: '9876543210', status: 'ACTIVE' },
-  { _id: 'dummy-driver-2', fullName: 'Ramesh Yadav', phone: '9988776655', status: 'ACTIVE' },
-];
-
-const DUMMY_DRIVER_VEHICLES: VehicleRecord[] = [
-  {
-    _id: 'dummy-vehicle-1',
-    registrationNumber: 'HR26AB1234',
-    make: 'Tata',
-    modelName: 'Ace',
-    status: 'ACTIVE',
-    assignedDriverId: { _id: 'dummy-driver-1', fullName: 'Suresh Kumar', phone: '9876543210' },
-  },
-  {
-    _id: 'dummy-vehicle-2',
-    registrationNumber: 'DL01CD5678',
-    make: 'Mahindra',
-    modelName: 'Bolero Pickup',
-    status: 'ACTIVE',
-    assignedDriverId: { _id: 'dummy-driver-2', fullName: 'Ramesh Yadav', phone: '9988776655' },
-  },
-];
-
 export function CompanySettingsPage() {
   const { user } = useAuth();
   const [company, setCompany] = useState<CompanyDetail | null>(null);
@@ -86,14 +62,12 @@ export function CompanySettingsPage() {
       ]);
       const c = companyRes.data ?? null;
       setCompany(c);
-      const apiDrivers = driversRes.data ?? [];
-      const apiVehicles = vehiclesRes.data ?? [];
-      setDrivers(apiDrivers.length === 0 ? DUMMY_DRIVERS : apiDrivers);
-      setVehicles(apiVehicles.length === 0 ? DUMMY_DRIVER_VEHICLES : apiVehicles);
+      setDrivers(driversRes.data ?? []);
+      setVehicles(vehiclesRes.data ?? []);
       if (c) {
         setCompanyForm({
           name: c.name ?? '',
-          phone: user.phone,
+          phone: c.phone ?? user.phone,
           address: c.address ?? '',
           city: c.city ?? '',
           country: c.country ?? '',
@@ -105,8 +79,10 @@ export function CompanySettingsPage() {
       if (subs[0]) {
         setPeriodEnd(subs[0].currentPeriodEnd);
       }
-    } catch {
-      /* ignore */
+    } catch (err: unknown) {
+      setDrivers([]);
+      setVehicles([]);
+      toast.error(getApiErrorMessage(err, 'Failed to load settings'));
     }
   }, [user]);
 

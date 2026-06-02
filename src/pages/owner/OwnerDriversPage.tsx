@@ -18,52 +18,6 @@ import { OwnerDriverDetailModal } from '../../components/owner/OwnerDriverDetail
 import { OwnerAssignDriverModal } from '../../components/owner/OwnerAssignDriverModal';
 import { getApiErrorMessage } from '../../utils/validation';
 
-const DUMMY_DRIVERS: DriverRecord[] = [
-  {
-    _id: 'owner-d-1',
-    fullName: 'Suresh Yadav',
-    phone: '9876543210',
-    email: 'suresh@abcfleet.com',
-    licenseNumber: 'HR-2020-1234567',
-    status: 'ACTIVE',
-  },
-  {
-    _id: 'owner-d-2',
-    fullName: 'Deepak Singh',
-    phone: '9123456780',
-    email: 'deepak@abcfleet.com',
-    licenseNumber: 'DL-2019-9876543',
-    status: 'ACTIVE',
-  },
-  {
-    _id: 'owner-d-3',
-    fullName: 'Vikram Mehta',
-    phone: '9988776655',
-    email: 'vikram@abcfleet.com',
-    licenseNumber: 'UP-2021-5544332',
-    status: 'ACTIVE',
-  },
-];
-
-const DUMMY_VEHICLES: VehicleRecord[] = [
-  {
-    _id: 'owner-v-1',
-    registrationNumber: 'HR 26 AB 1234',
-    make: 'Tata',
-    modelName: 'Ace',
-    status: 'ACTIVE',
-    assignedDriverId: { _id: 'owner-d-1', fullName: 'Suresh Yadav', phone: '9876543210' },
-  },
-  {
-    _id: 'owner-v-2',
-    registrationNumber: 'DL 01 CD 5678',
-    make: 'Mahindra',
-    modelName: 'Bolero',
-    status: 'ACTIVE',
-    assignedDriverId: undefined,
-  },
-];
-
 function driverId(ref?: VehicleRecord['assignedDriverId']): string {
   if (!ref) return '';
   if (typeof ref === 'string') return ref;
@@ -85,7 +39,6 @@ export function OwnerDriversPage() {
   const [drivers, setDrivers] = useState<DriverRecord[]>([]);
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [demoMode, setDemoMode] = useState(false);
   const [detailDriver, setDetailDriver] = useState<DriverRecord | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignMode, setAssignMode] = useState<'assign' | 'change'>('assign');
@@ -97,39 +50,26 @@ export function OwnerDriversPage() {
     setLoading(true);
     Promise.allSettled([driversService.list(), vehiclesService.list()])
       .then(([driversRes, vehiclesRes]) => {
-        let driverList: DriverRecord[] = [];
-        let vehicleList: VehicleRecord[] = [];
-
         if (driversRes.status === 'fulfilled') {
-          driverList = driversRes.value.data ?? [];
+          const driverList = driversRes.value.data ?? [];
+          setDrivers(
+            driverList.filter((d) => d.status === 'ACTIVE' || d.status === 'active'),
+          );
+        } else {
+          setDrivers([]);
+          toast.error(getApiErrorMessage(driversRes.reason, 'Failed to load drivers'));
         }
         if (vehiclesRes.status === 'fulfilled') {
-          vehicleList = vehiclesRes.value.data ?? [];
-        }
-
-        const useDemo =
-          driverList.length === 0 &&
-          (driversRes.status === 'rejected' || vehiclesRes.status === 'rejected');
-
-        if (useDemo || (driverList.length === 0 && vehicleList.length === 0)) {
-          driverList = DUMMY_DRIVERS;
-          vehicleList = DUMMY_VEHICLES;
-          setDemoMode(true);
-          if (driversRes.status === 'rejected' || vehiclesRes.status === 'rejected') {
-            toast.info('Showing demo drivers');
-          }
+          setVehicles(vehiclesRes.value.data ?? []);
         } else {
-          setDemoMode(false);
+          setVehicles([]);
+          toast.error(getApiErrorMessage(vehiclesRes.reason, 'Failed to load vehicles'));
         }
-
-        setDrivers(driverList.filter((d) => d.status === 'ACTIVE' || d.status === 'active'));
-        setVehicles(vehicleList);
       })
-      .catch(() => {
-        setDrivers(DUMMY_DRIVERS);
-        setVehicles(DUMMY_VEHICLES);
-        setDemoMode(true);
-        toast.info('Showing demo drivers');
+      .catch((err: unknown) => {
+        setDrivers([]);
+        setVehicles([]);
+        toast.error(getApiErrorMessage(err, 'Failed to load driver data'));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -173,22 +113,6 @@ export function OwnerDriversPage() {
     setAssignOpen(true);
   };
 
-  const applyDemoAssignment = (vehicleIdValue: string, driverIdValue: string) => {
-    const driver = drivers.find((d) => d._id === driverIdValue);
-    setVehicles((prev) =>
-      prev.map((v) =>
-        v._id === vehicleIdValue
-          ? {
-              ...v,
-              assignedDriverId: driver
-                ? { _id: driver._id, fullName: driver.fullName, phone: driver.phone }
-                : undefined,
-            }
-          : v,
-      ),
-    );
-  };
-
   const handleUnassign = async (vehicle: VehicleRecord) => {
     const name = driverName(vehicle.assignedDriverId) || 'driver';
     if (
@@ -196,16 +120,6 @@ export function OwnerDriversPage() {
         `Unassign ${name} from ${vehicle.registrationNumber}? The vehicle will have no driver.`,
       )
     ) {
-      return;
-    }
-
-    if (demoMode) {
-      setVehicles((prev) =>
-        prev.map((v) =>
-          v._id === vehicle._id ? { ...v, assignedDriverId: undefined } : v,
-        ),
-      );
-      toast.success('Driver unassigned (demo)');
       return;
     }
 
@@ -236,9 +150,7 @@ export function OwnerDriversPage() {
         <Info className="mt-0.5 h-5 w-5 shrink-0" />
         <p className="text-sm">
           <span className="font-semibold">View available drivers</span> from your company.
-          You cannot add new drivers here — contact your Company Admin to register Suresh,
-          Deepak, Vikram, etc.
-          {demoMode ? ' (demo data)' : ''}
+          You cannot add new drivers here — contact your Company Admin to register drivers.
         </p>
       </div>
 
@@ -422,19 +334,12 @@ export function OwnerDriversPage() {
         vehicles={vehicles}
         initialDriverId={assignDriverId}
         initialVehicleId={assignVehicleId}
-        demoMode={demoMode}
         onClose={() => {
           setAssignOpen(false);
           setAssignDriverId(undefined);
           setAssignVehicleId(undefined);
         }}
-        onSuccess={(vehicleIdValue, driverIdValue) => {
-          if (demoMode) {
-            applyDemoAssignment(vehicleIdValue, driverIdValue);
-          } else {
-            load();
-          }
-        }}
+        onSuccess={() => load()}
       />
     </div>
   );

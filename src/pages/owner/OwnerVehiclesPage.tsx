@@ -22,42 +22,6 @@ import { OwnerVehicleFormDrawer } from '../../components/owner/OwnerVehicleFormD
 import { OwnerVehicleDetailModal } from '../../components/owner/OwnerVehicleDetailModal';
 import { getApiErrorMessage } from '../../utils/validation';
 
-const DUMMY_VEHICLES: VehicleRecord[] = [
-  {
-    _id: 'owner-v-1',
-    registrationNumber: 'HR 26 AB 1234',
-    make: 'Tata',
-    modelName: 'Ace',
-    vehicleType: 'TRUCK',
-    fuelType: 'Diesel',
-    year: 2022,
-    status: 'ACTIVE',
-    currentOdometerKm: 45500,
-    purchaseDate: '2022-01-05T00:00:00.000Z',
-    purchaseCost: 850000,
-    assignedDriverId: { _id: 'd1', fullName: 'Suresh Yadav' },
-  },
-  {
-    _id: 'owner-v-2',
-    registrationNumber: 'DL 01 CD 5678',
-    make: 'Mahindra',
-    modelName: 'Bolero',
-    vehicleType: 'TRUCK',
-    fuelType: 'Diesel',
-    year: 2021,
-    status: 'MAINTENANCE',
-    currentOdometerKm: 38910,
-    assignedDriverId: undefined,
-  },
-];
-
-const DUMMY_SUB: SubscriptionRecord = {
-  _id: 'sub-demo',
-  planType: 'STANDARD',
-  status: 'ACTIVE',
-  vehicleLimit: 5,
-};
-
 function refName(
   ref?: { fullName?: string } | string | null,
   fallback = 'Unassigned',
@@ -119,7 +83,6 @@ export function OwnerVehiclesPage() {
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionRecord | null>(null);
   const [loading, setLoading] = useState(true);
-  const [demoMode, setDemoMode] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editVehicle, setEditVehicle] = useState<VehicleRecord | null>(null);
   const [detailVehicle, setDetailVehicle] = useState<VehicleRecord | null>(null);
@@ -129,34 +92,24 @@ export function OwnerVehiclesPage() {
     setLoading(true);
     Promise.allSettled([vehiclesService.list(), subscriptionsService.list()])
       .then(([vehRes, subRes]) => {
-        let list: VehicleRecord[] = [];
-        let sub: SubscriptionRecord | null = null;
-
         if (vehRes.status === 'fulfilled') {
-          list = vehRes.value.data ?? [];
+          setVehicles(vehRes.value.data ?? []);
+        } else {
+          setVehicles([]);
+          toast.error(getApiErrorMessage(vehRes.reason, 'Failed to load vehicles'));
         }
         if (subRes.status === 'fulfilled') {
           const subs = subRes.value.data ?? [];
-          sub = subs.find((s) => s.status === 'ACTIVE') ?? subs[0] ?? null;
-        }
-
-        if (list.length === 0 && vehRes.status === 'rejected') {
-          list = DUMMY_VEHICLES;
-          sub = DUMMY_SUB;
-          setDemoMode(true);
-          toast.info('Showing demo vehicles');
+          setSubscription(
+            subs.find((s) => s.status === 'ACTIVE') ?? subs[0] ?? null,
+          );
         } else {
-          setDemoMode(false);
+          setSubscription(null);
         }
-
-        setVehicles(list);
-        setSubscription(sub);
       })
       .catch((err: unknown) => {
-        setVehicles(DUMMY_VEHICLES);
-        setSubscription(DUMMY_SUB);
-        setDemoMode(true);
-        toast.info('Showing demo vehicles');
+        setVehicles([]);
+        setSubscription(null);
         toast.error(getApiErrorMessage(err, 'Failed to load vehicles'));
       })
       .finally(() => setLoading(false));
@@ -184,7 +137,7 @@ export function OwnerVehiclesPage() {
   }, [vehicles, search]);
 
   const openAdd = () => {
-    if (atLimit && !demoMode) {
+    if (atLimit) {
       toast.warning(`Vehicle limit reached (${used}/${limit}). Upgrade your plan to add more.`);
       return;
     }
@@ -204,11 +157,6 @@ export function OwnerVehiclesPage() {
         `Delete ${label}? This cannot be undone (e.g. vehicle sold or decommissioned).`,
       )
     ) {
-      return;
-    }
-    if (demoMode) {
-      setVehicles((prev) => prev.filter((x) => x._id !== v._id));
-      toast.success('Vehicle removed (demo)');
       return;
     }
     setDeletingId(v._id);
@@ -235,7 +183,7 @@ export function OwnerVehiclesPage() {
         <button
           type="button"
           onClick={openAdd}
-          disabled={atLimit && !demoMode}
+          disabled={atLimit}
           className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
@@ -260,9 +208,8 @@ export function OwnerVehiclesPage() {
           </p>
           <p className="mt-0.5 text-xs opacity-80">
             {subscription?.planType ?? 'Plan'} subscription
-            {demoMode ? ' (demo data)' : ''}
           </p>
-          {atLimit && !demoMode && (
+          {atLimit && (
             <button
               type="button"
               onClick={() => navigate(ROUTES.OWNER_UPGRADE)}

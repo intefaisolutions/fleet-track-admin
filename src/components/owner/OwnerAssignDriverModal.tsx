@@ -26,7 +26,6 @@ export function OwnerAssignDriverModal({
   initialVehicleId,
   onClose,
   onSuccess,
-  demoMode,
 }: {
   open: boolean;
   mode: 'assign' | 'change';
@@ -35,8 +34,7 @@ export function OwnerAssignDriverModal({
   initialDriverId?: string;
   initialVehicleId?: string;
   onClose: () => void;
-  onSuccess: (vehicleId: string, driverId: string) => void;
-  demoMode?: boolean;
+  onSuccess: () => void;
 }) {
   const [vehicleId, setVehicleId] = useState('');
   const [driverIdValue, setDriverIdValue] = useState('');
@@ -66,24 +64,13 @@ export function OwnerAssignDriverModal({
       return;
     }
 
-    if (demoMode) {
-      toast.success(
-        mode === 'change'
-          ? 'Driver changed (demo)'
-          : 'Driver assigned to vehicle (demo)',
-      );
-      onSuccess(vehicleId, driverIdValue);
-      onClose();
-      return;
-    }
-
     setLoading(true);
     try {
       await vehiclesService.update(vehicleId, { assignedDriverId: driverIdValue });
       toast.success(
         mode === 'change' ? 'Driver changed successfully' : 'Driver assigned to vehicle',
       );
-      onSuccess(vehicleId, driverIdValue);
+      onSuccess();
       onClose();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Assignment failed'));

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ROUTES, homeRouteForRole } from '../../config/constants';
+import { getApiErrorMessage } from '../../utils/validation';
 
 function GoogleIcon() {
   return (
@@ -61,21 +62,7 @@ export function SignInPage() {
       toast.success('Welcome back!');
       navigate(homeRouteForRole(role, permissions));
     } catch (err: unknown) {
-      const msg =
-        err &&
-        typeof err === 'object' &&
-        'response' in err &&
-        err.response &&
-        typeof err.response === 'object' &&
-        'data' in err.response &&
-        err.response.data &&
-        typeof err.response.data === 'object' &&
-        'message' in err.response.data
-          ? String((err.response.data as { message: string }).message)
-          : err instanceof Error
-            ? err.message
-            : 'Login failed';
-      toast.error(msg);
+      toast.error(getApiErrorMessage(err, 'Login failed'));
     } finally {
       setLoading(false);
     }
