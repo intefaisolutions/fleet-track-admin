@@ -9,23 +9,28 @@ import {
   LogOut,
   Settings,
 } from 'lucide-react';
-import { ROUTES } from '../../config/constants';
+import { ROLES, ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
-  { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-  { to: ROUTES.LICENSES, label: 'License Keys', icon: KeyRound },
-  { to: ROUTES.COMPANIES, label: 'Client Companies', icon: Building2 },
-  { to: ROUTES.PRICING, label: 'Subscription Plans', icon: CreditCard },
-  { to: ROUTES.PAYMENT_SETTINGS, label: 'Payment Configuration', icon: CreditCard },
-  { to: ROUTES.PENDING_PAYMENTS, label: 'Pending Payments', icon: CreditCard },
-  { to: ROUTES.REVENUE, label: 'Revenue Overview', icon: TrendingUp },
-  { to: ROUTES.SETTINGS, label: 'Settings', icon: Settings },
+  { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:read' },
+  { to: ROUTES.LICENSES, label: 'License Keys', icon: KeyRound, permission: 'licenses:read' },
+  { to: ROUTES.COMPANIES, label: 'Client Companies', icon: Building2, permission: 'companies:read' },
+  { to: ROUTES.PRICING, label: 'Plans', icon: CreditCard, permission: 'settings:read' },
+  { to: ROUTES.PAYMENT_SETTINGS, label: 'Payment Configuration', icon: CreditCard, permission: 'payments:write' },
+  // { to: ROUTES.PENDING_PAYMENTS, label: 'Pending Payments', icon: CreditCard },
+  { to: ROUTES.REVENUE, label: 'Revenue Overview', icon: TrendingUp, permission: 'payments:read' },
+  { to: ROUTES.SETTINGS, label: 'Settings', icon: Settings, permission: 'settings:read' },
 ];
 
 export function Sidebar() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const permissions = user?.permissions ?? [];
+  const isSuperAdmin = user?.role === ROLES.SUPER_ADMIN;
+  const filteredNav = isSuperAdmin
+    ? navItems
+    : navItems.filter((item) => !item.permission || permissions.includes(item.permission));
 
   const handleLogout = async () => {
     await logout();
@@ -40,12 +45,14 @@ export function Sidebar() {
         </div>
         <div>
           <p className="text-sm font-bold text-slate-900">FleetTrack Admin</p>
-          <p className="text-xs text-slate-500">Super Admin Portal</p>
+          <p className="text-xs text-slate-500">
+            {user?.role === 'SUPPORT_ADMIN' ? 'Support Admin Portal' : 'Super Admin Portal'}
+          </p>
         </div>
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {filteredNav.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

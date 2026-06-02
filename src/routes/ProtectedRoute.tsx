@@ -1,9 +1,15 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ROUTES } from '../config/constants';
+import {
+  ROUTES,
+  ROLES,
+  firstSupportAdminRoute,
+  permissionForAdminRoute,
+} from '../config/constants';
 
 export function ProtectedRoute() {
-  const { isAuthenticated, isSuperAdmin, loading } = useAuth();
+  const { isAuthenticated, role, user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -17,13 +23,23 @@ export function ProtectedRoute() {
     return <Navigate to={ROUTES.SIGN_IN} replace />;
   }
 
-  if (!isSuperAdmin) {
+  const isAdminPortalRole = role === ROLES.SUPER_ADMIN || role === ROLES.SUPPORT_ADMIN;
+  if (!isAdminPortalRole) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-6">
         <h1 className="text-xl font-bold text-slate-900">Access Denied</h1>
-        <p className="text-slate-600">Only Super Admin can access this portal.</p>
+        <p className="text-slate-600">Only Super Admin or Support Admin can access this portal.</p>
       </div>
     );
+  }
+
+  if (role === ROLES.SUPPORT_ADMIN) {
+    const requiredPermission = permissionForAdminRoute(location.pathname);
+    const perms = user?.permissions ?? [];
+    if (requiredPermission && !perms.includes(requiredPermission)) {
+      const next = firstSupportAdminRoute(perms);
+      return <Navigate to={next} replace />;
+    }
   }
 
   return <Outlet />;

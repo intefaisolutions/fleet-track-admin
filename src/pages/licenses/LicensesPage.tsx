@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
 import {
   ChevronLeft,
@@ -367,8 +368,42 @@ export function LicensesPage() {
     setMenuId(null);
   };
 
+  const confirmAction = async (options: {
+    title: string;
+    text: string;
+    confirmText: string;
+    icon: 'warning' | 'question' | 'success';
+    confirmButtonColor: string;
+  }) => {
+    const result = await Swal.fire({
+      title: options.title,
+      text: options.text,
+      icon: options.icon,
+      showCancelButton: true,
+      confirmButtonText: options.confirmText,
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      confirmButtonColor: options.confirmButtonColor,
+      cancelButtonColor: '#94a3b8',
+      focusCancel: true,
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'rounded-md',
+        cancelButton: 'rounded-md',
+      },
+    });
+    return result.isConfirmed;
+  };
+
   const handleRevoke = async (id: string) => {
-    if (!window.confirm('Revoke this license? The company will not be able to use it.')) return;
+    const ok = await confirmAction({
+      title: 'Revoke license?',
+      text: 'The linked company will not be able to use this license.',
+      confirmText: 'Yes, revoke',
+      icon: 'warning',
+      confirmButtonColor: '#d97706',
+    });
+    if (!ok) return;
     try {
       await licensesService.revoke(id);
       toast.success('License revoked');
@@ -381,7 +416,14 @@ export function LicensesPage() {
   };
 
   const handleCancel = async (id: string) => {
-    if (!window.confirm('Cancel this license permanently?')) return;
+    const ok = await confirmAction({
+      title: 'Cancel license permanently?',
+      text: 'This will permanently cancel this license key.',
+      confirmText: 'Yes, cancel',
+      icon: 'warning',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!ok) return;
     try {
       await licensesService.cancel(id);
       toast.success('License cancelled');

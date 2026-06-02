@@ -57,9 +57,9 @@ export function SignInPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const role = await login({ email, password });
+      const { role, permissions } = await login({ email, password });
       toast.success('Welcome back!');
-      navigate(homeRouteForRole(role));
+      navigate(homeRouteForRole(role, permissions));
     } catch (err: unknown) {
       const msg =
         err &&

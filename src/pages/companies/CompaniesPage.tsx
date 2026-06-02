@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
 import {
   Ban,
@@ -174,10 +175,44 @@ export function CompaniesPage() {
     setPlanFilter('');
   };
 
+  const confirmAction = async (options: {
+    title: string;
+    text: string;
+    confirmText: string;
+    icon: 'warning' | 'question' | 'success';
+    confirmButtonColor: string;
+  }) => {
+    const result = await Swal.fire({
+      title: options.title,
+      text: options.text,
+      icon: options.icon,
+      showCancelButton: true,
+      confirmButtonText: options.confirmText,
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      confirmButtonColor: options.confirmButtonColor,
+      cancelButtonColor: '#94a3b8',
+      focusCancel: true,
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'rounded-md',
+        cancelButton: 'rounded-md',
+      },
+    });
+    return result.isConfirmed;
+  };
+
   const handleSuspend = async (id: string) => {
     const company = companies.find((c) => c._id === id);
     if (!company) return;
-    if (!window.confirm(`Suspend "${company.name}"? Users will lose access until reactivated.`)) {
+    const ok = await confirmAction({
+      title: 'Suspend company?',
+      text: `"${company.name}" users will lose access until reactivated.`,
+      confirmText: 'Yes, suspend',
+      icon: 'warning',
+      confirmButtonColor: '#d97706',
+    });
+    if (!ok) {
       return;
     }
     setActionId(id);
@@ -197,11 +232,14 @@ export function CompaniesPage() {
   const handleDelete = async (id: string) => {
     const company = companies.find((c) => c._id === id);
     if (!company) return;
-    if (
-      !window.confirm(
-        `Delete "${company.name}" permanently? This cannot be undone.`,
-      )
-    ) {
+    const ok = await confirmAction({
+      title: 'Delete company permanently?',
+      text: `"${company.name}" and all related data will be removed. This cannot be undone.`,
+      confirmText: 'Yes, delete',
+      icon: 'warning',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!ok) {
       return;
     }
     setActionId(id);
@@ -221,7 +259,14 @@ export function CompaniesPage() {
   const handleActivate = async (id: string) => {
     const company = companies.find((c) => c._id === id);
     if (!company) return;
-    if (!window.confirm(`Reactivate "${company.name}"? Company access will be restored.`)) {
+    const ok = await confirmAction({
+      title: 'Reactivate company?',
+      text: `"${company.name}" access will be restored.`,
+      confirmText: 'Yes, reactivate',
+      icon: 'question',
+      confirmButtonColor: '#16a34a',
+    });
+    if (!ok) {
       return;
     }
     setActionId(id);

@@ -1,15 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import {
-  Check,
-  Info,
-  Plus,
-  Sparkles,
-  Star,
-} from 'lucide-react';
-import { ASSETS } from '../../config/assets';
-import { ROUTES } from '../../config/constants';
+import { AlertTriangle, Plus, Save } from 'lucide-react';
 import { CreatePlanModal } from '../../components/pricing/CreatePlanModal';
 import {
   platformService,
@@ -18,45 +9,27 @@ import {
 import { getApiErrorMessage } from '../../utils/validation';
 
 const PLAN_ORDER = ['FREE', 'BASIC', 'STANDARD', 'PREMIUM', 'ENTERPRISE'] as const;
-const RECOMMENDED = 'PREMIUM';
-const ENTERPRISE_CUSTOM_THRESHOLD = 9000;
 
-const PLAN_META: Record<
-  string,
-  { title: string; subtitle: string; features: string[] }
-> = {
-  FREE: {
-    title: 'Free',
-    subtitle: 'Ideal for trial periods',
-    features: ['Basic GPS Tracking', 'Mobile App Access'],
-  },
-  BASIC: {
-    title: 'Basic',
-    subtitle: 'Small businesses',
-    features: ['Real-time Analytics', 'Route Optimization'],
-  },
-  STANDARD: {
-    title: 'Standard',
-    subtitle: 'Growing fleets',
-    features: ['Geofencing Alerts', 'Fuel Management'],
-  },
-  PREMIUM: {
-    title: 'Premium',
-    subtitle: 'Full enterprise power',
-    features: ['AI Driver Scorecards', 'Priority Support 24/7'],
-  },
-  ENTERPRISE: {
-    title: 'Enterprise',
-    subtitle: 'Unlimited potential',
-    features: ['Dedicated Manager', 'Custom Integrations'],
-  },
+const PLAN_LABELS: Record<string, string> = {
+  FREE: 'Free Plan',
+  BASIC: 'Basic Plan',
+  STANDARD: 'Standard Plan',
+  PREMIUM: 'Premium Plan',
+  ENTERPRISE: 'Enterprise Plan',
+};
+
+const PLAN_FEATURES: Record<string, string> = {
+  FREE: 'Basic logbook, 7-day data.',
+  BASIC: 'Fuel cost calculator, driver assignment, export to Excel.',
+  STANDARD: 'Maintenance scheduling, document expiry alerts, chat support.',
+  PREMIUM: 'Efficiency reports, expense approval workflow, vendor management.',
+  ENTERPRISE: 'Custom reports, white-label, 24x7 phone support, 1 year+ data.',
 };
 
 type PlanDraft = {
   vehicleLimit: string;
   monthlyPriceInr: string;
   yearlyPriceInr: string;
-  isCustomFleet: boolean;
 };
 
 function sortPlans(list: SubscriptionPlanRecord[]) {
@@ -70,31 +43,15 @@ function sortPlans(list: SubscriptionPlanRecord[]) {
   });
 }
 
-function planMeta(plan: SubscriptionPlanRecord) {
-  const fallback = PLAN_META[plan.planType];
-  return {
-    title: plan.displayName ?? fallback?.title ?? plan.planType,
-    subtitle: plan.description ?? fallback?.subtitle ?? '',
-    features:
-      plan.features && plan.features.length > 0
-        ? plan.features
-        : (fallback?.features ?? []),
-  };
-}
-
 function planToDraft(plan: SubscriptionPlanRecord): PlanDraft {
-  const isEnterprise = plan.planType === 'ENTERPRISE';
-  const isCustom =
-    isEnterprise && plan.vehicleLimit >= ENTERPRISE_CUSTOM_THRESHOLD;
   return {
-    vehicleLimit: isCustom ? '' : String(plan.vehicleLimit),
+    vehicleLimit: String(plan.vehicleLimit),
     monthlyPriceInr: String(plan.monthlyPriceInr),
     yearlyPriceInr: String(plan.yearlyPriceInr),
-    isCustomFleet: isCustom,
   };
 }
 
-function PlanCard({
+function PlanRow({
   plan,
   draft,
   onChange,
@@ -107,136 +64,75 @@ function PlanCard({
   onSave: () => void;
   saving: boolean;
 }) {
-  const meta = planMeta(plan);
-  const recommended = plan.planType === RECOMMENDED;
+  const key = plan.planType.toUpperCase();
+  const featureText = plan.features?.length
+    ? plan.features.join(', ')
+    : (PLAN_FEATURES[key] ?? '—');
+  const planLabel = plan.displayName || PLAN_LABELS[key] || key;
+  const vehicleDisplay = key === 'ENTERPRISE' && Number(draft.vehicleLimit) >= 9999
+    ? 'Unlimited'
+    : `${draft.vehicleLimit} vehicles`;
 
   return (
-    <article
-      className={`flex flex-col rounded-2xl border bg-white p-5 shadow-sm ${
-        recommended ? 'border-fleet-500 ring-1 ring-fleet-500/30' : 'border-slate-200'
-      }`}
-    >
-      {recommended && (
-        <div className="mb-3 flex justify-center">
-          <span className="inline-flex items-center gap-1 rounded-full bg-fleet-500 px-3 py-1 text-xs font-bold text-white">
-            <Star className="h-3 w-3 fill-current" />
-            Recommended
-          </span>
+    <tr className="border-b border-slate-200">
+      <td className="px-3 py-3 text-sm font-semibold text-slate-900">{planLabel}</td>
+      <td className="px-3 py-3 text-sm text-slate-700">
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            value={draft.vehicleLimit}
+            onChange={(e) => onChange({ vehicleLimit: e.target.value })}
+            className="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-fleet-500"
+          />
+          <span className="text-xs text-slate-500">{vehicleDisplay}</span>
         </div>
-      )}
-
-      <div className="text-center">
-        <h3 className="text-lg font-bold text-slate-900">{meta.title}</h3>
-        <p className="mt-0.5 text-xs text-slate-500">{meta.subtitle}</p>
-        {!plan.isSystem && (
-          <p className="mt-1 font-mono text-[10px] text-slate-400">{plan.planType}</p>
-        )}
-      </div>
-
-      <div className="mt-5 space-y-4">
-        <div>
-          <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Vehicle Limit
-          </label>
-          {draft.isCustomFleet ? (
-            <input
-              type="text"
-              value={draft.vehicleLimit}
-              onChange={(e) => onChange({ vehicleLimit: e.target.value })}
-              placeholder="Custom"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-fleet-500"
-            />
-          ) : (
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                value={draft.vehicleLimit}
-                onChange={(e) => onChange({ vehicleLimit: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-fleet-500"
-              />
-              <span className="shrink-0 text-xs text-slate-500">Fleet Units</span>
-            </div>
-          )}
+      </td>
+      <td className="px-3 py-3">
+        <div className="flex items-center">
+          <span className="mr-1.5 text-sm text-slate-500">₹</span>
+          <input
+            type="number"
+            min={0}
+            value={draft.monthlyPriceInr}
+            onChange={(e) => onChange({ monthlyPriceInr: e.target.value })}
+            className="w-28 rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-fleet-500"
+          />
         </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Monthly Price
-            </label>
-            <div className="relative mt-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                ₹
-              </span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={draft.monthlyPriceInr}
-                onChange={(e) => onChange({ monthlyPriceInr: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 py-2 pl-7 pr-2 text-sm outline-none focus:border-fleet-500"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Yearly Price
-            </label>
-            <div className="relative mt-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                ₹
-              </span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={draft.yearlyPriceInr}
-                onChange={(e) => onChange({ yearlyPriceInr: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 py-2 pl-7 pr-2 text-sm outline-none focus:border-fleet-500"
-              />
-            </div>
-          </div>
+      </td>
+      <td className="px-3 py-3">
+        <div className="flex items-center">
+          <span className="mr-1.5 text-sm text-slate-500">₹</span>
+          <input
+            type="number"
+            min={0}
+            value={draft.yearlyPriceInr}
+            onChange={(e) => onChange({ yearlyPriceInr: e.target.value })}
+            className="w-28 rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-fleet-500"
+          />
         </div>
-
-        <ul className="space-y-2 border-t border-slate-100 pt-4">
-          {meta.features.map((feature) => (
-            <li key={feature} className="flex items-start gap-2 text-sm text-slate-600">
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-fleet-500" />
-              {feature}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <button
-        type="button"
-        disabled={saving}
-        onClick={onSave}
-        className={`mt-5 w-full rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 ${
-          recommended
-            ? 'bg-fleet-500 text-white hover:bg-fleet-600'
-            : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-        }`}
-      >
-        {saving ? 'Saving...' : 'Save Changes'}
-      </button>
-    </article>
+      </td>
+      <td className="px-3 py-3 text-sm text-slate-700">{featureText}</td>
+      <td className="px-3 py-3 text-right">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={onSave}
+          className="inline-flex items-center gap-1.5 rounded-md bg-fleet-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
+        >
+          <Save className="h-3.5 w-3.5" />
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </td>
+    </tr>
   );
 }
 
 export function PricingPage() {
   const [plans, setPlans] = useState<SubscriptionPlanRecord[]>([]);
   const [drafts, setDrafts] = useState<Record<string, PlanDraft>>({});
-  const [yearlyDiscount, setYearlyDiscount] = useState('20');
-  const [stats, setStats] = useState({
-    activeSubscriptions: 0,
-    pendingTransitions: 0,
-    canceledLast30Days: 0,
-  });
   const [loading, setLoading] = useState(true);
   const [savingPlan, setSavingPlan] = useState<string | null>(null);
-  const [savingDiscount, setSavingDiscount] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
   const load = useCallback(() => {
@@ -254,8 +150,6 @@ export function PricingPage() {
           nextDrafts[p.planType] = planToDraft(p);
         });
         setDrafts(nextDrafts);
-        setYearlyDiscount(String(data.yearlyDiscountPercent ?? 20));
-        setStats(data.stats ?? stats);
       })
       .catch((err: unknown) =>
         toast.error(getApiErrorMessage(err, 'Failed to load pricing')),
@@ -285,19 +179,10 @@ export function PricingPage() {
       return;
     }
 
-    let vehicleLimit: number;
-    if (draft.isCustomFleet) {
-      const parsed = Number(draft.vehicleLimit);
-      vehicleLimit =
-        draft.vehicleLimit.trim() === '' || Number.isNaN(parsed)
-          ? ENTERPRISE_CUSTOM_THRESHOLD
-          : parsed;
-    } else {
-      vehicleLimit = Number(draft.vehicleLimit);
-      if (Number.isNaN(vehicleLimit) || vehicleLimit < 1) {
-        toast.error('Enter a valid vehicle limit');
-        return;
-      }
+    const vehicleLimit = Number(draft.vehicleLimit);
+    if (Number.isNaN(vehicleLimit) || vehicleLimit < 1) {
+      toast.error('Enter a valid vehicle limit');
+      return;
     }
 
     setSavingPlan(planType);
@@ -308,7 +193,8 @@ export function PricingPage() {
         vehicleLimit: Math.round(vehicleLimit),
       });
       const saved = plans.find((p) => p.planType === planType);
-      toast.success(`${saved ? planMeta(saved).title : planType} plan updated`);
+      const title = saved?.displayName || PLAN_LABELS[planType] || planType;
+      toast.success(`${title} plan updated`);
       load();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Failed to save plan'));
@@ -317,59 +203,18 @@ export function PricingPage() {
     }
   };
 
-  const saveYearlyDiscount = async () => {
-    const percent = Number(yearlyDiscount);
-    if (Number.isNaN(percent) || percent < 0 || percent > 100) {
-      toast.error('Discount must be between 0 and 100');
-      return;
-    }
-
-    setSavingDiscount(true);
-    try {
-      await platformService.updatePaymentSettings({ yearlyDiscountPercent: percent });
-
-      await Promise.all(
-        plans.map(async (plan) => {
-          const draft = drafts[plan.planType];
-          const monthly = Number(draft?.monthlyPriceInr ?? plan.monthlyPriceInr);
-          if (monthly <= 0) return;
-          const yearly = Math.round(monthly * 12 * (1 - percent / 100));
-          await platformService.updatePlanPricing(plan.planType, { yearlyPriceInr: yearly });
-        }),
-      );
-
-      toast.success('Yearly discount applied to all plans');
-      load();
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Failed to save discount'));
-    } finally {
-      setSavingDiscount(false);
-    }
-  };
+  const sortedPlans = useMemo(() => sortPlans(plans), [plans]);
 
   return (
     <div className="space-y-6">
-      <nav className="text-sm text-slate-500">
-        <Link to={ROUTES.SETTINGS} className="hover:text-fleet-600">
-          Settings
-        </Link>
-        <span className="mx-1.5 text-slate-300">/</span>
-        <span className="text-slate-700">Billing</span>
-      </nav>
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <img
-            src={ASSETS.pricingPlansIcon}
-            alt=""
-            className="h-11 w-11 object-contain"
-          />
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Subscription Plans</h1>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Configure tiers, limits, and billing for new subscribers
-            </p>
-          </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">4.4 Pricing Settings Page</h1>
+          <p className="mt-2 max-w-4xl text-sm text-slate-600">
+            The Company Owner can set and update subscription prices for all plans.
+            When prices are updated, existing subscribers keep their current price (price lock)
+            and new subscribers pay the new price.
+          </p>
         </div>
         <button
           type="button"
@@ -381,99 +226,47 @@ export function PricingPage() {
         </button>
       </div>
 
-      <div className="flex gap-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-fleet-500" />
-        <p>
-          <span className="font-semibold">Important:</span> Price changes apply to new
-          subscribers only. Existing active subscriptions keep their current rates until
-          updated. Use <span className="font-semibold">Create Plan</span> for custom tiers, then
-          assign them via{' '}
-          <Link to={ROUTES.LICENSES} className="font-semibold text-fleet-600 hover:underline">
-            License Keys
-          </Link>
-          .
-        </p>
-      </div>
-
       {loading ? (
         <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-400">
           Loading subscription plans...
         </div>
       ) : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {plans.map((plan) => (
-              <PlanCard
-                key={plan.planType}
-                plan={plan}
-                draft={drafts[plan.planType] ?? planToDraft(plan)}
-                onChange={(patch) => updateDraft(plan.planType, patch)}
-                onSave={() => savePlan(plan.planType)}
-                saving={savingPlan === plan.planType}
-              />
-            ))}
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-900">Global Discount Settings</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Yearly discount applied when recalculating annual rates
-              </p>
-              <div className="mt-5">
-                <label className="text-sm font-medium text-slate-700">Yearly Discount %</label>
-                <div className="mt-2 flex max-w-xs items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={yearlyDiscount}
-                    onChange={(e) => setYearlyDiscount(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
+        <div className="space-y-4">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="min-w-[980px] w-full border-collapse">
+              <thead className="bg-[#2f75b5] text-white">
+                <tr>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Plan</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Vehicle Limit</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Default Monthly Price</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Default Yearly Price</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Key Features</th>
+                  <th className="px-3 py-3 text-right text-sm font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedPlans.map((plan) => (
+                  <PlanRow
+                    key={plan.planType}
+                    plan={plan}
+                    draft={drafts[plan.planType] ?? planToDraft(plan)}
+                    onChange={(patch) => updateDraft(plan.planType, patch)}
+                    onSave={() => savePlan(plan.planType)}
+                    saving={savingPlan === plan.planType}
                   />
-                  <span className="text-sm font-medium text-slate-500">%</span>
-                </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  Applying a discount automatically calculates the yearly rates across all
-                  active plans unless overridden per plan above.
-                </p>
-                <button
-                  type="button"
-                  disabled={savingDiscount}
-                  onClick={saveYearlyDiscount}
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {savingDiscount ? 'Applying...' : 'Apply to All Plans'}
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-900">Subscription Metadata</h2>
-              <dl className="mt-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <dt className="text-sm text-slate-600">Active Subscriptions</dt>
-                  <dd className="text-lg font-bold text-fleet-600">
-                    {stats.activeSubscriptions.toLocaleString('en-IN')}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <dt className="text-sm text-slate-600">Pending Transitions</dt>
-                  <dd className="text-lg font-bold text-slate-900">
-                    {stats.pendingTransitions.toLocaleString('en-IN')}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-sm text-slate-600">Canceled (Last 30d)</dt>
-                  <dd className="text-lg font-bold text-red-600">
-                    {stats.canceledLast30Days.toLocaleString('en-IN')}
-                  </dd>
-                </div>
-              </dl>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </>
+
+          <div className="flex items-start gap-2 rounded border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Note: The Company Owner can change any plan price at any time. Changes apply only to
+              new subscribers. Existing subscribers continue paying their agreed price.
+            </p>
+          </div>
+        </div>
       )}
 
       <CreatePlanModal

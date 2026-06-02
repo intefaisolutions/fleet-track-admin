@@ -45,6 +45,7 @@ export const ROUTES = {
 
 export const ROLES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
+  SUPPORT_ADMIN: 'SUPPORT_ADMIN',
   COMPANY_ADMIN: 'COMPANY_ADMIN',
   VEHICLE_OWNER: 'VEHICLE_OWNER',
   DRIVER: 'DRIVER',
@@ -52,10 +53,37 @@ export const ROLES = {
 
 export const SUPER_ADMIN_ROLE = ROLES.SUPER_ADMIN;
 
-export function homeRouteForRole(role: string): string {
+export const SUPPORT_ADMIN_ROUTE_PERMISSIONS: Array<{
+  route: string;
+  permission: string;
+}> = [
+  { route: ROUTES.DASHBOARD, permission: 'dashboard:read' },
+  { route: ROUTES.LICENSES, permission: 'licenses:read' },
+  { route: ROUTES.COMPANIES, permission: 'companies:read' },
+  { route: ROUTES.PRICING, permission: 'settings:read' },
+  { route: ROUTES.PAYMENT_SETTINGS, permission: 'payments:write' },
+  { route: ROUTES.REVENUE, permission: 'payments:read' },
+  { route: ROUTES.SETTINGS, permission: 'settings:read' },
+];
+
+export function firstSupportAdminRoute(permissions: string[] = []): string {
+  const first = SUPPORT_ADMIN_ROUTE_PERMISSIONS.find((entry) =>
+    permissions.includes(entry.permission),
+  );
+  return first?.route ?? ROUTES.SIGN_IN;
+}
+
+export function permissionForAdminRoute(pathname: string): string | null {
+  const found = SUPPORT_ADMIN_ROUTE_PERMISSIONS.find((entry) => entry.route === pathname);
+  return found?.permission ?? null;
+}
+
+export function homeRouteForRole(role: string, permissions: string[] = []): string {
   switch (role) {
     case ROLES.SUPER_ADMIN:
       return ROUTES.DASHBOARD;
+    case ROLES.SUPPORT_ADMIN:
+      return firstSupportAdminRoute(permissions);
     case ROLES.COMPANY_ADMIN:
       return ROUTES.COMPANY_DASHBOARD;
     case ROLES.VEHICLE_OWNER:

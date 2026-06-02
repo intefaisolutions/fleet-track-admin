@@ -54,7 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         res.data.refreshToken,
         res.data.user,
       );
-      return res.data.user.role;
+      return {
+        role: res.data.user.role,
+        permissions: res.data.user.permissions ?? [],
+      };
     },
     [persistSession],
   );

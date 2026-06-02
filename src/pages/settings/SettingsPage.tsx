@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 import {
+  Building2,
+  KeyRound,
   Pencil,
   Plus,
   Settings,
+  TrendingUp,
   UserCircle,
   X,
 } from 'lucide-react';
@@ -15,10 +18,21 @@ import { getApiErrorMessage } from '../../utils/validation';
 interface SupportAdmin {
   name: string;
   email: string;
+  phone: string;
   permissions: string[];
+  status?: string;
+  createdAt?: string;
+}
+
+interface DashboardSummary {
+  revenueThisMonth?: number;
+  activeCompanies?: number;
+  activeLicenses?: number;
+  expiringSoon?: number;
 }
 
 const PERMISSION_OPTIONS = [
+  { value: 'dashboard:read', label: 'View Dashboard' },
   { value: 'licenses:read', label: 'View Licenses' },
   { value: 'payments:write', label: 'Manage Payments' },
   { value: 'companies:read', label: 'View Companies' },
@@ -42,6 +56,8 @@ function AddSupportAdminModal({
   const [form, setForm] = useState({
     name: '',
     email: '',
+    phone: '',
+    password: '',
     permissions: [] as string[],
   });
   const [loading, setLoading] = useState(false);
@@ -67,7 +83,7 @@ function AddSupportAdminModal({
     try {
       await platformService.addSupportAdmin(form);
       toast.success('Support admin added');
-      setForm({ name: '', email: '', permissions: [] });
+      setForm({ name: '', email: '', phone: '', password: '', permissions: [] });
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -103,6 +119,22 @@ function AddSupportAdminModal({
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
           />
+          <input
+            required
+            placeholder="Phone number (+91...)"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
+          />
+          <input
+            type="password"
+            minLength={8}
+            required
+            placeholder="Temporary password"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
+          />
           <div>
             <p className="mb-2 text-sm font-medium text-slate-700">Permissions</p>
             <div className="flex flex-wrap gap-2">
@@ -135,6 +167,92 @@ function AddSupportAdminModal({
   );
 }
 
+function EditPermissionsModal({
+  admin,
+  open,
+  onClose,
+  onSave,
+}: {
+  admin: SupportAdmin | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (email: string, permissions: string[]) => Promise<void>;
+}) {
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (admin) {
+      setPermissions(admin.permissions);
+    }
+  }, [admin]);
+
+  if (!open || !admin) return null;
+
+  const togglePermission = (value: string) => {
+    setPermissions((prev) =>
+      prev.includes(value) ? prev.filter((p) => p !== value) : [...prev, value],
+    );
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (permissions.length === 0) {
+      toast.error('Select at least one permission');
+      return;
+    }
+    setLoading(true);
+    try {
+      await onSave(admin.email, permissions);
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button type="button" className="absolute inset-0 bg-slate-900/50" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <h2 className="text-lg font-bold">Set Permissions</h2>
+          <button type="button" onClick={onClose} className="text-slate-400">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
+          <p className="text-sm text-slate-600">
+            <span className="font-semibold text-slate-800">{admin.name}</span> ({admin.email})
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {PERMISSION_OPTIONS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => togglePermission(p.value)}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  permissions.includes(p.value)
+                    ? 'bg-fleet-500 text-white'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-fleet-500 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {loading ? 'Saving...' : 'Save Permissions'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const { user, setUser } = useAuth();
   const [profile, setProfile] = useState({
@@ -147,8 +265,11 @@ export function SettingsPage() {
     newPassword: '',
   });
   const [supportAdmins, setSupportAdmins] = useState<SupportAdmin[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary>({});
+  const [summaryLoading, setSummaryLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState<SupportAdmin | null>(null);
 
   const loadSupportAdmins = useCallback(() => {
     platformService
@@ -166,6 +287,23 @@ export function SettingsPage() {
       });
     }
     loadSupportAdmins();
+    setSummaryLoading(true);
+    platformService
+      .getDashboard()
+      .then((res) => {
+        const data = res.data as
+          | { stats?: DashboardSummary; revenueThisMonth?: number; activeCompanies?: number; activeLicenses?: number; expiringSoon?: number }
+          | undefined;
+        const stats = data?.stats;
+        setSummary({
+          revenueThisMonth: stats?.revenueThisMonth ?? data?.revenueThisMonth ?? 0,
+          activeCompanies: stats?.activeCompanies ?? data?.activeCompanies ?? 0,
+          activeLicenses: stats?.activeLicenses ?? data?.activeLicenses ?? 0,
+          expiringSoon: stats?.expiringSoon ?? data?.expiringSoon ?? 0,
+        });
+      })
+      .catch(() => setSummary({}))
+      .finally(() => setSummaryLoading(false));
   }, [user, loadSupportAdmins]);
 
   const handleSaveProfile = async (e: FormEvent) => {
@@ -200,6 +338,17 @@ export function SettingsPage() {
       loadSupportAdmins();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Remove failed'));
+    }
+  };
+
+  const handleUpdatePermissions = async (email: string, permissions: string[]) => {
+    try {
+      await platformService.updateSupportAdminPermissions(email, permissions);
+      toast.success('Permissions updated');
+      loadSupportAdmins();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Update failed'));
+      throw err;
     }
   };
 
@@ -335,6 +484,42 @@ export function SettingsPage() {
         </div>
       </form>
 
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+        <h2 className="text-lg font-bold text-slate-900">Platform Statistics Summary</h2>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium text-slate-500">Revenue This Month</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">
+              {summaryLoading
+                ? '—'
+                : `₹${(summary.revenueThisMonth ?? 0).toLocaleString('en-IN')}`}
+            </p>
+            <TrendingUp className="mt-2 h-4 w-4 text-fleet-500" />
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium text-slate-500">Active Companies</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">
+              {summaryLoading ? '—' : (summary.activeCompanies ?? 0)}
+            </p>
+            <Building2 className="mt-2 h-4 w-4 text-fleet-500" />
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium text-slate-500">Active Licenses</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">
+              {summaryLoading ? '—' : (summary.activeLicenses ?? 0)}
+            </p>
+            <KeyRound className="mt-2 h-4 w-4 text-fleet-500" />
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium text-slate-500">Expiring Soon</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">
+              {summaryLoading ? '—' : (summary.expiringSoon ?? 0)}
+            </p>
+            <Settings className="mt-2 h-4 w-4 text-fleet-500" />
+          </div>
+        </div>
+      </div>
+
       {/* Support Admin Team */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
         <div className="mb-6 flex items-center justify-between">
@@ -355,6 +540,7 @@ export function SettingsPage() {
               <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="pb-3 pr-4">Name</th>
                 <th className="pb-3 pr-4">Email</th>
+                <th className="pb-3 pr-4">Phone</th>
                 <th className="pb-3 pr-4">Permissions</th>
                 <th className="pb-3">Actions</th>
               </tr>
@@ -362,7 +548,7 @@ export function SettingsPage() {
             <tbody>
               {supportAdmins.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-slate-400">
+                  <td colSpan={5} className="py-8 text-center text-slate-400">
                     No support admins yet. Add team members to help manage the platform.
                   </td>
                 </tr>
@@ -371,6 +557,7 @@ export function SettingsPage() {
                   <tr key={admin.email} className="border-b border-slate-50 last:border-0">
                     <td className="py-4 pr-4 font-medium text-slate-900">{admin.name}</td>
                     <td className="py-4 pr-4 text-slate-600">{admin.email}</td>
+                    <td className="py-4 pr-4 text-slate-600">{admin.phone}</td>
                     <td className="py-4 pr-4">
                       <div className="flex flex-wrap gap-1.5">
                         {admin.permissions.map((p) => (
@@ -384,13 +571,22 @@ export function SettingsPage() {
                       </div>
                     </td>
                     <td className="py-4">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAdmin(admin.email)}
-                        className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                      >
-                        Remove
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingAdmin(admin)}
+                          className="rounded-lg border border-sky-200 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50"
+                        >
+                          Set Permissions
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAdmin(admin.email)}
+                          className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -417,6 +613,12 @@ export function SettingsPage() {
         open={adminModalOpen}
         onClose={() => setAdminModalOpen(false)}
         onSuccess={loadSupportAdmins}
+      />
+      <EditPermissionsModal
+        admin={editingAdmin}
+        open={!!editingAdmin}
+        onClose={() => setEditingAdmin(null)}
+        onSave={handleUpdatePermissions}
       />
     </div>
   );

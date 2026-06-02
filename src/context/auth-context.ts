@@ -8,7 +8,7 @@ export interface AuthContextValue {
   isSuperAdmin: boolean;
   role: string | null;
   loading: boolean;
-  login: (payload: LoginPayload) => Promise<string>;
+  login: (payload: LoginPayload) => Promise<{ role: string; permissions: string[] }>;
   logout: () => Promise<void>;
   setUser: (user: AuthUser | null) => void;
 }

@@ -83,9 +83,42 @@ export interface SuperAdminDashboardData {
   topCompanies: SuperAdminTopCompany[];
 }
 
+export interface RevenueOverviewCompanyRow {
+  name: string;
+  plan: string;
+  amount: number;
+  status: string;
+}
+
+export interface RevenueOverviewData {
+  selectedMonth: number;
+  selectedYear: number;
+  monthlyRevenue: number;
+  yearlyRevenue: number;
+  pendingPayments: number;
+  pendingCount: number;
+  overduePendingCount: number;
+  monthlyTrendPercent: number;
+  yearlyTrendPercent: number;
+  monthlyTrend: SuperAdminRevenuePoint[];
+  previousYearTrend: SuperAdminRevenuePoint[];
+  revenueByCompany: RevenueOverviewCompanyRow[];
+  planDistribution: { planType: string; count: number }[];
+  totalSubscriptions: number;
+}
+
 export const platformService = {
   getPlans: () => getData<unknown[]>('/platform/plans'),
   getPricingOverview: () => getData<PricingOverview>('/platform/pricing-overview'),
+  getRevenueOverview: (month?: number, year?: number) => {
+    const params = new URLSearchParams();
+    if (month != null) params.set('month', String(month));
+    if (year != null) params.set('year', String(year));
+    const q = params.toString();
+    return getData<RevenueOverviewData>(
+      q ? `/platform/revenue-overview?${q}` : '/platform/revenue-overview',
+    );
+  },
   createPlan: (data: CreatePlanPayload) => postData<SubscriptionPlanRecord>('/platform/plans', data),
   /** Super Admin dashboard — SRS 4.1 */
   getDashboard: () => getData<SuperAdminDashboardData>('/platform/dashboard'),
@@ -103,8 +136,15 @@ export const platformService = {
   addSupportAdmin: (data: {
     name: string;
     email: string;
+    phone: string;
+    password: string;
     permissions: string[];
   }) => postData('/platform/support-admins', data),
+  updateSupportAdminPermissions: (email: string, permissions: string[]) =>
+    patchData(
+      `/platform/support-admins/${encodeURIComponent(email)}/permissions`,
+      { permissions },
+    ),
   removeSupportAdmin: (email: string) =>
     deleteData(`/platform/support-admins/${encodeURIComponent(email)}`),
 };
