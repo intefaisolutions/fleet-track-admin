@@ -35,7 +35,9 @@ export const ROUTES = {
   // Vehicle Owner
   OWNER_DASHBOARD: '/owner/dashboard',
   OWNER_VEHICLES: '/owner/vehicles',
+  OWNER_DRIVERS: '/owner/drivers',
   OWNER_EXPENSES: '/owner/expenses',
+  OWNER_ADD_EXPENSE: '/owner/expenses/add',
   OWNER_UPGRADE: '/owner/upgrade',
   // Driver
   DRIVER_DASHBOARD: '/driver/dashboard',

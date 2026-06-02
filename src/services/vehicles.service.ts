@@ -1,4 +1,4 @@
-import { getData, postData } from './api';
+import { deleteData, getData, patchData, postData } from './api';
 
 export interface VehicleRecord {
   _id: string;
@@ -31,7 +31,7 @@ export interface CreateVehiclePayload {
   purchaseDate?: string;
   purchaseCost?: number;
   imageUrl?: string;
-  assignedDriverId?: string;
+  assignedDriverId?: string | null;
   status?: string;
   companyId?: string;
 }
@@ -40,4 +40,7 @@ export const vehiclesService = {
   list: () => getData<VehicleRecord[]>('/vehicles'),
   getById: (id: string) => getData<VehicleRecord>(`/vehicles/${id}`),
   create: (data: CreateVehiclePayload) => postData<VehicleRecord>('/vehicles', data),
+  update: (id: string, data: Partial<CreateVehiclePayload>) =>
+    patchData<VehicleRecord>(`/vehicles/${id}`, data),
+  remove: (id: string) => deleteData(`/vehicles/${id}`),
 };

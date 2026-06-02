@@ -7,9 +7,56 @@ import {
   type ReactNode,
 } from 'react';
 import { STORAGE_KEYS, ROLES } from '../config/constants';
-import { authService, type LoginPayload } from '../services/auth.service';
+import type { LoginPayload } from '../services/auth.service';
 import type { AuthUser } from '../types/api';
 import { AuthContext } from './auth-context';
+
+type StaticAccount = {
+  password: string;
+  user: AuthUser;
+};
+
+const STATIC_ACCOUNTS: Record<string, StaticAccount> = {
+  'admin@fleettrack.com': {
+    password: 'admin123',
+    user: {
+      id: 'static-super-admin-1',
+      fullName: 'Fleet Super Admin',
+      email: 'admin@fleettrack.com',
+      phone: '+91 9999999999',
+      role: ROLES.SUPER_ADMIN,
+      status: 'ACTIVE',
+      isEmailVerified: true,
+      permissions: ['*'],
+    },
+  },
+  'company@fleettrack.com': {
+    password: 'company123',
+    user: {
+      id: 'static-company-admin-1',
+      fullName: 'Company Admin',
+      email: 'company@fleettrack.com',
+      phone: '+91 8888888888',
+      role: ROLES.COMPANY_ADMIN,
+      status: 'ACTIVE',
+      isEmailVerified: true,
+      companyId: 'static-company-1',
+    },
+  },
+  'owner@fleettrack.com': {
+    password: 'owner123',
+    user: {
+      id: 'static-owner-1',
+      fullName: 'Vehicle Owner',
+      email: 'owner@fleettrack.com',
+      phone: '+91 7777777777',
+      role: ROLES.VEHICLE_OWNER,
+      status: 'ACTIVE',
+      isEmailVerified: true,
+      companyId: 'static-company-1',
+    },
+  },
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -41,33 +88,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (payload: LoginPayload) => {
-      const res = await authService.login(payload);
-      if (!res.data) throw new Error(res.message || 'Login failed');
+      const email = payload.email.trim().toLowerCase();
+      const account = STATIC_ACCOUNTS[email];
+      if (!account || account.password !== payload.password) {
+        throw new Error('Invalid credentials');
+      }
 
       const allowed = Object.values(ROLES) as string[];
-      if (!allowed.includes(res.data.user.role)) {
+      if (!allowed.includes(account.user.role)) {
         throw new Error('Your role is not supported in this portal yet');
       }
 
+      const accessToken = `static-access-${Date.now()}`;
+      const refreshToken = `static-refresh-${Date.now()}`;
       persistSession(
-        res.data.accessToken,
-        res.data.refreshToken,
-        res.data.user,
+        accessToken,
+        refreshToken,
+        account.user,
       );
       return {
-        role: res.data.user.role,
-        permissions: res.data.user.permissions ?? [],
+        role: account.user.role,
+        permissions: account.user.permissions ?? [],
       };
     },
     [persistSession],
   );
 
   const logout = useCallback(async () => {
-    try {
-      await authService.logout();
-    } catch {
-      /* ignore */
-    }
     localStorage.clear();
     setUser(null);
   }, []);

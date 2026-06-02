@@ -24,6 +24,7 @@ export interface CreateExpensePayload {
   amount: number;
   description?: string;
   expenseDate?: string;
+  receiptUrl?: string;
 }
 
 export const expensesService = {

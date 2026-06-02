@@ -1,13 +1,61 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Truck, Wrench } from 'lucide-react';
+import {
+  Eye,
+  Info,
+  Pencil,
+  Plus,
+  Trash2,
+  Truck,
+} from 'lucide-react';
 import {
   vehiclesService,
   type VehicleRecord,
 } from '../../services/vehicles.service';
-import { AddOwnerVehicleDrawer } from '../../components/owner/AddOwnerVehicleDrawer';
+import {
+  subscriptionsService,
+  type SubscriptionRecord,
+} from '../../services/subscriptions.service';
+import { OwnerVehicleFormDrawer } from '../../components/owner/OwnerVehicleFormDrawer';
+import { OwnerVehicleDetailModal } from '../../components/owner/OwnerVehicleDetailModal';
 import { getApiErrorMessage } from '../../utils/validation';
+
+const DUMMY_VEHICLES: VehicleRecord[] = [
+  {
+    _id: 'owner-v-1',
+    registrationNumber: 'HR 26 AB 1234',
+    make: 'Tata',
+    modelName: 'Ace',
+    vehicleType: 'TRUCK',
+    fuelType: 'Diesel',
+    year: 2022,
+    status: 'ACTIVE',
+    currentOdometerKm: 45500,
+    purchaseDate: '2022-01-05T00:00:00.000Z',
+    purchaseCost: 850000,
+    assignedDriverId: { _id: 'd1', fullName: 'Suresh Yadav' },
+  },
+  {
+    _id: 'owner-v-2',
+    registrationNumber: 'DL 01 CD 5678',
+    make: 'Mahindra',
+    modelName: 'Bolero',
+    vehicleType: 'TRUCK',
+    fuelType: 'Diesel',
+    year: 2021,
+    status: 'MAINTENANCE',
+    currentOdometerKm: 38910,
+    assignedDriverId: undefined,
+  },
+];
+
+const DUMMY_SUB: SubscriptionRecord = {
+  _id: 'sub-demo',
+  planType: 'STANDARD',
+  status: 'ACTIVE',
+  vehicleLimit: 5,
+};
 
 function refName(
   ref?: { fullName?: string } | string | null,
@@ -20,14 +68,7 @@ function refName(
 
 function formatOdometer(km?: number) {
   if (km == null) return '—';
-  return `${km.toLocaleString('en-US')} km`;
-}
-
-function formatMaintenanceDate(date?: string) {
-  if (!date) return 'TBD';
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return 'TBD';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${km.toLocaleString('en-IN')} km`;
 }
 
 function modelLine(v: VehicleRecord) {
@@ -35,93 +76,98 @@ function modelLine(v: VehicleRecord) {
   return title || v.modelName || '—';
 }
 
-function VehicleCard({ vehicle }: { vehicle: VehicleRecord }) {
-  const status = vehicle.status.toUpperCase();
-  const isMaintenance = status === 'MAINTENANCE';
-  const isActive = status === 'ACTIVE';
+function typeLabel(type?: string) {
+  const map: Record<string, string> = {
+    TRUCK: 'Truck',
+    VAN: 'Van',
+    CAR: 'Car',
+    BIKE: 'Auto',
+    OTHER: 'Other',
+  };
+  return type ? (map[type] ?? type) : '—';
+}
 
+function StatusBadge({ status }: { status: string }) {
+  const s = status.toUpperCase();
+  const styles =
+    s === 'ACTIVE'
+      ? 'bg-emerald-100 text-emerald-800'
+      : s === 'MAINTENANCE'
+        ? 'bg-amber-100 text-amber-800'
+        : 'bg-slate-100 text-slate-600';
+  const label =
+    s === 'ACTIVE'
+      ? 'Active'
+      : s === 'MAINTENANCE'
+        ? 'Maintenance'
+      : s === 'INACTIVE'
+        ? 'Inactive'
+        : s === 'RETIRED'
+          ? 'Retired'
+          : status;
   return (
-    <article
-      className={`flex flex-col rounded-xl border bg-white p-5 shadow-sm transition hover:shadow-md ${
-        isMaintenance
-          ? 'border-l-4 border-l-amber-500 border-slate-200'
-          : 'border-slate-200'
-      }`}
-    >
-      <div className="mb-4 flex items-start justify-between">
-        <div
-          className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-            isMaintenance ? 'bg-amber-50 text-amber-600' : 'bg-sky-50 text-sky-600'
-          }`}
-        >
-          {isMaintenance ? (
-            <Wrench className="h-6 w-6" />
-          ) : (
-            <Truck className="h-6 w-6" />
-          )}
-        </div>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            isActive
-              ? 'bg-emerald-100 text-emerald-700'
-              : isMaintenance
-                ? 'bg-amber-100 text-amber-800'
-                : 'bg-slate-100 text-slate-600'
-          }`}
-        >
-          {isActive ? 'Active' : isMaintenance ? 'Maintenance' : status}
-        </span>
-      </div>
-
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        {vehicle.registrationNumber}
-      </p>
-      <h3 className="mt-1 text-base font-bold text-slate-900">{modelLine(vehicle)}</h3>
-
-      <dl className="mt-4 space-y-2 text-sm">
-        <div className="flex justify-between gap-2">
-          <dt className="text-slate-500">Driver</dt>
-          <dd className="font-medium text-slate-800">
-            {refName(vehicle.assignedDriverId)}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-slate-500">Odometer</dt>
-          <dd className="font-medium text-slate-800">
-            {formatOdometer(vehicle.currentOdometerKm)}
-          </dd>
-        </div>
-      </dl>
-
-      {isMaintenance && (
-        <p className="mt-3 text-xs text-amber-700">
-          Scheduled: {formatMaintenanceDate(vehicle.lastServiceDate)}
-        </p>
-      )}
-    </article>
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles}`}>
+      {label}
+    </span>
   );
 }
 
 export function OwnerVehiclesPage() {
   const { search = '' } = useOutletContext<{ search?: string }>();
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
+  const [subscription, setSubscription] = useState<SubscriptionRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editVehicle, setEditVehicle] = useState<VehicleRecord | null>(null);
+  const [detailVehicle, setDetailVehicle] = useState<VehicleRecord | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
-    vehiclesService
-      .list()
-      .then((res) => setVehicles(res.data ?? []))
-      .catch((err: unknown) =>
-        toast.error(getApiErrorMessage(err, 'Failed to load vehicles')),
-      )
+    Promise.allSettled([vehiclesService.list(), subscriptionsService.list()])
+      .then(([vehRes, subRes]) => {
+        let list: VehicleRecord[] = [];
+        let sub: SubscriptionRecord | null = null;
+
+        if (vehRes.status === 'fulfilled') {
+          list = vehRes.value.data ?? [];
+        }
+        if (subRes.status === 'fulfilled') {
+          const subs = subRes.value.data ?? [];
+          sub = subs.find((s) => s.status === 'ACTIVE') ?? subs[0] ?? null;
+        }
+
+        if (list.length === 0 && vehRes.status === 'rejected') {
+          list = DUMMY_VEHICLES;
+          sub = DUMMY_SUB;
+          setDemoMode(true);
+          toast.info('Showing demo vehicles');
+        } else {
+          setDemoMode(false);
+        }
+
+        setVehicles(list);
+        setSubscription(sub);
+      })
+      .catch((err: unknown) => {
+        setVehicles(DUMMY_VEHICLES);
+        setSubscription(DUMMY_SUB);
+        setDemoMode(true);
+        toast.info('Showing demo vehicles');
+        toast.error(getApiErrorMessage(err, 'Failed to load vehicles'));
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const limit = subscription?.vehicleLimit ?? 5;
+  const used = vehicles.length;
+  const remaining = Math.max(0, limit - used);
+  const atLimit = remaining <= 0;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -130,9 +176,50 @@ export function OwnerVehiclesPage() {
       (v) =>
         v.registrationNumber.toLowerCase().includes(q) ||
         modelLine(v).toLowerCase().includes(q) ||
-        refName(v.assignedDriverId, '').toLowerCase().includes(q),
+        refName(v.assignedDriverId, '').toLowerCase().includes(q) ||
+        typeLabel(v.vehicleType).toLowerCase().includes(q),
     );
   }, [vehicles, search]);
+
+  const openAdd = () => {
+    if (atLimit && !demoMode) {
+      toast.warning(`Vehicle limit reached (${used}/${limit}). Upgrade your plan to add more.`);
+      return;
+    }
+    setEditVehicle(null);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (v: VehicleRecord) => {
+    setEditVehicle(v);
+    setDrawerOpen(true);
+  };
+
+  const handleDelete = async (v: VehicleRecord) => {
+    const label = `${v.registrationNumber} (${modelLine(v)})`;
+    if (
+      !window.confirm(
+        `Delete ${label}? This cannot be undone (e.g. vehicle sold or decommissioned).`,
+      )
+    ) {
+      return;
+    }
+    if (demoMode) {
+      setVehicles((prev) => prev.filter((x) => x._id !== v._id));
+      toast.success('Vehicle removed (demo)');
+      return;
+    }
+    setDeletingId(v._id);
+    try {
+      await vehiclesService.remove(v._id);
+      toast.success('Vehicle deleted');
+      load();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to delete vehicle'));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -140,17 +227,40 @@ export function OwnerVehiclesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My Vehicles</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Manage and monitor your fleet performance and assignments.
+            Add, edit, view, and delete your registered vehicles. Limit depends on your plan.
           </p>
         </div>
         <button
           type="button"
-          onClick={() => setDrawerOpen(true)}
-          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600"
+          onClick={openAdd}
+          disabled={atLimit && !demoMode}
+          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
           Add Vehicle
         </button>
+      </div>
+
+      <div
+        className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${
+          atLimit
+            ? 'border-amber-200 bg-amber-50 text-amber-900'
+            : 'border-sky-200 bg-sky-50 text-sky-900'
+        }`}
+      >
+        <Info className="mt-0.5 h-5 w-5 shrink-0" />
+        <div className="text-sm">
+          <p className="font-semibold">
+            {used}/{limit} vehicles used
+            {remaining > 0
+              ? ` – you can add ${remaining} more`
+              : ' – limit reached'}
+          </p>
+          <p className="mt-0.5 text-xs opacity-80">
+            {subscription?.planType ?? 'Plan'} subscription
+            {demoMode ? ' (demo data)' : ''}
+          </p>
+        </div>
       </div>
 
       {loading ? (
@@ -164,25 +274,97 @@ export function OwnerVehiclesPage() {
           {!search && (
             <button
               type="button"
-              onClick={() => setDrawerOpen(true)}
+              onClick={openAdd}
               className="mt-4 text-sm font-semibold text-fleet-600 hover:underline"
             >
-              Add your first vehicle
+              Register your first vehicle
             </button>
           )}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((v) => (
-            <VehicleCard key={v._id} vehicle={v} />
-          ))}
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Registration</th>
+                  <th className="px-4 py-3">Model</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Fuel</th>
+                  <th className="px-4 py-3">Driver</th>
+                  <th className="px-4 py-3">Odometer</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((v) => (
+                  <tr key={v._id} className="hover:bg-slate-50/80">
+                    <td className="px-4 py-3 font-semibold text-slate-900">
+                      {v.registrationNumber}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{modelLine(v)}</td>
+                    <td className="px-4 py-3 text-slate-600">{typeLabel(v.vehicleType)}</td>
+                    <td className="px-4 py-3 text-slate-600">{v.fuelType ?? '—'}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {refName(v.assignedDriverId)}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {formatOdometer(v.currentOdometerKm)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={v.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          title="View details"
+                          onClick={() => setDetailVehicle(v)}
+                          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-fleet-600"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Edit vehicle"
+                          onClick={() => openEdit(v)}
+                          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-fleet-600"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete vehicle"
+                          disabled={deletingId === v._id}
+                          onClick={() => handleDelete(v)}
+                          className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      <AddOwnerVehicleDrawer
+      <OwnerVehicleFormDrawer
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        vehicle={editVehicle}
+        onClose={() => {
+          setDrawerOpen(false);
+          setEditVehicle(null);
+        }}
         onSuccess={load}
+      />
+
+      <OwnerVehicleDetailModal
+        vehicle={detailVehicle}
+        onClose={() => setDetailVehicle(null)}
       />
     </div>
   );

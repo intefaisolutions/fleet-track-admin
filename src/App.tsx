@@ -26,6 +26,8 @@ import { CompanyPlaceholderPage } from './pages/company/CompanyPlaceholderPage';
 import { CompanyLayout } from './components/layout/CompanyLayout';
 import { OwnerDashboardPage } from './pages/owner/OwnerDashboardPage';
 import { OwnerVehiclesPage } from './pages/owner/OwnerVehiclesPage';
+import { OwnerDriversPage } from './pages/owner/OwnerDriversPage';
+import { OwnerExpensesPage } from './pages/owner/OwnerExpensesPage';
 import { OwnerLayout } from './components/layout/OwnerLayout';
 import { DriverDashboardPage } from './pages/driver/DriverDashboardPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
@@ -64,10 +66,7 @@ function App() {
               <Route path={ROUTES.COMPANY_SUBSCRIPTION} element={<CompanySubscriptionPage />} />
               <Route path={ROUTES.COMPANY_ADMINS} element={<CompanyAdminsPage />} />
               <Route path={ROUTES.COMPANY_REPORTS} element={<CompanyReportsPage />} />
-              <Route
-                path={ROUTES.COMPANY_DRIVERS}
-                element={<CompanyPlaceholderPage title="Drivers" />}
-              />
+              <Route path={ROUTES.COMPANY_DRIVERS} element={<CompanyPlaceholderPage title="Drivers" />} />
               <Route path={ROUTES.COMPANY_SETTINGS} element={<CompanySettingsPage />} />
             </Route>
           </Route>
@@ -76,22 +75,8 @@ function App() {
             <Route element={<OwnerLayout />}>
               <Route path={ROUTES.OWNER_DASHBOARD} element={<OwnerDashboardPage />} />
               <Route path={ROUTES.OWNER_VEHICLES} element={<OwnerVehiclesPage />} />
-              <Route
-                path={ROUTES.OWNER_EXPENSES}
-                element={
-                  <div className="rounded-xl bg-white p-8 text-slate-500">
-                    Expenses — coming soon
-                  </div>
-                }
-              />
-              <Route
-                path={ROUTES.OWNER_UPGRADE}
-                element={
-                  <div className="rounded-xl bg-white p-8 text-slate-500">
-                    Upgrade plan — coming soon
-                  </div>
-                }
-              />
+              <Route path={ROUTES.OWNER_DRIVERS} element={<OwnerDriversPage />} />
+              <Route path={ROUTES.OWNER_EXPENSES} element={<OwnerExpensesPage />} />
             </Route>
           </Route>
 
@@ -109,3 +94,5 @@ function App() {
 }
 
 export default App;
+
+

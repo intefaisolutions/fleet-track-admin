@@ -4,9 +4,10 @@ export interface DriverRecord {
   _id: string;
   fullName: string;
   phone: string;
+  email?: string;
   licenseNumber?: string;
   status: string;
-  userId?: string;
+  userId?: { _id: string; email?: string; fullName?: string; phone?: string } | string;
 }
 
 export interface CreateDriverPayload {
@@ -19,5 +20,6 @@ export interface CreateDriverPayload {
 
 export const driversService = {
   list: () => getData<DriverRecord[]>('/drivers'),
+  getById: (id: string) => getData<DriverRecord>(`/drivers/${id}`),
   create: (data: CreateDriverPayload) => postData('/drivers', data),
 };
