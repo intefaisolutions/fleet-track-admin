@@ -9,15 +9,21 @@ export const COMPANY_SUB_ADMIN_PERMISSIONS = [
   { value: 'users:write', label: 'Edit Users' },
   { value: 'users:delete', label: 'Delete Users' },
   { value: 'expenses:read', label: 'View Expenses' },
-  { value: 'expenses:write', label: 'Edit Expenses' },
-  { value: 'expenses:delete', label: 'Delete Expenses' },
   { value: 'vehicles:read', label: 'View Vehicles' },
-  { value: 'vehicles:write', label: 'Edit Vehicles' },
 ] as const;
+
+const LEGACY_PERMISSION_LABELS: Record<string, string> = {
+  'expenses:write': 'Edit Expenses (no longer available)',
+  'expenses:delete': 'Delete Expenses (no longer available)',
+  'vehicles:write': 'Edit Vehicles (no longer available)',
+  'vehicles:delete': 'Delete Vehicles (no longer available)',
+};
 
 export function permissionLabel(key: string) {
   return (
-    COMPANY_SUB_ADMIN_PERMISSIONS.find((p) => p.value === key)?.label ?? key
+    COMPANY_SUB_ADMIN_PERMISSIONS.find((p) => p.value === key)?.label ??
+    LEGACY_PERMISSION_LABELS[key] ??
+    key
   );
 }
 
@@ -112,7 +118,8 @@ export function AddSubAdminModal({
           <div>
             <p className="mb-2 text-sm font-medium text-slate-700">Set Permissions</p>
             <p className="mb-2 text-xs text-slate-500">
-              Choose what this sub-admin can view, edit, or delete.
+              Sub-admins can only do what your company portal allows. Vehicles and
+              expenses are view-only here (owners/drivers manage those records).
             </p>
             <div className="flex flex-wrap gap-2">
               {COMPANY_SUB_ADMIN_PERMISSIONS.map((p) => (

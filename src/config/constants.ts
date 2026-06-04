@@ -22,6 +22,7 @@ export const ROUTES = {
   PRICING: '/pricing',
   PAYMENT_SETTINGS: '/payment-settings',
   REVENUE: '/revenue',
+  PROFILE: '/profile',
   SETTINGS: '/settings',
   PENDING_PAYMENTS: '/pending-payments',
   // Company Admin
@@ -75,7 +76,7 @@ export const SUPPORT_ADMIN_ROUTE_PERMISSIONS: Array<{
   { route: ROUTES.SETTINGS, permission: 'settings:read' },
 ];
 
-function supportAdminHasPermission(permissions: string[], required: string): boolean {
+export function supportAdminHasPermission(permissions: string[], required: string): boolean {
   if (permissions.includes(SUPPORT_PLATFORM_READ)) return true;
   return permissions.includes(required);
 }
@@ -84,7 +85,18 @@ export function firstSupportAdminRoute(permissions: string[] = []): string {
   const first = SUPPORT_ADMIN_ROUTE_PERMISSIONS.find((entry) =>
     supportAdminHasPermission(permissions, entry.permission),
   );
-  return first?.route ?? ROUTES.SIGN_IN;
+  return first?.route ?? ROUTES.PROFILE;
+}
+
+export function adminRoleLabel(role: string | null | undefined): string {
+  switch (role) {
+    case ROLES.SUPER_ADMIN:
+      return 'Super Administrator';
+    case ROLES.SUPPORT_ADMIN:
+      return 'Support Administrator';
+    default:
+      return 'Administrator';
+  }
 }
 
 export function permissionForAdminRoute(pathname: string): string | null {
@@ -96,9 +108,16 @@ export function supportAdminCanAccessRoute(
   permissions: string[],
   pathname: string,
 ): boolean {
+  if (pathname === ROUTES.PROFILE) return true;
   const required = permissionForAdminRoute(pathname);
   if (!required) return true;
   return supportAdminHasPermission(permissions, required);
+}
+
+export function supportAdminHasAnyNavPermission(permissions: string[] = []): boolean {
+  return SUPPORT_ADMIN_ROUTE_PERMISSIONS.some((entry) =>
+    supportAdminHasPermission(permissions, entry.permission),
+  );
 }
 
 export function homeRouteForRole(role: string, permissions: string[] = []): string {

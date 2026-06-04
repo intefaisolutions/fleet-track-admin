@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   ChevronLeft,
@@ -6,51 +7,38 @@ import {
   Download,
   Paperclip,
 } from 'lucide-react';
+import { ROUTES } from '../../config/constants';
 import {
   expensesService,
   type ExpenseRecord,
 } from '../../services/expenses.service';
+import { reportsService } from '../../services/reports.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
+import {
+  EXPENSE_CATEGORY_ORDER,
+  buildCategoryStats,
+  expenseCategoryLabel,
+  expenseCategoryStyle,
+  formatCategoryDetailsSummary,
+  normalizeExpenseCategory,
+} from '../../config/expenseCategories';
 import { getApiErrorMessage } from '../../utils/validation';
 
 const PAGE_SIZE = 10;
 
-const CATEGORIES = [
-  'FUEL',
-  'SERVICE',
-  'TOLL',
-  'INSURANCE',
-  'PUC',
-  'CHALLAN',
-  'OTHER',
-] as const;
-
-const CATEGORY_STYLES: Record<string, string> = {
-  FUEL: 'bg-sky-100 text-sky-800',
-  SERVICE: 'bg-orange-100 text-orange-800',
-  TOLL: 'bg-purple-100 text-purple-800',
-  INSURANCE: 'bg-emerald-100 text-emerald-800',
-  PUC: 'bg-teal-100 text-teal-800',
-  CHALLAN: 'bg-red-100 text-red-800',
-  OTHER: 'bg-slate-100 text-slate-700',
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  FUEL: 'Fuel',
-  SERVICE: 'Repair',
-  TOLL: 'Toll',
-  INSURANCE: 'Insurance',
-  PUC: 'PUC',
-  CHALLAN: 'Challan',
-  OTHER: 'Other',
-};
-
-function categoryLabel(c: string) {
-  return CATEGORY_LABELS[c] ?? c;
-}
-
 function formatInr(n: number) {
   return `₹ ${n.toLocaleString('en-IN')}`;
+}
+
+function expenseEffectiveDate(e: ExpenseRecord): Date {
+  const raw = e.expenseDate ?? e.createdAt;
+  const d = new Date(raw ?? '');
+  return Number.isNaN(d.getTime()) ? new Date(0) : d;
+}
+
+function isThisMonth(d: Date): boolean {
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
 function formatDateTime(iso?: string) {
@@ -89,7 +77,7 @@ function exportCsv(rows: ExpenseRecord[]) {
     return [
       formatDateTime(r.expenseDate ?? r.createdAt),
       v.reg,
-      categoryLabel(r.category),
+      expenseCategoryLabel(r.category),
       r.description ?? '',
       r.amount,
       recorderName(r.recordedBy),
@@ -117,17 +105,35 @@ export function CompanyExpensesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
+  const [summary, setSummary] = useState({
+    totalExpenses: 0,
+    expensesCountThisMonth: 0,
+    expensesThisMonth: 0,
+  });
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([expensesService.list(), vehiclesService.list()])
-      .then(([expRes, vehRes]) => {
+    Promise.all([
+      expensesService.list(),
+      vehiclesService.list(),
+      reportsService.getCompanyDashboard(),
+    ])
+      .then(([expRes, vehRes, dashRes]) => {
         setExpenses(expRes.data ?? []);
         setVehicles(vehRes.data ?? []);
+        const dash = dashRes.data;
+        setSummary({
+          totalExpenses: dash?.totalExpenses ?? expRes.data?.length ?? 0,
+          expensesCountThisMonth:
+            dash?.expensesCountThisMonth ??
+            (expRes.data ?? []).filter((e) => isThisMonth(expenseEffectiveDate(e))).length,
+          expensesThisMonth: dash?.expensesThisMonth ?? 0,
+        });
       })
       .catch((err: unknown) => {
         setExpenses([]);
         setVehicles([]);
+        setSummary({ totalExpenses: 0, expensesCountThisMonth: 0, expensesThisMonth: 0 });
         toast.error(getApiErrorMessage(err, 'Failed to load expenses'));
       })
       .finally(() => setLoading(false));
@@ -144,8 +150,8 @@ export function CompanyExpensesPage() {
           typeof e.vehicleId === 'object' ? e.vehicleId?._id : e.vehicleId;
         if (vid !== vehicleFilter) return false;
       }
-      if (categoryFilter && e.category !== categoryFilter) return false;
-      const d = new Date(e.expenseDate ?? e.createdAt ?? '');
+      if (categoryFilter && normalizeExpenseCategory(e.category) !== categoryFilter) return false;
+      const d = expenseEffectiveDate(e);
       if (dateFrom && d < new Date(dateFrom)) return false;
       if (dateTo && d > new Date(`${dateTo}T23:59:59`)) return false;
       return true;
@@ -157,17 +163,21 @@ export function CompanyExpensesPage() {
     [filtered],
   );
 
-  const companyThisMonthTotal = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    return expenses
-      .filter((e) => {
-        const d = new Date(e.expenseDate ?? e.createdAt ?? '');
-        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-      })
-      .reduce((sum, e) => sum + Number(e.amount), 0);
+  const categoryStats = useMemo(() => buildCategoryStats(filtered), [filtered]);
+
+  const thisMonthFromList = useMemo(() => {
+    const monthRows = expenses.filter((e) => isThisMonth(expenseEffectiveDate(e)));
+    return {
+      count: monthRows.length,
+      amount: monthRows.reduce((s, e) => s + Number(e.amount), 0),
+    };
   }, [expenses]);
+
+  const expensesThisMonthCount = summary.expensesCountThisMonth || thisMonthFromList.count;
+  const expensesThisMonthAmount = summary.expensesThisMonth || thisMonthFromList.amount;
+  const totalCompanyExpenses = summary.totalExpenses || expenses.length;
+
+  const hasActiveFilters = !!(vehicleFilter || categoryFilter || dateFrom || dateTo);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -176,13 +186,35 @@ export function CompanyExpensesPage() {
     setPage(1);
   }, [vehicleFilter, categoryFilter, dateFrom, dateTo]);
 
+  const applyThisMonthFilter = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    setDateFrom(start.toISOString().slice(0, 10));
+    setDateTo(now.toISOString().slice(0, 10));
+  };
+
+  const clearFilters = () => {
+    setVehicleFilter('');
+    setCategoryFilter('');
+    setDateFrom('');
+    setDateTo('');
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Company Expenses</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            View-only page. Company Admin can review all expense records across the company.
+          <p className="text-xs font-medium text-slate-400">
+            <Link to={ROUTES.COMPANY_DASHBOARD} className="hover:text-fleet-600">
+              FleetTrack
+            </Link>
+            <span className="mx-1.5 text-slate-300">/</span>
+            <span className="text-slate-600">Expenses</span>
+          </p>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">View All Expenses</h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+            See all expense records across the entire company. Vehicle owners and drivers
+            add entries from their panels; you can review, filter, and export everything here.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -195,6 +227,59 @@ export function CompanyExpensesPage() {
             Export Report (CSV)
           </button>
         </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            All company records
+          </p>
+          <p className="mt-1 text-2xl font-bold text-slate-900">{totalCompanyExpenses}</p>
+          <p className="mt-0.5 text-xs text-slate-500">total expenses logged</p>
+        </div>
+        <div
+          className="rounded-xl px-5 py-4 text-white shadow-sm sm:col-span-2"
+          style={{ background: 'linear-gradient(135deg, #00AEEF, #0078b3)' }}
+        >
+          <p className="text-xs font-medium text-white/80">This month</p>
+          <div className="mt-1 flex flex-wrap items-end gap-3">
+            <p className="text-3xl font-bold">
+              {loading ? '—' : expensesThisMonthCount}{' '}
+              <span className="text-lg font-semibold">
+                expense{expensesThisMonthCount === 1 ? '' : 's'}
+              </span>
+            </p>
+            <span className="mb-1 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold">
+              {loading ? '—' : formatInr(expensesThisMonthAmount)}
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-white/90">
+            {hasActiveFilters
+              ? `Filtered table: ${filtered.length} records · ${formatInr(filteredTotalAmount)}`
+              : `${expenses.length} records loaded · use filters to narrow the table`}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        {categoryStats.map((stat) => (
+          <button
+            key={stat.code}
+            type="button"
+            onClick={() =>
+              setCategoryFilter((prev) => (prev === stat.code ? '' : stat.code))
+            }
+            className={`rounded-xl border px-3 py-3 text-left transition ${
+              categoryFilter === stat.code
+                ? 'border-fleet-400 bg-fleet-50 ring-2 ring-fleet-500/20'
+                : 'border-slate-200 bg-white hover:border-slate-300'
+            }`}
+          >
+            <p className="text-xs font-semibold text-slate-600">{stat.label}</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{stat.count}</p>
+            <p className="text-xs text-slate-500">{formatInr(stat.amount)}</p>
+          </button>
+        ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
@@ -217,9 +302,9 @@ export function CompanyExpensesPage() {
             className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
           >
             <option value="">All Categories</option>
-            {CATEGORIES.map((c) => (
+            {EXPENSE_CATEGORY_ORDER.map((c) => (
               <option key={c} value={c}>
-                {categoryLabel(c)}
+                {expenseCategoryLabel(c)}
               </option>
             ))}
           </select>
@@ -240,23 +325,23 @@ export function CompanyExpensesPage() {
             />
           </div>
         </div>
-
-        <div
-          className="rounded-xl px-6 py-4 text-white shadow-sm"
-          style={{ background: 'linear-gradient(135deg, #00AEEF, #0078b3)' }}
-        >
-          <p className="text-xs font-medium text-white/80">Company Total (This Month)</p>
-          <div className="mt-1 flex items-end gap-3">
-            <p className="text-2xl font-bold">{formatInr(companyThisMonthTotal)}</p>
-            {filtered.length > 0 && (
-              <span className="mb-1 rounded-full bg-emerald-400/20 px-2 py-0.5 text-xs font-semibold text-emerald-100">
-                {filtered.length} entries
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-white/80">
-            Filtered view total: {formatInr(filteredTotalAmount)}
-          </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={applyThisMonthFilter}
+            className="rounded-lg border border-fleet-200 bg-fleet-50 px-3 py-2 text-sm font-medium text-fleet-700 hover:bg-fleet-100"
+          >
+            This month
+          </button>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -284,8 +369,9 @@ export function CompanyExpensesPage() {
               ) : pageRows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
-                    No expenses yet. Vehicle owners and drivers record expenses from their
-                    panels.
+                    {hasActiveFilters
+                      ? 'No expenses match your filters. Try clearing filters or another date range.'
+                      : 'No expenses yet. Vehicle owners and drivers record expenses from their panels.'}
                   </td>
                 </tr>
               ) : (
@@ -305,15 +391,22 @@ export function CompanyExpensesPage() {
                       </td>
                       <td className="px-5 py-4">
                         <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            CATEGORY_STYLES[e.category] ?? CATEGORY_STYLES.OTHER
-                          }`}
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${expenseCategoryStyle(e.category)}`}
                         >
-                          {categoryLabel(e.category)}
+                          {expenseCategoryLabel(e.category)}
                         </span>
                       </td>
-                      <td className="max-w-[180px] truncate px-5 py-4 text-slate-600">
-                        {e.description ?? '—'}
+                      <td className="max-w-[220px] px-5 py-4 text-slate-600">
+                        {e.description && (
+                          <p className="truncate font-medium">{e.description}</p>
+                        )}
+                        {formatCategoryDetailsSummary(e.category, e.categoryDetails) ? (
+                          <p className="truncate text-xs text-slate-500">
+                            {formatCategoryDetailsSummary(e.category, e.categoryDetails)}
+                          </p>
+                        ) : (
+                          !e.description && '—'
+                        )}
                       </td>
                       <td className="px-5 py-4 font-semibold text-slate-900">
                         {formatInr(Number(e.amount))}
@@ -346,6 +439,12 @@ export function CompanyExpensesPage() {
             {filtered.length === 0
               ? '0 entries'
               : `Showing ${(page - 1) * PAGE_SIZE + 1} to ${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length} entries`}
+            {!loading && totalCompanyExpenses > 0 && (
+              <span className="text-slate-400">
+                {' '}
+                · {totalCompanyExpenses} total across company
+              </span>
+            )}
           </p>
           <div className="flex items-center gap-1">
             <button

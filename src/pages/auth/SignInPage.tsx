@@ -95,11 +95,11 @@ export function SignInPage() {
       </div>
 
       <div className="flex flex-1 flex-col bg-white">
-        <div className="flex flex-1 flex-col justify-center px-8 py-10 sm:px-14 lg:px-20">
+        <div className="flex flex-1 flex-col justify-center px-5 py-8 sm:px-14 lg:px-20">
           <AuthPageBrand />
 
           <div className="mx-auto w-full max-w-md">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900">Welcome Back</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Welcome Back</h2>
             <p className="mt-2 text-sm text-slate-500">
               Log in to manage your fleet operations.
             </p>

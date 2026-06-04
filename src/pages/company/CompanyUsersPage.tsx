@@ -18,14 +18,27 @@ import {
 import { ROLES, ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 import { usersService, type UserRecord } from '../../services/users.service';
+import { driversService, type DriverRecord } from '../../services/drivers.service';
 import { vehiclesService } from '../../services/vehicles.service';
 import { authService } from '../../services/auth.service';
 import { AddUserModal } from '../../components/company/AddUserModal';
+import { ActionMenuDropdown } from '../../components/ui/ActionMenuDropdown';
 import { getApiErrorMessage } from '../../utils/validation';
 
-type Tab = 'owners' | 'drivers';
+type Tab = 'all' | 'owners' | 'drivers';
+type CreateTab = 'owners' | 'drivers';
 
 const PAGE_SIZE = 10;
+
+function tableColCount(tab: Tab): number {
+  if (tab === 'all') return 8;
+  if (tab === 'owners') return 6;
+  return 6;
+}
+
+function roleLabel(role: string): string {
+  return role === ROLES.VEHICLE_OWNER ? 'Vehicle Owner' : 'Driver';
+}
 
 function initials(name: string) {
   return name
@@ -50,33 +63,74 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function exportCsv(rows: UserRecord[], tab: Tab, vehicleCounts: Record<string, number>) {
-  const header =
-    tab === 'owners'
-      ? ['Full Name', 'Email', 'Phone', 'Vehicles', 'Status']
-      : ['Full Name', 'Email', 'Phone', 'Status'];
-  const lines = rows.map((u) =>
-    (tab === 'owners'
-      ? [u.fullName, u.email, u.phone, vehicleCounts[u._id] ?? 0, u.status]
-      : [u.fullName, u.email, u.phone, u.status]
-    )
-      .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-      .join(','),
+function RoleBadge({ role }: { role: string }) {
+  const isOwner = role === ROLES.VEHICLE_OWNER;
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+        isOwner ? 'bg-sky-100 text-sky-800' : 'bg-violet-100 text-violet-800'
+      }`}
+    >
+      {isOwner ? 'Owner' : 'Driver'}
+    </span>
   );
+}
+
+function driverUserId(driver: DriverRecord): string {
+  const uid = driver.userId;
+  if (!uid) return '';
+  if (typeof uid === 'string') return uid;
+  return uid._id ?? '';
+}
+
+function exportCsv(
+  rows: UserRecord[],
+  tab: Tab,
+  vehicleCounts: Record<string, number>,
+  driversByUserId: Record<string, DriverRecord>,
+) {
+  const header =
+    tab === 'all'
+      ? ['Full Name', 'Email', 'Phone', 'Role', 'Vehicles', 'License', 'Status']
+      : tab === 'owners'
+        ? ['Full Name', 'Email', 'Phone', 'Vehicles', 'Status']
+        : ['Full Name', 'Email', 'Phone', 'License', 'Status'];
+
+  const lines = rows.map((u) => {
+    const license = driversByUserId[u._id]?.licenseNumber ?? '';
+    const row =
+      tab === 'all'
+        ? [
+            u.fullName,
+            u.email,
+            u.phone,
+            roleLabel(u.role),
+            u.role === ROLES.VEHICLE_OWNER ? vehicleCounts[u._id] ?? 0 : '',
+            u.role === ROLES.DRIVER ? license : '',
+            u.status,
+          ]
+        : tab === 'owners'
+          ? [u.fullName, u.email, u.phone, vehicleCounts[u._id] ?? 0, u.status]
+          : [u.fullName, u.email, u.phone, license, u.status];
+    return row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',');
+  });
+
   const blob = new Blob([[header.join(','), ...lines].join('\n')], {
     type: 'text/csv;charset=utf-8;',
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = tab === 'owners' ? 'vehicle_owners.csv' : 'drivers.csv';
+  a.download =
+    tab === 'all' ? 'all_users.csv' : tab === 'owners' ? 'vehicle_owners.csv' : 'drivers.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
 
 export function CompanyUsersPage() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<Tab>('owners');
+  const [tab, setTab] = useState<Tab>('all');
+  const [modalTab, setModalTab] = useState<CreateTab>('owners');
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [vehicleCounts, setVehicleCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -86,15 +140,22 @@ export function CompanyUsersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
-  const [editForm, setEditForm] = useState({ fullName: '', email: '', phone: '' });
+  const [driverRecords, setDriverRecords] = useState<DriverRecord[]>([]);
+  const [editForm, setEditForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    licenseNumber: '',
+  });
+  const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingUser, setDeletingUser] = useState<UserRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([usersService.list(), vehiclesService.list()])
-      .then(([usersRes, vehiclesRes]) => {
+    Promise.all([usersService.list(), vehiclesService.list(), driversService.list()])
+      .then(([usersRes, vehiclesRes, driversRes]) => {
         const apiUsers = usersRes.data ?? [];
         const counts: Record<string, number> = {};
         (vehiclesRes.data ?? []).forEach((v) => {
@@ -109,10 +170,12 @@ export function CompanyUsersPage() {
         });
         setUsers(apiUsers);
         setVehicleCounts(counts);
+        setDriverRecords(driversRes.data ?? []);
       })
       .catch((err: unknown) => {
         setUsers([]);
         setVehicleCounts({});
+        setDriverRecords([]);
         toast.error(getApiErrorMessage(err, 'Failed to load users'));
       })
       .finally(() => setLoading(false));
@@ -131,18 +194,45 @@ export function CompanyUsersPage() {
     [users],
   );
 
-  const activeList = tab === 'owners' ? owners : drivers;
+  const allUsers = useMemo(
+    () =>
+      [...owners, ...drivers].sort((a, b) =>
+        a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' }),
+      ),
+    [owners, drivers],
+  );
+
+  const driversByUserId = useMemo(() => {
+    const map: Record<string, DriverRecord> = {};
+    driverRecords.forEach((d) => {
+      const uid = driverUserId(d);
+      if (uid) map[uid] = d;
+    });
+    return map;
+  }, [driverRecords]);
+
+  const activeList =
+    tab === 'all' ? allUsers : tab === 'owners' ? owners : drivers;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return activeList;
-    return activeList.filter(
-      (u) =>
+    return activeList.filter((u) => {
+      const base =
         u.fullName.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
-        u.phone.includes(q),
-    );
-  }, [activeList, search]);
+        u.phone.includes(q) ||
+        roleLabel(u.role).toLowerCase().includes(q);
+      if (u.role === ROLES.DRIVER) {
+        const license = driversByUserId[u._id]?.licenseNumber ?? '';
+        return base || license.toLowerCase().includes(q);
+      }
+      if (u.role === ROLES.VEHICLE_OWNER) {
+        return base || String(vehicleCounts[u._id] ?? '').includes(q);
+      }
+      return base;
+    });
+  }, [activeList, search, driversByUserId, vehicleCounts]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -165,22 +255,42 @@ export function CompanyUsersPage() {
   };
 
   const openEdit = (u: UserRecord) => {
+    const linkedDriver = driversByUserId[u._id];
     setEditForm({
       fullName: u.fullName,
       email: u.email,
       phone: u.phone,
+      licenseNumber: linkedDriver?.licenseNumber ?? '',
     });
+    setEditingDriverId(linkedDriver?._id ?? null);
     setEditingUser(u);
     setMenuOpenId(null);
   };
 
   const saveEdit = async () => {
     if (!editingUser) return;
+    const isDriver = editingUser.role === ROLES.DRIVER;
+    if (isDriver && !editForm.licenseNumber.trim()) {
+      toast.error('License number is required for drivers');
+      return;
+    }
     setSavingEdit(true);
     try {
-      await usersService.update(editingUser._id, editForm);
+      await usersService.update(editingUser._id, {
+        fullName: editForm.fullName.trim(),
+        email: editForm.email.trim(),
+        phone: editForm.phone.trim(),
+      });
+      if (isDriver && editingDriverId) {
+        await driversService.update(editingDriverId, {
+          fullName: editForm.fullName.trim(),
+          phone: editForm.phone.trim(),
+          licenseNumber: editForm.licenseNumber.trim(),
+        });
+      }
       toast.success('User updated successfully');
       setEditingUser(null);
+      setEditingDriverId(null);
       load();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Failed to update user'));
@@ -268,14 +378,44 @@ export function CompanyUsersPage() {
               <Headphones className="h-4 w-4" />
               Support
             </button>
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600"
-            >
-              <Plus className="h-4 w-4" />
-              Add New
-            </button>
+            {tab === 'all' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalTab('owners');
+                    setModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-fleet-200 bg-fleet-50 px-4 py-2.5 text-sm font-semibold text-fleet-700 shadow-sm hover:bg-fleet-100"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Owner
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalTab('drivers');
+                    setModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Driver
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setModalTab(tab);
+                  setModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600"
+              >
+                <Plus className="h-4 w-4" />
+                Add New
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -283,7 +423,27 @@ export function CompanyUsersPage() {
       {/* Tabs + filter / export */}
       <section className="border-b border-slate-200">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-8">
+          <div className="flex flex-wrap gap-6 sm:gap-8">
+            <button
+              type="button"
+              onClick={() => setTab('all')}
+              className={`flex items-center gap-2 border-b-2 pb-3 text-sm font-semibold transition ${
+                tab === 'all'
+                  ? 'border-fleet-500 text-fleet-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              All Users
+              <span
+                className={`rounded-md px-2 py-0.5 text-xs font-bold ${
+                  tab === 'all'
+                    ? 'bg-fleet-500 text-white'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {allUsers.length}
+              </span>
+            </button>
             <button
               type="button"
               onClick={() => setTab('owners')}
@@ -326,6 +486,11 @@ export function CompanyUsersPage() {
             </button>
           </div>
           <div className="flex items-center gap-2 pb-3">
+            {tab === 'all' && (
+              <p className="mr-2 hidden text-sm text-slate-500 sm:block">
+                {owners.length} owners · {drivers.length} drivers
+              </p>
+            )}
             <button
               type="button"
               onClick={() => setShowSearch((v) => !v)}
@@ -340,7 +505,7 @@ export function CompanyUsersPage() {
             </button>
             <button
               type="button"
-              onClick={() => exportCsv(filtered, tab, vehicleCounts)}
+              onClick={() => exportCsv(filtered, tab, vehicleCounts, driversByUserId)}
               className="rounded-lg border border-slate-200 bg-white p-2.5 text-slate-500 shadow-sm hover:bg-slate-50"
               aria-label="Export CSV"
             >
@@ -349,6 +514,12 @@ export function CompanyUsersPage() {
           </div>
         </div>
       </section>
+
+      {tab === 'all' && (
+        <p className="text-sm text-slate-500 sm:hidden">
+          {owners.length} owners · {drivers.length} drivers — combined table view
+        </p>
+      )}
 
       {showSearch && (
         <div className="relative max-w-md">
@@ -373,7 +544,13 @@ export function CompanyUsersPage() {
                 <th className="px-5 py-3.5">Full Name</th>
                 <th className="px-5 py-3.5">Email</th>
                 <th className="px-5 py-3.5">Phone</th>
-                {tab === 'owners' && <th className="px-5 py-3.5">Vehicles</th>}
+                {tab === 'all' && <th className="px-5 py-3.5">Role</th>}
+                {(tab === 'all' || tab === 'owners') && (
+                  <th className="px-5 py-3.5">Vehicles</th>
+                )}
+                {(tab === 'all' || tab === 'drivers') && (
+                  <th className="px-5 py-3.5">License</th>
+                )}
                 <th className="px-5 py-3.5">Status</th>
                 <th className="px-5 py-3.5">Actions</th>
               </tr>
@@ -382,7 +559,7 @@ export function CompanyUsersPage() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={tab === 'owners' ? 6 : 5}
+                    colSpan={tableColCount(tab)}
                     className="px-5 py-16 text-center text-slate-400"
                   >
                     Loading users...
@@ -390,10 +567,14 @@ export function CompanyUsersPage() {
                 </tr>
               ) : pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={tab === 'owners' ? 6 : 5} className="px-5 py-14">
+                  <td colSpan={tableColCount(tab)} className="px-5 py-14">
                     <div className="flex flex-col items-center text-center">
                       <p className="font-semibold text-slate-700">
-                        No {tab === 'owners' ? 'vehicle owners' : 'drivers'} yet
+                        {tab === 'all'
+                          ? 'No users yet'
+                          : tab === 'owners'
+                            ? 'No vehicle owners yet'
+                            : 'No drivers yet'}
                       </p>
                       <p className="mt-1 text-sm text-slate-500">
                         Click <span className="font-medium">Add New</span> to create one.
@@ -417,62 +598,74 @@ export function CompanyUsersPage() {
                     </td>
                     <td className="px-5 py-4 text-slate-600">{u.email}</td>
                     <td className="px-5 py-4 text-slate-700">{u.phone}</td>
-                    {tab === 'owners' && (
+                    {tab === 'all' && (
                       <td className="px-5 py-4">
-                        <span className="inline-flex min-w-[2rem] justify-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                          {String(vehicleCounts[u._id] ?? 0).padStart(2, '0')}
-                        </span>
+                        <RoleBadge role={u.role} />
+                      </td>
+                    )}
+                    {(tab === 'all' || tab === 'owners') && (
+                      <td className="px-5 py-4 text-slate-600">
+                        {u.role === ROLES.VEHICLE_OWNER ? (
+                          <span className="inline-flex min-w-8 justify-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                            {String(vehicleCounts[u._id] ?? 0).padStart(2, '0')}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                    )}
+                    {(tab === 'all' || tab === 'drivers') && (
+                      <td className="px-5 py-4 text-slate-600">
+                        {u.role === ROLES.DRIVER
+                          ? driversByUserId[u._id]?.licenseNumber ?? '—'
+                          : '—'}
                       </td>
                     )}
                     <td className="px-5 py-4">
                       <StatusBadge status={u.status} />
                     </td>
-                    <td className="relative px-5 py-4">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setMenuOpenId(menuOpenId === u._id ? null : u._id)
-                        }
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                        aria-label="Actions"
+                    <td className="px-5 py-4">
+                      <ActionMenuDropdown
+                        open={menuOpenId === u._id}
+                        onOpenChange={(isOpen) => setMenuOpenId(isOpen ? u._id : null)}
+                        trigger={<MoreHorizontal className="h-5 w-5" />}
                       >
-                        <MoreHorizontal className="h-5 w-5" />
-                      </button>
-                      {menuOpenId === u._id && (
-                        <div className="absolute right-5 top-12 z-10 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(u)}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toggleSuspend(u)}
-                            className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                          >
-                            {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => resetPassword(u)}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                          >
-                            <KeyRound className="h-3.5 w-3.5" />
-                            Reset Password
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => requestDelete(u)}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => openEdit(u)}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => toggleSuspend(u)}
+                          className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => resetPassword(u)}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                          Reset Password
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => requestDelete(u)}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </ActionMenuDropdown>
                     </td>
                   </tr>
                 ))
@@ -526,7 +719,7 @@ export function CompanyUsersPage() {
 
       <AddUserModal
         open={modalOpen}
-        tab={tab}
+        tab={tab === 'all' ? modalTab : tab}
         companyId={user?.companyId}
         onClose={() => setModalOpen(false)}
         onSuccess={load}
@@ -542,7 +735,9 @@ export function CompanyUsersPage() {
           />
           <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <h2 className="text-lg font-bold text-slate-900">Edit User</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                {editingUser.role === ROLES.DRIVER ? 'Edit Driver' : 'Edit User'}
+              </h2>
               <button
                 type="button"
                 onClick={() => setEditingUser(null)}
@@ -572,11 +767,28 @@ export function CompanyUsersPage() {
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Phone</label>
                 <input
+                  type="tel"
                   value={editForm.phone}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
                 />
               </div>
+              {editingUser.role === ROLES.DRIVER && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    License Number
+                  </label>
+                  <input
+                    required
+                    value={editForm.licenseNumber}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, licenseNumber: e.target.value })
+                    }
+                    placeholder="DL123456789"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+                  />
+                </div>
+              )}
               <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
                 <button
                   type="button"

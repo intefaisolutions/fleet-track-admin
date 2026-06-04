@@ -22,6 +22,8 @@ export interface CompanyDashboardData {
   totalDrivers: number;
   activeDrivers: number;
   expensesThisMonth: number;
+  expensesCountThisMonth?: number;
+  totalExpenses?: number;
   driverEfficiency: number;
   vehicleGrowthPercent: number;
   subscription: {

@@ -15,6 +15,8 @@ export interface ExpenseRecord {
   description?: string;
   expenseDate?: string;
   receiptUrl?: string;
+  categoryDetails?: Record<string, unknown>;
+  odometerKm?: number;
   createdAt?: string;
 }
 
@@ -25,6 +27,8 @@ export interface CreateExpensePayload {
   description?: string;
   expenseDate?: string;
   receiptUrl?: string;
+  categoryDetails?: Record<string, unknown>;
+  odometerKm?: number;
 }
 
 export const expensesService = {

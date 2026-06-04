@@ -1,4 +1,4 @@
-import { getData, postData } from './api';
+import { getData, patchData, postData } from './api';
 
 export interface DriverRecord {
   _id: string;
@@ -18,8 +18,17 @@ export interface CreateDriverPayload {
   licenseNumber: string;
 }
 
+export interface UpdateDriverPayload {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  licenseNumber?: string;
+}
+
 export const driversService = {
   list: () => getData<DriverRecord[]>('/drivers'),
   getById: (id: string) => getData<DriverRecord>(`/drivers/${id}`),
   create: (data: CreateDriverPayload) => postData('/drivers', data),
+  update: (id: string, data: UpdateDriverPayload) =>
+    patchData<DriverRecord>(`/drivers/${id}`, data),
 };

@@ -10,11 +10,16 @@
   --font-sans: 'Inter', system-ui, sans-serif;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
   background: var(--color-surface);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 #root {

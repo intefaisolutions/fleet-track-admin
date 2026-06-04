@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
+import { mobileSidebarAsideClass } from '../../hooks/useMobileSidebar';
 
 const navItems = [
   { to: ROUTES.COMPANY_DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
@@ -24,7 +25,13 @@ const navItems = [
   { to: ROUTES.COMPANY_SETTINGS, label: 'Settings', icon: Settings },
 ];
 
-export function CompanySidebar() {
+export function CompanySidebar({
+  mobileOpen = false,
+  onNavigate,
+}: {
+  mobileOpen?: boolean;
+  onNavigate?: () => void;
+}) {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -34,7 +41,7 @@ export function CompanySidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-[#0c1929]">
+    <aside className={`${mobileSidebarAsideClass(mobileOpen)} bg-[#0c1929]`}>
       <div className="px-6 py-6">
         <p className="text-xl font-bold tracking-tight text-white">FleetTrack</p>
       </div>
@@ -44,6 +51,7 @@ export function CompanySidebar() {
           <NavLink
             key={to}
             to={to}
+            onClick={onNavigate}
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive

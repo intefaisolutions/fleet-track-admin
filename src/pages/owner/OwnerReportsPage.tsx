@@ -1,26 +1,30 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'react-toastify';
-import { Download, FileSpreadsheet, Printer } from 'lucide-react';
+import { Check, Download, FileSpreadsheet, Printer } from 'lucide-react';
 import { expensesService, type ExpenseRecord } from '../../services/expenses.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
+import {
+  buildCategoryStats,
+  expenseCategoryLabel,
+  normalizeExpenseCategory,
+} from '../../config/expenseCategories';
 import { getApiErrorMessage } from '../../utils/validation';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  FUEL: 'Fuel',
-  SERVICE: 'Service',
-  TOLL: 'Toll',
-  INSURANCE: 'Insurance',
-  PUC: 'PUC',
-  CHALLAN: 'Challan',
-  OTHER: 'Other',
-};
+const REPORT_IDS = [
+  'monthly',
+  'yearly',
+  'vehicle',
+  'category',
+  'fuel',
+  'detail',
+] as const;
+
+type ReportId = (typeof REPORT_IDS)[number];
+
+const DEFAULT_SELECTED = new Set<ReportId>(REPORT_IDS);
 
 function inr(value: number) {
   return `Rs ${value.toLocaleString('en-IN')}`;
-}
-
-function categoryLabel(category: string) {
-  return CATEGORY_LABELS[category] ?? category;
 }
 
 function expenseDate(e: ExpenseRecord) {
@@ -52,12 +56,84 @@ function exportCsvLike(filename: string, rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
+function ReportSection({
+  id,
+  title,
+  selected,
+  onToggle,
+  children,
+  className = '',
+}: {
+  id: ReportId;
+  title: string;
+  selected: boolean;
+  onToggle: (id: ReportId) => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={`rounded-xl border bg-white p-5 shadow-sm transition ${
+        selected
+          ? 'border-fleet-400 ring-2 ring-fleet-500/25'
+          : 'border-slate-200 opacity-75'
+      } ${className}`}
+      data-report-id={id}
+    >
+      <button
+        type="button"
+        onClick={() => onToggle(id)}
+        className="mb-3 flex w-full items-center gap-3 text-left"
+      >
+        <span
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+            selected
+              ? 'border-fleet-500 bg-fleet-500 text-white'
+              : 'border-slate-300 bg-white'
+          }`}
+          aria-hidden
+        >
+          {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+        </span>
+        <h2 className="text-base font-bold text-slate-900">{title}</h2>
+        <span className="ml-auto text-xs font-medium text-slate-500">
+          {selected ? 'Included in export' : 'Tap to include'}
+        </span>
+      </button>
+      <div className={selected ? '' : 'pointer-events-none'}>{children}</div>
+    </section>
+  );
+}
+
 export function OwnerReportsPage() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [month, setMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedReports, setSelectedReports] = useState<Set<ReportId>>(
+    () => new Set(DEFAULT_SELECTED),
+  );
+
+  const toggleReport = (id: ReportId) => {
+    setSelectedReports((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        if (next.size <= 1) {
+          toast.info('At least one report must stay selected');
+          return prev;
+        }
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectAllReports = () => setSelectedReports(new Set(DEFAULT_SELECTED));
+
+  const isSelected = (id: ReportId) => selectedReports.has(id);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -128,19 +204,15 @@ export function OwnerReportsPage() {
     return rows;
   }, [yearlyExpenses, vehicles]);
 
-  const categoryWise = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const e of yearlyExpenses) {
-      const label = categoryLabel(e.category);
-      map.set(label, (map.get(label) ?? 0) + Number(e.amount));
-    }
-    return Array.from(map.entries()).map(([cat, amount]) => ({ cat, amount }));
-  }, [yearlyExpenses]);
+  const categoryWise = useMemo(
+    () => buildCategoryStats(yearlyExpenses),
+    [yearlyExpenses],
+  );
 
   const fuelEfficiency = useMemo(() => {
     return vehicles.map((v) => {
       const fuelExpenses = yearlyExpenses.filter(
-        (e) => vehicleIdOf(e) === String(v._id) && e.category === 'FUEL',
+        (e) => vehicleIdOf(e) === String(v._id) && normalizeExpenseCategory(e.category) === 'FUEL',
       );
       const fuelSpend = fuelExpenses.reduce((s, e) => s + Number(e.amount), 0);
       const litres = fuelExpenses.reduce((s, e) => {
@@ -175,61 +247,145 @@ export function OwnerReportsPage() {
     return yearlyExpenses.map((e) => [
       expenseDate(e).toLocaleDateString('en-IN'),
       vehicleLabel(e.vehicleId),
-      categoryLabel(e.category),
+      expenseCategoryLabel(e.category),
       String(e.amount),
       e.description ?? '',
     ]);
   }, [yearlyExpenses]);
 
+  const buildExportCsv = () => {
+    const rows: string[][] = [];
+    const period = `${month}/${year}`;
+
+    if (isSelected('monthly')) {
+      rows.push(['Monthly Report', period]);
+      rows.push(['Total', String(monthlyTotal)]);
+      rows.push(['Expense count', String(monthlyExpenses.length)]);
+      rows.push([]);
+    }
+
+    if (isSelected('yearly')) {
+      rows.push(['Yearly Report', year]);
+      rows.push(['Total', String(yearlyTotal)]);
+      rows.push(['Expense count', String(yearlyExpenses.length)]);
+      rows.push([]);
+    }
+
+    if (isSelected('vehicle')) {
+      rows.push(['Vehicle-wise Report', year]);
+      rows.push(['Registration', 'Amount']);
+      vehicleWise.forEach((v) => rows.push([v.reg ?? '', String(v.amount)]));
+      rows.push([]);
+    }
+
+    if (isSelected('category')) {
+      rows.push(['Category-wise Report', year]);
+      rows.push(['Category', 'Count', 'Amount']);
+      categoryWise.forEach((c) =>
+        rows.push([c.label, String(c.count), String(c.amount)]),
+      );
+      rows.push([]);
+    }
+
+    if (isSelected('fuel')) {
+      rows.push(['Fuel Efficiency Report', year]);
+      rows.push(['Registration', 'Km per litre']);
+      fuelEfficiency.forEach((f) =>
+        rows.push([
+          f.reg ?? '',
+          f.hasData && f.kmPerLitre > 0 ? String(f.kmPerLitre) : '',
+        ]),
+      );
+      rows.push([]);
+    }
+
+    if (isSelected('detail')) {
+      rows.push(['Expense detail', year]);
+      rows.push(['Date', 'Vehicle', 'Category', 'Amount', 'Description']);
+      rows.push(...reportRows);
+    }
+
+    return rows;
+  };
+
   const printReport = () => {
+    const style = document.createElement('style');
+    style.id = 'owner-report-print-filter';
+    const hideRules = REPORT_IDS.filter((id) => !selectedReports.has(id))
+      .map((id) => `[data-report-id="${id}"] { display: none !important; }`)
+      .join('\n');
+    style.textContent = `@media print { ${hideRules} }`;
+    document.head.appendChild(style);
     window.print();
+    window.setTimeout(() => style.remove(), 1000);
   };
 
   const exportExcel = () => {
-    exportCsvLike(`owner_expenses_${year}.csv`, [
-      ['Date', 'Vehicle', 'Category', 'Amount', 'Description'],
-      ...reportRows,
-    ]);
-    toast.success('Report exported');
+    const rows = buildExportCsv();
+    if (rows.length === 0) {
+      toast.error('Select at least one report to export');
+      return;
+    }
+    exportCsvLike(`owner_reports_${year}_${month}.csv`, rows);
+    toast.success('Selected reports exported');
   };
 
   const exportPdf = () => {
     printReport();
-    toast.info('Print dialog opened — save as PDF to download.');
+    toast.info('Print dialog opened — save as PDF. Only selected reports will appear.');
   };
 
+  const selectedCount = selectedReports.size;
+
   return (
-    <div className="space-y-6">
+    <div className="owner-reports-page space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Reports</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Detailed reports for your own vehicles only.
+            Select individual reports below, then export or print only what you need.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
           <button
             type="button"
             onClick={exportPdf}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            disabled={selectedCount === 0}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:w-auto"
           >
             <Download className="h-4 w-4" /> Export PDF
           </button>
           <button
             type="button"
             onClick={exportExcel}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            disabled={selectedCount === 0}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:w-auto"
           >
             <FileSpreadsheet className="h-4 w-4" /> Export Excel
           </button>
           <button
             type="button"
             onClick={printReport}
-            className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fleet-600"
+            disabled={selectedCount === 0}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-50 sm:w-auto"
           >
             <Printer className="h-4 w-4" /> Print Report
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-sm text-slate-600">
+          <span className="font-semibold text-slate-900">{selectedCount}</span> of{' '}
+          {REPORT_IDS.length} reports selected for export / print
+        </p>
+        <button
+          type="button"
+          onClick={selectAllReports}
+          className="text-sm font-semibold text-fleet-600 hover:text-fleet-700"
+        >
+          Select all
+        </button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -258,34 +414,43 @@ export function OwnerReportsPage() {
       </div>
 
       <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Monthly Report
-          </p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
+        <ReportSection
+          id="monthly"
+          title="Monthly Report"
+          selected={isSelected('monthly')}
+          onToggle={toggleReport}
+        >
+          <p className="mt-1 text-2xl font-bold text-slate-900">
             {loading ? '—' : inr(monthlyTotal)}
           </p>
           <p className="text-sm text-slate-500">
             {month}/{year}: {monthlyExpenses.length} expenses
           </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Yearly Report
-          </p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
+        </ReportSection>
+
+        <ReportSection
+          id="yearly"
+          title="Yearly Report"
+          selected={isSelected('yearly')}
+          onToggle={toggleReport}
+        >
+          <p className="mt-1 text-2xl font-bold text-slate-900">
             {loading ? '—' : inr(yearlyTotal)}
           </p>
           <p className="text-sm text-slate-500">
             {year}: {yearlyExpenses.length} expenses
           </p>
-        </div>
+        </ReportSection>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-bold text-slate-900">Vehicle-wise Report</h2>
-          <ul className="mt-3 space-y-2 text-sm text-slate-700">
+        <ReportSection
+          id="vehicle"
+          title="Vehicle-wise Report"
+          selected={isSelected('vehicle')}
+          onToggle={toggleReport}
+        >
+          <ul className="space-y-2 text-sm text-slate-700">
             {loading ? (
               <li className="text-slate-400">Loading...</li>
             ) : vehicleWise.length === 0 ? (
@@ -298,29 +463,37 @@ export function OwnerReportsPage() {
               ))
             )}
           </ul>
-        </div>
+        </ReportSection>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-bold text-slate-900">Category-wise Report</h2>
-          <ul className="mt-3 space-y-2 text-sm text-slate-700">
+        <ReportSection
+          id="category"
+          title="Category-wise Report"
+          selected={isSelected('category')}
+          onToggle={toggleReport}
+        >
+          <ul className="space-y-2 text-sm text-slate-700">
             {loading ? (
               <li className="text-slate-400">Loading...</li>
-            ) : categoryWise.length === 0 ? (
-              <li className="text-slate-400">No data</li>
+            ) : categoryWise.every((c) => c.count === 0) ? (
+              <li className="text-slate-400">No data for {year}</li>
             ) : (
               categoryWise.map((c) => (
-                <li key={c.cat}>
-                  {c.cat}: {inr(c.amount)}
+                <li key={c.code}>
+                  {c.label}: {c.count} · {inr(c.amount)}
                 </li>
               ))
             )}
           </ul>
-        </div>
+        </ReportSection>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-bold text-slate-900">Fuel Efficiency Report</h2>
-        <ul className="mt-3 space-y-2 text-sm text-slate-700">
+      <ReportSection
+        id="fuel"
+        title="Fuel Efficiency Report"
+        selected={isSelected('fuel')}
+        onToggle={toggleReport}
+      >
+        <ul className="space-y-2 text-sm text-slate-700">
           {loading ? (
             <li className="text-slate-400">Loading...</li>
           ) : fuelEfficiency.length === 0 ? (
@@ -334,7 +507,59 @@ export function OwnerReportsPage() {
             ))
           )}
         </ul>
-      </section>
+      </ReportSection>
+
+      <ReportSection
+        id="detail"
+        title="Expense Detail (line items)"
+        selected={isSelected('detail')}
+        onToggle={toggleReport}
+      >
+        <p className="mb-3 text-xs text-slate-500">
+          Full list for {year} — included in Excel export when selected.
+        </p>
+        <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-100">
+          <table className="min-w-full text-left text-xs">
+            <thead className="sticky top-0 bg-slate-50 font-semibold text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Date</th>
+                <th className="px-3 py-2">Vehicle</th>
+                <th className="px-3 py-2">Category</th>
+                <th className="px-3 py-2">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-4 text-slate-400">
+                    Loading...
+                  </td>
+                </tr>
+              ) : reportRows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-4 text-slate-400">
+                    No expenses in {year}
+                  </td>
+                </tr>
+              ) : (
+                reportRows.slice(0, 50).map((row, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-2 text-slate-600">{row[0]}</td>
+                    <td className="px-3 py-2 font-medium text-slate-800">{row[1]}</td>
+                    <td className="px-3 py-2">{row[2]}</td>
+                    <td className="px-3 py-2 font-semibold">{inr(Number(row[3]))}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          {reportRows.length > 50 && (
+            <p className="border-t border-slate-100 px-3 py-2 text-xs text-slate-500">
+              Showing 50 of {reportRows.length} — full list in export.
+            </p>
+          )}
+        </div>
+      </ReportSection>
     </div>
   );
 }

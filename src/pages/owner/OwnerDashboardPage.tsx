@@ -15,23 +15,11 @@ import { useAuth } from '../../context/AuthContext';
 import { ROUTES } from '../../config/constants';
 import { OwnerMetricCard } from '../../components/owner/OwnerMetricCard';
 import { reportsService, type CompanyDashboardData } from '../../services/reports.service';
+import { expenseCategoryLabel } from '../../config/expenseCategories';
 import { getApiErrorMessage } from '../../utils/validation';
 
 function formatInr(value: number) {
   return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-}
-
-function categoryLabel(cat: string) {
-  const map: Record<string, string> = {
-    FUEL: 'Fuel',
-    SERVICE: 'Service',
-    TOLL: 'Toll',
-    INSURANCE: 'Insurance',
-    PUC: 'PUC',
-    CHALLAN: 'Challan',
-    OTHER: 'Other',
-  };
-  return map[cat] ?? cat;
 }
 
 export function OwnerDashboardPage() {
@@ -193,7 +181,7 @@ export function OwnerDashboardPage() {
                 className="flex flex-wrap items-center justify-between gap-2 py-3"
               >
                 <p className="text-sm text-slate-800">
-                  <span className="font-semibold">{categoryLabel(e.category)}</span>{' '}
+                  <span className="font-semibold">{expenseCategoryLabel(e.category)}</span>{' '}
                   {formatInr(Number(e.amount || 0))} on{' '}
                   <span className="font-medium">{e.registrationNumber}</span>
                 </p>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Download, FileBarChart2 } from 'lucide-react';
 import { expensesService, type ExpenseRecord } from '../../services/expenses.service';
+import { buildCategoryStats } from '../../config/expenseCategories';
 import { getApiErrorMessage } from '../../utils/validation';
 
 type GroupRow = { name: string; amount: number };
@@ -14,25 +15,6 @@ function monthLabel(yearMonth: string) {
   const [year, month] = yearMonth.split('-').map(Number);
   const d = new Date(year, (month || 1) - 1, 1);
   return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-}
-
-function categoryLabel(category: string) {
-  switch (category) {
-    case 'FUEL':
-      return 'Fuel';
-    case 'SERVICE':
-      return 'Service';
-    case 'TOLL':
-      return 'Toll';
-    case 'INSURANCE':
-      return 'Insurance';
-    case 'PUC':
-      return 'PUC';
-    case 'CHALLAN':
-      return 'Challan';
-    default:
-      return category;
-  }
 }
 
 function expenseDate(record: ExpenseRecord) {
@@ -78,8 +60,11 @@ function buildCsv(
   rows.push('');
 
   rows.push('"Category Report"');
-  rows.push('"Category","Amount"');
-  categories.forEach((r) => rows.push(`"${r.name}","${r.amount}"`));
+  rows.push('"Category","Count","Amount"');
+  categories.forEach((r) => {
+    const count = 'count' in r ? (r as { count?: number }).count ?? 0 : 0;
+    rows.push(`"${r.name}","${count}","${r.amount}"`);
+  });
 
   return rows.join('\n');
 }
@@ -190,16 +175,20 @@ export function CompanyReportsPage() {
       .sort((a, b) => b.amount - a.amount);
   }, [monthExpenses]);
 
-  const categoryWise = useMemo(() => {
-    const map = new Map<string, number>();
-    monthExpenses.forEach((e) => {
-      const label = categoryLabel(e.category);
-      map.set(label, (map.get(label) ?? 0) + Number(e.amount || 0));
-    });
-    return Array.from(map.entries())
-      .map(([name, amount]) => ({ name, amount }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [monthExpenses]);
+  const categoryWise = useMemo(
+    () =>
+      buildCategoryStats(monthExpenses).map((c) => ({
+        name: c.label,
+        count: c.count,
+        amount: c.amount,
+      })),
+    [monthExpenses],
+  );
+
+  const categoryChartRows = useMemo(
+    () => categoryWise.filter((c) => c.count > 0).map((c) => ({ name: c.name, amount: c.amount })),
+    [categoryWise],
+  );
 
   const handleExportCsv = () => {
     const content = buildCsv(
@@ -297,12 +286,15 @@ export function CompanyReportsPage() {
             Category Report
           </h2>
           <div className="mt-4 space-y-2">
-            {categoryWise.length === 0 ? (
+            {categoryWise.every((c) => c.count === 0) ? (
               <p className="text-sm text-slate-400">No records for selected month.</p>
             ) : (
               categoryWise.map((row) => (
                 <div key={row.name} className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-slate-700">{row.name}</span>
+                  <span className="font-medium text-slate-700">
+                    {row.name}
+                    <span className="ml-1 text-slate-400">({row.count})</span>
+                  </span>
                   <span className="font-semibold text-slate-900">{formatInr(row.amount)}</span>
                 </div>
               ))
@@ -314,7 +306,7 @@ export function CompanyReportsPage() {
       <section className="grid gap-4 lg:grid-cols-2">
         <HorizontalBarChart
           title="Category Breakdown Chart"
-          rows={categoryWise}
+          rows={categoryChartRows}
           colorClass="bg-fleet-500"
         />
         <HorizontalBarChart
@@ -334,9 +326,7 @@ export function CompanyReportsPage() {
             ? 'Loading report data...'
             : `${monthLabel(selectedMonth)} total ${formatInr(
                 totalExpense,
-              )} across ${vehicleWise.length} vehicle(s), ${ownerWise.length} owner(s), and ${
-                categoryWise.length
-              } category groups.`}
+              )} across ${vehicleWise.length} vehicle(s), ${ownerWise.length} owner(s), and 7 expense categories (Section 8).`}
         </p>
       </section>
     </div>

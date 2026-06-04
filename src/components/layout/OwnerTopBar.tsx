@@ -1,17 +1,20 @@
 import { Bell, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { MobileMenuButton } from './MobileMenuButton';
 
 interface OwnerTopBarProps {
   search: string;
   onSearchChange: (value: string) => void;
+  onMenuClick?: () => void;
 }
 
-export function OwnerTopBar({ search, onSearchChange }: OwnerTopBarProps) {
+export function OwnerTopBar({ search, onSearchChange, onMenuClick }: OwnerTopBarProps) {
   const { user } = useAuth();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-slate-200 bg-white px-6">
-      <div className="relative mx-auto max-w-xl flex-1">
+    <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 md:flex-nowrap md:gap-4 md:px-6 md:py-0">
+      {onMenuClick && <MobileMenuButton onClick={onMenuClick} />}
+      <div className="relative min-w-0 flex-1 basis-full md:basis-auto md:max-w-xl">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="search"
@@ -22,7 +25,7 @@ export function OwnerTopBar({ search, onSearchChange }: OwnerTopBarProps) {
         />
       </div>
 
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
         <button
           type="button"
           className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"

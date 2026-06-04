@@ -162,7 +162,8 @@ export function CompanyAdminsPage() {
               in daily operations.
             </p>
             <p className="mt-2 text-xs font-medium text-slate-500">
-              Example: Can view expenses, but cannot delete users.
+              Sub-admins cannot edit vehicles or expenses—those are view-only for your
+              company (owners and drivers manage them).
             </p>
           </div>
         </div>

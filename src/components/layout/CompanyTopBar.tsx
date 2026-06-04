@@ -1,30 +1,25 @@
 import { Bell, HelpCircle, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { MobileMenuButton } from './MobileMenuButton';
 
 interface CompanyTopBarProps {
   companyName?: string;
+  onMenuClick?: () => void;
 }
 
-export function CompanyTopBar({ companyName }: CompanyTopBarProps) {
+export function CompanyTopBar({ companyName, onMenuClick }: CompanyTopBarProps) {
   const { user } = useAuth();
 
   return (
-    <header className="sticky top-0 z-30 relative flex h-16 items-center gap-4 border-b border-slate-200 bg-white px-6">
-      <div className="absolute left-1/2 hidden min-w-0 -translate-x-1/2 text-center md:block">
-        <p className="truncate text-sm font-bold text-slate-900">
-          {companyName ?? 'Your Company'}
-        </p>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Company Dashboard
-        </p>
-      </div>
-      <div className="min-w-0 max-w-[140px] shrink-0 md:hidden">
+    <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 md:flex-nowrap md:gap-3 md:px-6 md:py-0">
+      {onMenuClick && <MobileMenuButton onClick={onMenuClick} />}
+      <div className="min-w-0 max-w-[42%] shrink-0 sm:max-w-[180px] md:hidden">
         <p className="truncate text-sm font-bold text-slate-900">
           {companyName ?? 'Your Company'}
         </p>
       </div>
 
-      <div className="relative mx-auto max-w-md flex-1">
+      <div className="relative min-w-0 flex-1 basis-full sm:basis-auto md:max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="search"
@@ -33,7 +28,7 @@ export function CompanyTopBar({ companyName }: CompanyTopBarProps) {
         />
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         <button
           type="button"
           className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"

@@ -2,130 +2,32 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ArrowLeft, Save, Upload } from 'lucide-react';
+import { ExpenseCategoryFields } from '../../components/expenses/ExpenseCategoryFields';
+import {
+  EXPENSE_CATEGORY_ORDER,
+  emptyCategoryDetails,
+  expenseCategoryLabel,
+  normalizeExpenseCategory,
+  sanitizeCategoryDetails,
+  type CategoryDetails,
+  type ExpenseCategoryCode,
+} from '../../config/expenseCategories';
 import { ROUTES } from '../../config/constants';
 import { expensesService, type CreateExpensePayload } from '../../services/expenses.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
-const CATEGORIES = ['FUEL', 'SERVICE', 'TOLL', 'INSURANCE', 'PUC', 'CHALLAN', 'OTHER'] as const;
-
-type Category = (typeof CATEGORIES)[number];
-
-type CategoryDetails = Record<string, string>;
-
-function categoryLabel(v: string) {
-  const map: Record<string, string> = {
-    FUEL: 'Fuel',
-    SERVICE: 'Service',
-    TOLL: 'Toll',
-    INSURANCE: 'Insurance',
-    PUC: 'PUC',
-    CHALLAN: 'Challan',
-    OTHER: 'Other',
-  };
-  return map[v] ?? v;
-}
-
-function emptyDetails(category: Category): CategoryDetails {
-  switch (category) {
-    case 'FUEL':
-      return { stationName: '', litres: '', ratePerLitre: '' };
-    case 'SERVICE':
-      return { serviceCenter: '', serviceType: '' };
-    case 'TOLL':
-      return { tollBooth: '', route: '' };
-    case 'INSURANCE':
-      return { policyNumber: '', provider: '' };
-    case 'PUC':
-      return { certificateNumber: '', validTill: '' };
-    case 'CHALLAN':
-      return { challanNumber: '', reason: '' };
-    default:
-      return { notes: '' };
-  }
-}
-
-function DynamicFields({
-  category,
-  details,
-  setDetails,
-}: {
-  category: Category;
-  details: CategoryDetails;
-  setDetails: (next: CategoryDetails) => void;
-}) {
-  const input = (key: string, label: string, type = 'text', placeholder = '') => (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-slate-600">{label}</label>
-      <input
-        type={type}
-        value={details[key] ?? ''}
-        placeholder={placeholder}
-        onChange={(e) => setDetails({ ...details, [key]: e.target.value })}
-        className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-      />
-    </div>
-  );
-
-  switch (category) {
-    case 'FUEL':
-      return (
-        <div className="grid gap-3 sm:grid-cols-3">
-          {input('stationName', 'Fuel Station', 'text', 'Indian Oil')}
-          {input('litres', 'Litres', 'number', '45')}
-          {input('ratePerLitre', 'Rate/Litre', 'number', '98')}
-        </div>
-      );
-    case 'SERVICE':
-      return (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {input('serviceCenter', 'Service Center', 'text', 'Tata Workshop')}
-          {input('serviceType', 'Service Type', 'text', 'Engine / Oil')}
-        </div>
-      );
-    case 'TOLL':
-      return (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {input('tollBooth', 'Toll Booth', 'text', 'Gurgaon Border')}
-          {input('route', 'Route', 'text', 'Delhi-Jaipur')}
-        </div>
-      );
-    case 'INSURANCE':
-      return (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {input('policyNumber', 'Policy Number', 'text', 'POL12345')}
-          {input('provider', 'Provider', 'text', 'ICICI Lombard')}
-        </div>
-      );
-    case 'PUC':
-      return (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {input('certificateNumber', 'Certificate Number', 'text', 'PUC9988')}
-          {input('validTill', 'Valid Till', 'date')}
-        </div>
-      );
-    case 'CHALLAN':
-      return (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {input('challanNumber', 'Challan Number', 'text', 'CH123')}
-          {input('reason', 'Reason', 'text', 'Over speed')}
-        </div>
-      );
-    default:
-      return <div>{input('notes', 'Notes', 'text', 'Additional details')}</div>;
-  }
-}
-
 export function OwnerAddExpensePage() {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [vehicleId, setVehicleId] = useState('');
-  const [category, setCategory] = useState<Category>('FUEL');
+  const [category, setCategory] = useState<ExpenseCategoryCode>('FUEL');
   const [amount, setAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [odometerKm, setOdometerKm] = useState('');
   const [description, setDescription] = useState('');
   const [receiptUrl, setReceiptUrl] = useState('');
-  const [details, setDetails] = useState<CategoryDetails>(emptyDetails('FUEL'));
+  const [details, setDetails] = useState<CategoryDetails>(emptyCategoryDetails('FUEL'));
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -150,9 +52,10 @@ export function OwnerAddExpensePage() {
       description: description.trim() || undefined,
       expenseDate,
       receiptUrl: receiptUrl || undefined,
-      categoryDetails: details,
+      odometerKm: odometerKm ? Number(odometerKm) : undefined,
+      categoryDetails: sanitizeCategoryDetails(category, details),
     }),
-    [vehicleId, category, amount, description, expenseDate, receiptUrl, details],
+    [vehicleId, category, amount, description, expenseDate, receiptUrl, odometerKm, details],
   );
 
   const onReceiptFile = (file: File | null) => {
@@ -185,7 +88,9 @@ export function OwnerAddExpensePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Add Expense</h1>
-          <p className="mt-1 text-sm text-slate-500">Category choose karte hi fields automatically change hongi.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Choose one of {EXPENSE_CATEGORY_ORDER.length} categories — fields update automatically.
+          </p>
         </div>
         <button
           type="button"
@@ -219,15 +124,15 @@ export function OwnerAddExpensePage() {
             <select
               value={category}
               onChange={(e) => {
-                const c = e.target.value as Category;
+                const c = normalizeExpenseCategory(e.target.value);
                 setCategory(c);
-                setDetails(emptyDetails(c));
+                setDetails(emptyCategoryDetails(c));
               }}
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
             >
-              {CATEGORIES.map((c) => (
+              {EXPENSE_CATEGORY_ORDER.map((c) => (
                 <option key={c} value={c}>
-                  {categoryLabel(c)}
+                  {expenseCategoryLabel(c)}
                 </option>
               ))}
             </select>
@@ -255,20 +160,36 @@ export function OwnerAddExpensePage() {
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
             />
           </div>
+
+          {category === 'FUEL' && (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Odometer (km)</label>
+              <input
+                type="number"
+                min={0}
+                value={odometerKm}
+                onChange={(e) => setOdometerKm(e.target.value)}
+                placeholder="For fuel efficiency reports"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+          )}
         </div>
 
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Category specific fields</p>
-          <DynamicFields category={category} details={details} setDetails={setDetails} />
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {expenseCategoryLabel(category)} — category fields
+          </p>
+          <ExpenseCategoryFields category={category} details={details} setDetails={setDetails} />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">Description</label>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">Description (optional)</label>
           <textarea
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Fuel: Rs 3450 at Indian Oil"
+            placeholder="Short note if needed"
             className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
           />
         </div>

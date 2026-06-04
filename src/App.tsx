@@ -14,6 +14,7 @@ import { LicensesPage } from './pages/licenses/LicensesPage';
 import { PricingPage } from './pages/pricing/PricingPage';
 import { PaymentSettingsPage } from './pages/settings/PaymentSettingsPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
+import { ProfilePage } from './pages/profile/ProfilePage';
 import { PendingPaymentsPage } from './pages/payments/PendingPaymentsPage';
 import { RevenueOverviewPage } from './pages/revenue/RevenueOverviewPage';
 import { CompanyDashboardPage } from './pages/company/CompanyDashboardPage';
@@ -61,6 +62,7 @@ function App() {
               <Route path={ROUTES.PAYMENT_SETTINGS} element={<PaymentSettingsPage />} />
               <Route path={ROUTES.PENDING_PAYMENTS} element={<PendingPaymentsPage />} />
               <Route path={ROUTES.REVENUE} element={<RevenueOverviewPage />} />
+              <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
               <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
             </Route>
           </Route>

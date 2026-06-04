@@ -3,18 +3,20 @@ import { toast } from 'react-toastify';
 import {
   Building2,
   KeyRound,
-  Pencil,
   Plus,
   Settings,
   TrendingUp,
-  UserCircle,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { ROLES, SUPPORT_PLATFORM_READ } from '../../config/constants';
-import { authService } from '../../services/auth.service';
+import { ROLES, supportAdminHasPermission } from '../../config/constants';
 import { platformService } from '../../services/platform.service';
-import { getApiErrorMessage } from '../../utils/validation';
+import { getApiErrorMessage, validatePhone } from '../../utils/validation';
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="mt-1 text-xs text-red-600">{message}</p>;
+}
 
 interface SupportAdmin {
   name: string;
@@ -72,9 +74,15 @@ function AddSupportAdminModal({
     password: '',
     permissions: [] as string[],
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
+
+  const handleClose = () => {
+    setErrors({});
+    onClose();
+  };
 
   const togglePermission = (value: string) => {
     setForm((f) => ({
@@ -94,17 +102,29 @@ function AddSupportAdminModal({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const phoneErr = validatePhone(form.phone, true);
+    if (phoneErr) {
+      setErrors({ phone: phoneErr });
+      toast.error(phoneErr);
+      return;
+    }
     if (form.permissions.length === 0) {
       toast.error('Select at least one permission');
       return;
     }
+    setErrors({});
     setLoading(true);
     try {
-      await platformService.addSupportAdmin(form);
+      await platformService.addSupportAdmin({
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+      });
       toast.success('Support admin added');
       setForm({ name: '', email: '', phone: '', password: '', permissions: [] });
       onSuccess();
-      onClose();
+      handleClose();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Failed to add admin'));
     } finally {
@@ -114,11 +134,11 @@ function AddSupportAdminModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-slate-900/50" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-slate-900/50" onClick={handleClose} />
       <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-lg font-bold">Add Support Admin</h2>
-          <button type="button" onClick={onClose} className="text-slate-400">
+          <button type="button" onClick={handleClose} className="text-slate-400">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -138,13 +158,24 @@ function AddSupportAdminModal({
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
           />
-          <input
-            required
-            placeholder="Phone number (+91...)"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
-          />
+          <div>
+            <input
+              type="tel"
+              required
+              placeholder="Phone number (+91...)"
+              value={form.phone}
+              onChange={(e) => {
+                setForm({ ...form, phone: e.target.value });
+                setErrors((prev) => ({ ...prev, phone: '' }));
+              }}
+              className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 ${
+                errors.phone
+                  ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20'
+                  : 'border-slate-200 focus:border-fleet-500 focus:ring-fleet-500/20'
+              }`}
+            />
+            <FieldError message={errors.phone} />
+          </div>
           <input
             type="password"
             minLength={8}
@@ -293,20 +324,10 @@ function EditPermissionsModal({
 }
 
 export function SettingsPage() {
-  const { user, setUser } = useAuth();
-  const [profile, setProfile] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-  });
-  const [passwords, setPasswords] = useState({
-    oldPassword: '',
-    newPassword: '',
-  });
+  const { user } = useAuth();
   const [supportAdmins, setSupportAdmins] = useState<SupportAdmin[]>([]);
   const [summary, setSummary] = useState<DashboardSummary>({});
   const [summaryLoading, setSummaryLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState<SupportAdmin | null>(null);
 
@@ -318,22 +339,13 @@ export function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      setProfile({
-        fullName: user.fullName,
-        email: user.email,
-        phone: user.phone,
-      });
-    }
     if (user?.role === ROLES.SUPER_ADMIN) {
       loadSupportAdmins();
     }
 
-    const perms = user?.permissions ?? [];
     const canLoadDashboard =
       user?.role === ROLES.SUPER_ADMIN ||
-      perms.includes(SUPPORT_PLATFORM_READ) ||
-      perms.includes('dashboard:read');
+      supportAdminHasPermission(user?.permissions ?? [], 'dashboard:read');
 
     if (!canLoadDashboard) {
       setSummaryLoading(false);
@@ -358,31 +370,6 @@ export function SettingsPage() {
       .catch(() => setSummary({}))
       .finally(() => setSummaryLoading(false));
   }, [user, loadSupportAdmins]);
-
-  const handleSaveProfile = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const res = await authService.updateProfile({
-        fullName: profile.fullName.trim(),
-        phone: profile.phone.trim(),
-      });
-      if (res.data && user) {
-        setUser({ ...user, ...res.data });
-      }
-      if (passwords.oldPassword && passwords.newPassword) {
-        await authService.changePassword(passwords.oldPassword, passwords.newPassword);
-        setPasswords({ oldPassword: '', newPassword: '' });
-        toast.success('Profile and password updated');
-      } else {
-        toast.success('Profile saved');
-      }
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Save failed'));
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleRemoveAdmin = async (email: string) => {
     try {
@@ -415,7 +402,7 @@ export function SettingsPage() {
           </p>
           <h1 className="mt-2 text-3xl font-bold">Settings</h1>
           <p className="mt-2 text-sm text-white/80">
-            Manage your personal account preferences and support administrative permissions.
+            Platform settings, statistics, and support admin team management.
           </p>
         </div>
         <div className="absolute right-8 top-1/2 hidden -translate-y-1/2 md:block" aria-hidden>
@@ -424,118 +411,6 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
-
-      {/* My Profile */}
-      <form
-        onSubmit={handleSaveProfile}
-        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8"
-      >
-        <h2 className="text-lg font-bold text-slate-900">My Profile</h2>
-        <div className="mt-6 flex flex-col gap-8 lg:flex-row">
-          <div className="flex flex-col items-center gap-2">
-            <div className="relative">
-              {user?.profileImage ? (
-                <img
-                  src={user.profileImage}
-                  alt={profile.fullName}
-                  className="h-24 w-24 rounded-full object-cover"
-                />
-              ) : (
-                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-fleet-100">
-                  <UserCircle className="h-14 w-14 text-fleet-500" />
-                </div>
-              )}
-              <button
-                type="button"
-                className="absolute bottom-0 right-0 rounded-full bg-fleet-500 p-1.5 text-white shadow"
-                onClick={() => toast.info('Avatar upload — coming soon')}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <span className="text-xs text-slate-500">Avatar Upload</span>
-          </div>
-
-          <div className="grid flex-1 gap-5 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Full Name
-              </label>
-              <input
-                value={profile.fullName}
-                onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Email Address
-              </label>
-              <input
-                type="email"
-                readOnly
-                value={profile.email}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Phone Number
-              </label>
-              <input
-                value={profile.phone}
-                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8 border-t border-slate-100 pt-6">
-          <h3 className="text-sm font-semibold text-slate-900">Change Password</h3>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Old Password
-              </label>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={passwords.oldPassword}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, oldPassword: e.target.value })
-                }
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                New Password
-              </label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                value={passwords.newPassword}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, newPassword: e.target.value })
-                }
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end">
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-lg bg-fleet-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
-          >
-            {saving ? 'Saving...' : 'Save Profile'}
-          </button>
-        </div>
-      </form>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
         <h2 className="text-lg font-bold text-slate-900">Platform Statistics Summary</h2>
@@ -573,7 +448,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Support Admin Team */}
+      {user?.role === ROLES.SUPER_ADMIN && (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">Support Admin Team</h2>
@@ -648,6 +523,7 @@ export function SettingsPage() {
           </table>
         </div>
       </div>
+      )}
 
       <footer className="flex flex-wrap gap-4 border-t border-slate-200 pt-4 text-xs text-slate-400">
         <span>© 2024 FleetTrack Inc.</span>
@@ -662,17 +538,21 @@ export function SettingsPage() {
         </button>
       </footer>
 
-      <AddSupportAdminModal
-        open={adminModalOpen}
-        onClose={() => setAdminModalOpen(false)}
-        onSuccess={loadSupportAdmins}
-      />
-      <EditPermissionsModal
-        admin={editingAdmin}
-        open={!!editingAdmin}
-        onClose={() => setEditingAdmin(null)}
-        onSave={handleUpdatePermissions}
-      />
+      {user?.role === ROLES.SUPER_ADMIN && (
+        <>
+          <AddSupportAdminModal
+            open={adminModalOpen}
+            onClose={() => setAdminModalOpen(false)}
+            onSuccess={loadSupportAdmins}
+          />
+          <EditPermissionsModal
+            admin={editingAdmin}
+            open={!!editingAdmin}
+            onClose={() => setEditingAdmin(null)}
+            onSave={handleUpdatePermissions}
+          />
+        </>
+      )}
     </div>
   );
 }

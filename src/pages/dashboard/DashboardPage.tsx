@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   Building2,
@@ -11,7 +11,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { ROUTES } from '../../config/constants';
+import { ROUTES, ROLES, supportAdminHasPermission } from '../../config/constants';
 import { StatCard } from '../../components/ui/StatCard';
 import { platformService, type SuperAdminDashboardData, type SuperAdminPaymentRow } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
@@ -108,11 +108,21 @@ function exportPaymentsCsv(rows: PaymentRow[]) {
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [chartMode, setChartMode] = useState<'monthly' | 'daily'>('monthly');
 
+  const canLoadDashboard =
+    user?.role === ROLES.SUPER_ADMIN ||
+    supportAdminHasPermission(user?.permissions ?? [], 'dashboard:read');
+
   useEffect(() => {
+    if (!canLoadDashboard) {
+      navigate(ROUTES.PROFILE, { replace: true });
+      return;
+    }
+
     platformService
       .getDashboard()
       .then((res) => setData((res.data as DashboardData) ?? null))
@@ -120,7 +130,7 @@ export function DashboardPage() {
         toast.error(getApiErrorMessage(err, 'Failed to load dashboard')),
       )
       .finally(() => setLoading(false));
-  }, []);
+  }, [canLoadDashboard, navigate]);
 
   const stats = data?.stats;
   const revenueThisMonth = stats?.revenueThisMonth ?? data?.revenueThisMonth ?? 0;

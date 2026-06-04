@@ -60,6 +60,7 @@ export function CompanySettingsPage() {
         vehiclesService.list(),
       ]);
       const c = companyRes.data ?? null;
+      const subs = subRes.data ?? [];
       setCompany(c);
       setDrivers(driversRes.data ?? []);
       setVehicles(vehiclesRes.data ?? []);
@@ -72,10 +73,13 @@ export function CompanySettingsPage() {
           country: c.country ?? '',
           logoUrl: c.logoUrl ?? '',
         });
-        setLicenseKey(c.licenseKey ?? '—');
-      }
-      const subs = subRes.data ?? [];
-      if (subs[0]) {
+        const key = c.licenseKey?.trim();
+        setLicenseKey(key || '—');
+        const expiry = c.licenseValidUntil ?? subs[0]?.currentPeriodEnd;
+        if (expiry) {
+          setPeriodEnd(expiry);
+        }
+      } else if (subs[0]?.currentPeriodEnd) {
         setPeriodEnd(subs[0].currentPeriodEnd);
       }
     } catch (err: unknown) {
@@ -397,7 +401,21 @@ export function CompanySettingsPage() {
             </p>
             <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
               <p className="text-xs text-slate-500">License Key</p>
-              <p className="mt-1 font-semibold text-slate-900">{licenseKey}</p>
+              <p className="mt-1 break-all font-mono text-sm font-semibold tracking-wide text-slate-900">
+                {licenseKey}
+              </p>
+              {licenseKey !== '—' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(licenseKey);
+                    toast.success('License key copied');
+                  }}
+                  className="mt-2 text-xs font-medium text-fleet-600 hover:underline"
+                >
+                  Copy key
+                </button>
+              )}
             </div>
             <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3">
               <p className="text-xs text-slate-500">Valid Until</p>

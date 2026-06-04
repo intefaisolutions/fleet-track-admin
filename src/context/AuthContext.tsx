@@ -33,16 +33,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.ADMIN_USER);
     const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-    if (stored && token) {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    const stored = localStorage.getItem(STORAGE_KEYS.ADMIN_USER);
+    if (stored) {
       try {
-        setUser(JSON.parse(stored) as AuthUser);
+        setUser(mapAuthUser(JSON.parse(stored) as AuthUser & { _id?: string }));
       } catch {
         localStorage.clear();
+        setLoading(false);
+        return;
       }
     }
-    setLoading(false);
+
+    authService
+      .profile()
+      .then((res) => {
+        if (res.data) {
+          const authUser = mapAuthUser(res.data as AuthUser & { _id?: string });
+          localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(authUser));
+          setUser(authUser);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const persistSession = useCallback(

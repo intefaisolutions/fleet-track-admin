@@ -209,12 +209,25 @@ export function CompanyDashboardPage() {
             ) : null
           }
         />
-        <MetricCard
-          label="Total Expenses (This Month)"
-          value={loading ? '—' : formatInr(data?.expensesThisMonth ?? 0)}
-          icon={<Banknote className="h-5 w-5" />}
-          iconClass="bg-red-50 text-red-500"
-        />
+        <Link to={ROUTES.COMPANY_EXPENSES} className="block">
+          <MetricCard
+            label="Expenses (This Month)"
+            value={
+              loading
+                ? '—'
+                : `${data?.expensesCountThisMonth ?? 0} · ${formatInr(data?.expensesThisMonth ?? 0)}`
+            }
+            icon={<Banknote className="h-5 w-5" />}
+            iconClass="bg-red-50 text-red-500"
+            badge={
+              !loading && (data?.totalExpenses ?? 0) > 0 ? (
+                <span className="text-xs font-medium text-slate-500">
+                  {data?.totalExpenses} total records
+                </span>
+              ) : null
+            }
+          />
+        </Link>
         <MetricCard
           label="Active Subscription"
           value={loading ? '—' : (data?.subscription?.planLabel ?? 'Free')}

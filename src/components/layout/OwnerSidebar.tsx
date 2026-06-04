@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
+import { mobileSidebarAsideClass } from '../../hooks/useMobileSidebar';
 
 const links = [
   { to: ROUTES.OWNER_DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
@@ -23,7 +24,13 @@ const links = [
   { to: ROUTES.OWNER_SETTINGS, label: 'Settings', icon: Settings },
 ];
 
-export function OwnerSidebar() {
+export function OwnerSidebar({
+  mobileOpen = false,
+  onNavigate,
+}: {
+  mobileOpen?: boolean;
+  onNavigate?: () => void;
+}) {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
 
@@ -33,7 +40,9 @@ export function OwnerSidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-slate-200 bg-white">
+    <aside
+      className={`${mobileSidebarAsideClass(mobileOpen)} border-r border-slate-200 bg-white`}
+    >
       <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-5">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-fleet-500 text-white">
           <Truck className="h-5 w-5" />
@@ -49,6 +58,7 @@ export function OwnerSidebar() {
           <NavLink
             key={to}
             to={to}
+            onClick={onNavigate}
             className={({ isActive }) =>
               `relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
