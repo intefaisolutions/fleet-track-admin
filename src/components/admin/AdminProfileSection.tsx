@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 import { Pencil, UserCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/auth.service';
+import { uploadImage } from '../../services/storage.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
 export function AdminProfileSection() {
@@ -17,6 +18,8 @@ export function AdminProfileSection() {
     newPassword: '',
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -27,6 +30,27 @@ export function AdminProfileSection() {
       });
     }
   }, [user]);
+
+  const handleAvatarFile = async (file: File | null) => {
+    if (!file || !user) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Avatar must be under 5MB');
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const { url } = await uploadImage(file, 'profiles');
+      const res = await authService.updateProfile({ profileImage: url });
+      if (res.data) {
+        setUser({ ...user, ...res.data });
+      }
+      toast.success('Profile photo updated');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Avatar upload failed'));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSaveProfile = async (e: FormEvent) => {
     e.preventDefault();
@@ -75,13 +99,23 @@ export function AdminProfileSection() {
             )}
             <button
               type="button"
-              className="absolute bottom-0 right-0 rounded-full bg-fleet-500 p-1.5 text-white shadow"
-              onClick={() => toast.info('Avatar upload — coming soon')}
+              disabled={uploadingAvatar}
+              className="absolute bottom-0 right-0 rounded-full bg-fleet-500 p-1.5 text-white shadow disabled:opacity-60"
+              onClick={() => avatarInputRef.current?.click()}
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              className="hidden"
+              onChange={(e) => void handleAvatarFile(e.target.files?.[0] ?? null)}
+            />
           </div>
-          <span className="text-xs text-slate-500">Avatar Upload</span>
+          <span className="text-xs text-slate-500">
+            {uploadingAvatar ? 'Uploading…' : 'Avatar (Supabase)'}
+          </span>
         </div>
 
         <div className="grid flex-1 gap-5 sm:grid-cols-2">

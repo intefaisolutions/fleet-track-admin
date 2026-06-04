@@ -11,17 +11,19 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { ExpenseCategoryFields } from '../../components/expenses/ExpenseCategoryFields';
+import { ExpenseFormBody } from '../../components/expenses/ExpenseFormBody';
 import {
   EXPENSE_CATEGORY_ORDER,
   buildCategoryStats,
   categoryDetailsFromRecord,
+  computeExpenseAmount,
   emptyCategoryDetails,
   expenseCategoryLabel,
   expenseCategoryStyle,
   formatCategoryDetailsSummary,
   normalizeExpenseCategory,
   sanitizeCategoryDetails,
+  validateExpenseForm,
   type CategoryDetails,
   type ExpenseCategoryCode,
 } from '../../config/expenseCategories';
@@ -92,10 +94,9 @@ function ExpenseFormModal({
   const [vehicleIdValue, setVehicleIdValue] = useState('');
   const [category, setCategory] = useState<ExpenseCategoryCode>('FUEL');
   const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
   const [expenseDate, setExpenseDate] = useState('');
   const [odometerKm, setOdometerKm] = useState('');
-  const [receipt, setReceipt] = useState('');
+  const [receiptUrl, setReceiptUrl] = useState('');
   const [details, setDetails] = useState<CategoryDetails>(emptyCategoryDetails('FUEL'));
 
   useEffect(() => {
@@ -105,47 +106,49 @@ function ExpenseFormModal({
       setVehicleIdValue(vehicleId(initial.vehicleId));
       setCategory(cat);
       setAmount(String(initial.amount ?? ''));
-      setDescription(initial.description ?? '');
-      setExpenseDate((initial.expenseDate ?? '').slice(0, 10));
+      setExpenseDate((initial.expenseDate ?? initial.createdAt ?? '').slice(0, 10));
       setOdometerKm(initial.odometerKm != null ? String(initial.odometerKm) : '');
-      setReceipt(initial.receiptUrl ?? '');
+      setReceiptUrl(initial.receiptUrl ?? '');
       setDetails(categoryDetailsFromRecord(cat, initial.categoryDetails));
     } else {
       setVehicleIdValue(vehicles[0]?._id ?? '');
       setCategory('FUEL');
       setAmount('');
-      setDescription('');
       setExpenseDate(new Date().toISOString().slice(0, 10));
       setOdometerKm('');
-      setReceipt('');
+      setReceiptUrl('');
       setDetails(emptyCategoryDetails('FUEL'));
     }
   }, [open, initial, vehicles]);
 
   if (!open) return null;
 
-  const handleReceiptFile = (file: File | null) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setReceipt(String(reader.result ?? ''));
-    reader.readAsDataURL(file);
-  };
-
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const parsedAmount = Number(amount);
-    if (!vehicleIdValue || Number.isNaN(parsedAmount) || parsedAmount < 0) {
-      toast.error('Please enter valid expense details');
+    const finalAmount = computeExpenseAmount(category, details, amount);
+    const validationError = validateExpenseForm({
+      category,
+      vehicleId: vehicleIdValue,
+      expenseDate,
+      amount: finalAmount,
+      odometerKm,
+      details,
+    });
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
     onSubmit({
       id: initial?._id,
       vehicleId: vehicleIdValue,
       category,
-      amount: parsedAmount,
-      description: description.trim() || undefined,
+      amount: finalAmount,
+      description:
+        category === 'OTHER'
+          ? details.notes?.trim()
+          : details.serviceNotes?.trim() || details.repairNotes?.trim() || undefined,
       expenseDate: expenseDate || undefined,
-      receiptUrl: receipt || undefined,
+      receiptUrl: receiptUrl || undefined,
       odometerKm: odometerKm ? Number(odometerKm) : undefined,
       categoryDetails: sanitizeCategoryDetails(category, details),
     });
@@ -164,50 +167,29 @@ function ExpenseFormModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={submit} className="max-h-[min(80dvh,calc(100vh-8rem))] space-y-3 overflow-y-auto">
-          <select required value={vehicleIdValue} onChange={(e) => setVehicleIdValue(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm">
-            {vehicles.map((v) => <option key={v._id} value={v._id}>{v.registrationNumber}</option>)}
-          </select>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <select
-              value={category}
-              onChange={(e) => {
-                const c = normalizeExpenseCategory(e.target.value);
-                setCategory(c);
-                setDetails(emptyCategoryDetails(c));
-              }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-            >
-              {EXPENSE_CATEGORY_ORDER.map((c) => (
-                <option key={c} value={c}>{expenseCategoryLabel(c)}</option>
-              ))}
-            </select>
-            <input type="number" min={0} step="1" required placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" />
-          </div>
-          <input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" />
-          {category === 'FUEL' && (
-            <input
-              type="number"
-              min={0}
-              placeholder="Odometer (km)"
-              value={odometerKm}
-              onChange={(e) => setOdometerKm(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-            />
-          )}
-          <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {expenseCategoryLabel(category)} fields
-            </p>
-            <ExpenseCategoryFields category={category} details={details} setDetails={setDetails} />
-          </div>
-          <textarea rows={2} placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" />
-          <div className="rounded-lg border border-dashed border-slate-200 p-3">
-            <label className="block text-xs font-semibold text-slate-600">Receipt Image</label>
-            <input type="file" accept="image/png,image/jpeg,image/jpg" onChange={(e) => handleReceiptFile(e.target.files?.[0] ?? null)} className="mt-2 text-xs" />
-            {receipt && <p className="mt-2 text-xs text-emerald-700">Receipt attached</p>}
-          </div>
-          <button type="submit" disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-fleet-500 py-2.5 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60">
+        <form onSubmit={submit} className="max-h-[min(80dvh,calc(100vh-8rem))] overflow-y-auto">
+          <ExpenseFormBody
+            vehicles={vehicles}
+            category={category}
+            setCategory={setCategory}
+            vehicleId={vehicleIdValue}
+            setVehicleId={setVehicleIdValue}
+            expenseDate={expenseDate}
+            setExpenseDate={setExpenseDate}
+            amount={amount}
+            setAmount={setAmount}
+            odometerKm={odometerKm}
+            setOdometerKm={setOdometerKm}
+            details={details}
+            setDetails={setDetails}
+            receiptUrl={receiptUrl}
+            setReceiptUrl={setReceiptUrl}
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-fleet-500 py-2.5 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
+          >
             {loading ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Expense'}
           </button>
         </form>
@@ -333,7 +315,7 @@ export function OwnerExpensesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8">
         {categoryStats.map((stat) => (
           <button
             key={stat.code}

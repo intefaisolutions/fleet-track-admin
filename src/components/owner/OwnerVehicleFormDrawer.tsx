@@ -7,6 +7,7 @@ import {
   type CreateVehiclePayload,
   type VehicleRecord,
 } from '../../services/vehicles.service';
+import { uploadImage } from '../../services/storage.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
 const VEHICLE_TYPES = [
@@ -84,6 +85,7 @@ export function OwnerVehicleFormDrawer({
   const [form, setForm] = useState(emptyForm);
   const [drivers, setDrivers] = useState<DriverRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
@@ -103,19 +105,23 @@ export function OwnerVehicleFormDrawer({
 
   if (!open) return null;
 
-  const handleImage = (file: File | null) => {
+  const handleImage = async (file: File | null) => {
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Image must be under 10MB');
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setImagePreview(result);
-      setForm((f) => ({ ...f, imageUrl: result }));
-    };
-    reader.readAsDataURL(file);
+    setUploadingImage(true);
+    try {
+      const { url } = await uploadImage(file, 'vehicles');
+      setImagePreview(url);
+      setForm((f) => ({ ...f, imageUrl: url }));
+      toast.success('Vehicle photo uploaded');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Photo upload failed'));
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const buildPayload = (): Partial<CreateVehiclePayload> => ({
@@ -374,12 +380,15 @@ export function OwnerVehicleFormDrawer({
                   <CloudUpload className="mb-2 h-8 w-8 text-slate-400" />
                 )}
                 <span className="text-sm font-medium text-slate-700">Click to upload</span>
-                <span className="mt-1 text-xs text-slate-400">PNG, JPG up to 10MB</span>
+                <span className="mt-1 text-xs text-slate-400">
+                  {uploadingImage ? 'Uploading to Supabase…' : 'PNG, JPG up to 5MB'}
+                </span>
                 <input
                   type="file"
-                  accept="image/png,image/jpeg,image/jpg"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
                   className="sr-only"
-                  onChange={(e) => handleImage(e.target.files?.[0] ?? null)}
+                  disabled={uploadingImage}
+                  onChange={(e) => void handleImage(e.target.files?.[0] ?? null)}
                 />
               </label>
             </div>
