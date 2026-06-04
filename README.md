@@ -13,7 +13,11 @@ pnpm install
 Create `.env`:
 
 ```env
-VITE_API_BASE_URL=http://localhost:3000/api/v1
+# Production
+VITE_API_BASE_URL=https://fleettrackservice.in/api/v1
+
+# Local
+# VITE_API_BASE_URL=http://localhost:3000/api/v1
 ```
 
 ```bash

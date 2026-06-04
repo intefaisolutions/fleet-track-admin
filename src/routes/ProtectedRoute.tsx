@@ -4,7 +4,7 @@ import {
   ROUTES,
   ROLES,
   firstSupportAdminRoute,
-  permissionForAdminRoute,
+  supportAdminCanAccessRoute,
 } from '../config/constants';
 
 export function ProtectedRoute() {
@@ -34,9 +34,8 @@ export function ProtectedRoute() {
   }
 
   if (role === ROLES.SUPPORT_ADMIN) {
-    const requiredPermission = permissionForAdminRoute(location.pathname);
     const perms = user?.permissions ?? [];
-    if (requiredPermission && !perms.includes(requiredPermission)) {
+    if (!supportAdminCanAccessRoute(perms, location.pathname)) {
       const next = firstSupportAdminRoute(perms);
       return <Navigate to={next} replace />;
     }

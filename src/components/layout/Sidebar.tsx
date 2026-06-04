@@ -9,12 +9,12 @@ import {
   LogOut,
   Settings,
 } from 'lucide-react';
-import { ROLES, ROUTES } from '../../config/constants';
+import { ROLES, ROUTES, SUPPORT_PLATFORM_READ } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
   { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:read' },
-  { to: ROUTES.LICENSES, label: 'License Keys', icon: KeyRound, permission: 'licenses:read' },
+  { to: ROUTES.LICENSES, label: 'License', icon: KeyRound, permission: 'licenses:read' },
   { to: ROUTES.COMPANIES, label: 'Client Companies', icon: Building2, permission: 'companies:read' },
   { to: ROUTES.PRICING, label: 'Plans', icon: CreditCard, permission: 'settings:read' },
   { to: ROUTES.PAYMENT_SETTINGS, label: 'Payment Configuration', icon: CreditCard, permission: 'payments:write' },
@@ -28,9 +28,12 @@ export function Sidebar() {
   const navigate = useNavigate();
   const permissions = user?.permissions ?? [];
   const isSuperAdmin = user?.role === ROLES.SUPER_ADMIN;
+  const hasPermission = (key: string) =>
+    permissions.includes(SUPPORT_PLATFORM_READ) || permissions.includes(key);
+
   const filteredNav = isSuperAdmin
     ? navItems
-    : navItems.filter((item) => !item.permission || permissions.includes(item.permission));
+    : navItems.filter((item) => !item.permission || hasPermission(item.permission));
 
   const handleLogout = async () => {
     await logout();

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Download, TrendingUp, Wallet, ClipboardList } from 'lucide-react';
+import { Download, TrendingUp, Wallet, ClipboardList, CheckCircle2, Clock } from 'lucide-react';
 import { StatCard } from '../../components/ui/StatCard';
 import {
   platformService,
@@ -51,11 +51,19 @@ function exportRevenueCsv(data: RevenueOverviewData) {
       .map((c) => `"${String(c).replace(/"/g, '""')}"`)
       .join(','),
   );
+  const report = data.paymentStatusReport;
   const summary = [
     '',
     `"Monthly Revenue","${data.monthlyRevenue}"`,
     `"Yearly Revenue","${data.yearlyRevenue}"`,
-    `"Pending Payments","${data.pendingPayments}"`,
+    `"Pending Payments (amount)","${data.pendingPayments}"`,
+    `"Paid companies (month)","${report?.paidCount ?? 0}"`,
+    `"Pending companies (month)","${report?.pendingCount ?? 0}"`,
+    '',
+    '"Revenue by Plan","Amount","Companies"',
+    ...(data.revenueByPlan ?? []).map((r) =>
+      [`"${r.planType}"`, r.amount, r.companyCount].join(','),
+    ),
   ];
   const blob = new Blob(
     [[header.join(','), ...lines, ...summary].join('\n')],
@@ -64,7 +72,10 @@ function exportRevenueCsv(data: RevenueOverviewData) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `revenue_${data.selectedYear}_${data.selectedMonth}.csv`;
+  const monthSlug = new Date(data.selectedYear, data.selectedMonth - 1, 1)
+    .toLocaleDateString('en-US', { month: 'long' })
+    .toLowerCase();
+  a.download = `revenue_${monthSlug}_${data.selectedYear}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -247,11 +258,116 @@ export function RevenueOverviewPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <h2 className="font-semibold text-slate-900">Revenue by Company</h2>
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Payment Status Report
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Companies with verified vs pending payments in the selected month
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">
+                {loading ? '—' : (data?.paymentStatusReport?.paidCount ?? 0)}
+              </p>
+              <p className="text-sm text-slate-500">Paid</p>
+            </div>
           </div>
+          <span className="hidden text-2xl font-light text-slate-300 sm:inline">|</span>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+              <Clock className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">
+                {loading ? '—' : (data?.paymentStatusReport?.pendingCount ?? 0)}
+              </p>
+              <p className="text-sm text-slate-500">Pending</p>
+            </div>
+          </div>
+          {!loading && data && (
+            <p className="ml-auto text-sm font-medium text-slate-600">
+              Paid: {data.paymentStatusReport?.paidCount ?? 0} | Pending:{' '}
+              {data.paymentStatusReport?.pendingCount ?? 0}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="font-semibold text-slate-900">Revenue by Plan</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Verified payments in selected month</p>
+          </div>
+          {loading ? (
+            <p className="px-5 py-12 text-center text-slate-400">Loading...</p>
+          ) : (data?.revenueByPlan.length ?? 0) === 0 ? (
+            <p className="px-5 py-12 text-center text-slate-400">No revenue by plan this period.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-slate-500">
+                  <th className="px-5 py-3 font-medium">Plan</th>
+                  <th className="px-5 py-3 font-medium">Companies</th>
+                  <th className="px-5 py-3 font-medium text-right">Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.revenueByPlan.map((row) => (
+                  <tr key={row.planType} className="border-b border-slate-50 last:border-0">
+                    <td className="px-5 py-3 font-medium text-slate-900">{row.planType}</td>
+                    <td className="px-5 py-3 text-slate-600">{row.companyCount}</td>
+                    <td className="px-5 py-3 text-right font-semibold text-slate-900">
+                      {formatInr(row.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-1 font-semibold text-slate-900">Plan Distribution</h2>
+          <p className="mb-4 text-xs text-slate-500">Active subscriptions (all time)</p>
+          <div className="relative mx-auto flex h-40 w-40 items-center justify-center">
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{ background: planGradient }}
+            />
+            <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white text-xl font-bold text-slate-900">
+              {loading ? '—' : (data?.totalSubscriptions ?? 0)}
+            </div>
+          </div>
+          <p className="mt-4 text-center text-xs text-slate-500">Total subscriptions</p>
+          {!loading && data && data.planDistribution.length > 0 && (
+            <ul className="mt-4 space-y-1 text-xs text-slate-600">
+              {data.planDistribution.map((p, i) => (
+                <li key={p.planType} className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: PLAN_CHART_COLORS[i % PLAN_CHART_COLORS.length] }}
+                    />
+                    {p.planType}
+                  </span>
+                  <span>{p.count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="font-semibold text-slate-900">Revenue by Company</h2>
+        </div>
           {loading ? (
             <p className="px-5 py-12 text-center text-slate-400">Loading...</p>
           ) : (data?.revenueByCompany.length ?? 0) === 0 ? (
@@ -290,37 +406,6 @@ export function RevenueOverviewPage() {
               </tbody>
             </table>
           )}
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold text-slate-900">Plan Distribution</h2>
-          <div className="relative mx-auto flex h-40 w-40 items-center justify-center">
-            <div
-              className="absolute inset-0 rounded-full"
-              style={{ background: planGradient }}
-            />
-            <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white text-xl font-bold text-slate-900">
-              {loading ? '—' : (data?.totalSubscriptions ?? 0)}
-            </div>
-          </div>
-          <p className="mt-4 text-center text-xs text-slate-500">Total subscriptions</p>
-          {!loading && data && data.planDistribution.length > 0 && (
-            <ul className="mt-4 space-y-1 text-xs text-slate-600">
-              {data.planDistribution.map((p, i) => (
-                <li key={p.planType} className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: PLAN_CHART_COLORS[i % PLAN_CHART_COLORS.length] }}
-                    />
-                    {p.planType}
-                  </span>
-                  <span>{p.count}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </div>
     </div>
   );

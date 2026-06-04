@@ -19,6 +19,8 @@ import {
   licensesService,
   type LicenseValidateResult,
 } from '../../services/licenses.service';
+import { AuthPageFooter } from '../../components/auth/AuthPageFooter';
+import { AuthPageBrand } from '../../components/auth/AuthPageBrand';
 import { getApiErrorMessage } from '../../utils/validation';
 
 function FleetIllustration() {
@@ -61,6 +63,7 @@ export function RegisterCompanyPage() {
   const [licensePreview, setLicensePreview] = useState<LicenseValidateResult | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [form, setForm] = useState({
     licenseKey: '',
     companyName: '',
@@ -99,6 +102,11 @@ export function RegisterCompanyPage() {
   const effectiveCompanyName = useMemo(
     () => form.companyName.trim() || suggestedCompanyName.trim(),
     [form.companyName, suggestedCompanyName],
+  );
+
+  const fromInvitation = useMemo(
+    () => !!searchParams.get('licenseKey')?.trim(),
+    [searchParams],
   );
 
   const handleVerifyLicense = async () => {
@@ -151,6 +159,10 @@ export function RegisterCompanyPage() {
     e.preventDefault();
     if (!licenseVerified) {
       toast.error('Please verify your license key before registering');
+      return;
+    }
+    if (!acceptedLegal) {
+      toast.error('Please accept the Terms of Service and Privacy Policy');
       return;
     }
     if (form.password.length < 8) {
@@ -206,12 +218,23 @@ export function RegisterCompanyPage() {
         <div className="flex flex-1 flex-col bg-white">
           <div className="flex flex-1 flex-col justify-center px-8 py-10 sm:px-14 lg:px-20">
             <div className="mx-auto w-full max-w-md">
+              <AuthPageBrand />
               <h2 className="text-3xl font-bold tracking-tight text-slate-900">
                 Register Your Company
               </h2>
               <p className="mt-2 text-sm text-slate-500">
                 Get started with your dedicated logistics dashboard.
               </p>
+
+              {fromInvitation && (
+                <div
+                  className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
+                  role="status"
+                >
+                  Invitation link detected — license key and email are pre-filled.
+                  Click <strong>Verify</strong> if not already verified.
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-4">
                 <div>
@@ -447,9 +470,41 @@ export function RegisterCompanyPage() {
                   </div>
                 </div>
 
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={acceptedLegal}
+                    onChange={(e) => setAcceptedLegal(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#00AEEF] focus:ring-[#00AEEF]/30"
+                  />
+                  <span>
+                    I agree to the{' '}
+                    <Link
+                      to={ROUTES.TERMS_OF_SERVICE}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium hover:underline"
+                      style={{ color: '#00AEEF' }}
+                    >
+                      Terms of Service
+                    </Link>{' '}
+                    and{' '}
+                    <Link
+                      to={ROUTES.PRIVACY_POLICY}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium hover:underline"
+                      style={{ color: '#00AEEF' }}
+                    >
+                      Privacy Policy
+                    </Link>
+                    .
+                  </span>
+                </label>
+
                 <button
                   type="submit"
-                  disabled={loading || !licenseVerified}
+                  disabled={loading || !licenseVerified || !acceptedLegal}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
                   style={{ backgroundColor: '#00AEEF' }}
                 >
@@ -471,31 +526,7 @@ export function RegisterCompanyPage() {
             </div>
           </div>
 
-          <footer className="flex flex-col gap-3 border-t border-slate-100 px-8 py-5 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-14 lg:px-20">
-            <div className="flex items-center gap-2">
-              <div
-                className="flex h-7 w-7 items-center justify-center rounded-md text-white"
-                style={{ backgroundColor: '#00AEEF' }}
-              >
-                <Truck className="h-4 w-4" />
-              </div>
-              <span className="font-semibold text-slate-600">FleetTrack</span>
-            </div>
-            <div className="flex flex-wrap gap-4">
-              <button type="button" className="hover:text-slate-600">
-                Privacy Policy
-              </button>
-              <button type="button" className="hover:text-slate-600">
-                Terms of Service
-              </button>
-              <button type="button" className="hover:text-slate-600">
-                Contact Support
-              </button>
-            </div>
-            <p className="sm:text-right">
-              © 2024 FleetTrack Technologies. All rights reserved.
-            </p>
-          </footer>
+          <AuthPageFooter />
         </div>
       </div>
     </div>

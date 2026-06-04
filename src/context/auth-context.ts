@@ -8,7 +8,16 @@ export interface AuthContextValue {
   isSuperAdmin: boolean;
   role: string | null;
   loading: boolean;
-  login: (payload: LoginPayload) => Promise<{ role: string; permissions: string[] }>;
+  login: (payload: LoginPayload) => Promise<{
+    role: string;
+    permissions: string[];
+    licenseNotice?: import('../types/api').LicenseGraceNotice;
+  }>;
+  loginWithGoogle: (idToken: string) => Promise<{
+    role: string;
+    permissions: string[];
+    licenseNotice?: import('../types/api').LicenseGraceNotice;
+  }>;
   logout: () => Promise<void>;
   setUser: (user: AuthUser | null) => void;
 }

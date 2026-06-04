@@ -19,6 +19,9 @@ export const authService = {
   login: (data: LoginPayload) =>
     postData<LoginResponse>('/auth/login', data),
 
+  loginWithGoogle: (idToken: string) =>
+    postData<LoginResponse>('/auth/google', { idToken }),
+
   setupSuperAdmin: (data: SetupSuperAdminPayload) =>
     postData<AuthUser>('/auth/setup-super-admin', data),
 

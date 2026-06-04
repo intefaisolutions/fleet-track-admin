@@ -10,6 +10,8 @@ export const STORAGE_KEYS = {
 
 export const ROUTES = {
   SIGN_IN: '/signin',
+  PRIVACY_POLICY: '/privacy',
+  TERMS_OF_SERVICE: '/terms',
   FORGOT_PASSWORD: '/forgot-password',
   SETUP_SUPER_ADMIN: '/setup-super-admin',
   REGISTER_COMPANY: '/register-company',
@@ -57,6 +59,9 @@ export const ROLES = {
 
 export const SUPER_ADMIN_ROLE = ROLES.SUPER_ADMIN;
 
+/** Assign on support admin for same read access as Super Admin on dashboard/revenue/licenses */
+export const SUPPORT_PLATFORM_READ = 'platform:read';
+
 export const SUPPORT_ADMIN_ROUTE_PERMISSIONS: Array<{
   route: string;
   permission: string;
@@ -70,9 +75,14 @@ export const SUPPORT_ADMIN_ROUTE_PERMISSIONS: Array<{
   { route: ROUTES.SETTINGS, permission: 'settings:read' },
 ];
 
+function supportAdminHasPermission(permissions: string[], required: string): boolean {
+  if (permissions.includes(SUPPORT_PLATFORM_READ)) return true;
+  return permissions.includes(required);
+}
+
 export function firstSupportAdminRoute(permissions: string[] = []): string {
   const first = SUPPORT_ADMIN_ROUTE_PERMISSIONS.find((entry) =>
-    permissions.includes(entry.permission),
+    supportAdminHasPermission(permissions, entry.permission),
   );
   return first?.route ?? ROUTES.SIGN_IN;
 }
@@ -80,6 +90,15 @@ export function firstSupportAdminRoute(permissions: string[] = []): string {
 export function permissionForAdminRoute(pathname: string): string | null {
   const found = SUPPORT_ADMIN_ROUTE_PERMISSIONS.find((entry) => entry.route === pathname);
   return found?.permission ?? null;
+}
+
+export function supportAdminCanAccessRoute(
+  permissions: string[],
+  pathname: string,
+): boolean {
+  const required = permissionForAdminRoute(pathname);
+  if (!required) return true;
+  return supportAdminHasPermission(permissions, required);
 }
 
 export function homeRouteForRole(role: string, permissions: string[] = []): string {

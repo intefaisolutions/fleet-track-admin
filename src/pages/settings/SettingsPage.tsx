@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ROLES, SUPPORT_PLATFORM_READ } from '../../config/constants';
 import { authService } from '../../services/auth.service';
 import { platformService } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
@@ -31,13 +32,24 @@ interface DashboardSummary {
   expiringSoon?: number;
 }
 
+const READ_PERMISSION_VALUES = [
+  'platform:read',
+  'dashboard:read',
+  'licenses:read',
+  'companies:read',
+  'payments:read',
+  'settings:read',
+] as const;
+
 const PERMISSION_OPTIONS = [
+  { value: 'platform:read', label: 'Full platform read (same data as Super Admin)' },
   { value: 'dashboard:read', label: 'View Dashboard' },
   { value: 'licenses:read', label: 'View Licenses' },
-  { value: 'payments:write', label: 'Manage Payments' },
   { value: 'companies:read', label: 'View Companies' },
+  { value: 'payments:read', label: 'View Revenue & Payments' },
+  { value: 'settings:read', label: 'View Plans & Settings' },
+  { value: 'payments:write', label: 'Manage Payments' },
   { value: 'companies:write', label: 'Manage Companies' },
-  { value: 'payments:read', label: 'View Payments' },
 ];
 
 function permissionLabel(key: string) {
@@ -70,6 +82,13 @@ function AddSupportAdminModal({
       permissions: f.permissions.includes(value)
         ? f.permissions.filter((p) => p !== value)
         : [...f.permissions, value],
+    }));
+  };
+
+  const selectAllReadPermissions = () => {
+    setForm((f) => ({
+      ...f,
+      permissions: Array.from(new Set([...f.permissions, ...READ_PERMISSION_VALUES])),
     }));
   };
 
@@ -153,6 +172,13 @@ function AddSupportAdminModal({
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={selectAllReadPermissions}
+              className="mt-2 text-sm font-medium text-fleet-600 hover:underline"
+            >
+              Select all read access (same dashboard/revenue data as Super Admin)
+            </button>
           </div>
           <button
             type="submit"
@@ -192,6 +218,12 @@ function EditPermissionsModal({
   const togglePermission = (value: string) => {
     setPermissions((prev) =>
       prev.includes(value) ? prev.filter((p) => p !== value) : [...prev, value],
+    );
+  };
+
+  const selectAllReadPermissions = () => {
+    setPermissions((prev) =>
+      Array.from(new Set([...prev, ...READ_PERMISSION_VALUES])),
     );
   };
 
@@ -241,6 +273,13 @@ function EditPermissionsModal({
             ))}
           </div>
           <button
+            type="button"
+            onClick={selectAllReadPermissions}
+            className="text-sm font-medium text-fleet-600 hover:underline"
+          >
+            Select all read access (same dashboard/revenue data as Super Admin)
+          </button>
+          <button
             type="submit"
             disabled={loading}
             className="w-full rounded-lg bg-fleet-500 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
@@ -286,7 +325,21 @@ export function SettingsPage() {
         phone: user.phone,
       });
     }
-    loadSupportAdmins();
+    if (user?.role === ROLES.SUPER_ADMIN) {
+      loadSupportAdmins();
+    }
+
+    const perms = user?.permissions ?? [];
+    const canLoadDashboard =
+      user?.role === ROLES.SUPER_ADMIN ||
+      perms.includes(SUPPORT_PLATFORM_READ) ||
+      perms.includes('dashboard:read');
+
+    if (!canLoadDashboard) {
+      setSummaryLoading(false);
+      return;
+    }
+
     setSummaryLoading(true);
     platformService
       .getDashboard()

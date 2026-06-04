@@ -19,11 +19,20 @@ export interface AuthUser {
   permissions?: string[];
 }
 
+export interface LicenseGraceNotice {
+  inGracePeriod: boolean;
+  validUntil: string;
+  graceEndsAt: string;
+  graceDays: number;
+  message: string;
+}
+
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: string;
   user: AuthUser;
+  licenseNotice?: LicenseGraceNotice;
 }
 
 export interface Company {

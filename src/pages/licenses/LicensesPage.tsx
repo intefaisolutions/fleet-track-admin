@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+} from 'react';
 import { Link } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
@@ -81,6 +89,15 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+type PlanMeta = {
+  planType: string;
+  label: string;
+  vehicleLimit?: number;
+  maxAdmins?: number;
+  maxOwners?: number;
+  maxDrivers?: number;
+};
+
 const initialForm = {
   intendedCompanyName: '',
   contactEmail: '',
@@ -89,9 +106,24 @@ const initialForm = {
   maxAdmins: '1',
   maxOwners: '2',
   maxDrivers: '10',
-  maxVehicles: '50',
+  maxVehicles: '',
   validUntil: '',
 };
+
+function applyPlanLimitsToForm(
+  plan: PlanMeta | undefined,
+  setForm: Dispatch<SetStateAction<typeof initialForm>>,
+) {
+  if (!plan) return;
+  setForm((prev) => ({
+    ...prev,
+    maxAdmins: String(plan.maxAdmins ?? prev.maxAdmins),
+    maxOwners: String(plan.maxOwners ?? prev.maxOwners),
+    maxDrivers: String(plan.maxDrivers ?? prev.maxDrivers),
+    maxVehicles:
+      plan.vehicleLimit != null ? String(plan.vehicleLimit) : prev.maxVehicles,
+  }));
+}
 
 function CreateLicensePanel({
   open,
@@ -104,26 +136,46 @@ function CreateLicensePanel({
 }) {
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
-  const [planOptions, setPlanOptions] = useState<{ planType: string; label: string }[]>([]);
+  const [plansMeta, setPlansMeta] = useState<PlanMeta[]>([]);
   const requiredAsterisk = <span className="ml-1 text-red-500">*</span>;
 
   useEffect(() => {
     if (!open) return;
+    setForm(initialForm);
     platformService
       .getPlans()
       .then((res) => {
-        const plans = (res.data ?? []) as { planType: string; displayName?: string }[];
-        setPlanOptions(
+        const plans = (res.data ?? []) as {
+          planType: string;
+          displayName?: string;
+          vehicleLimit?: number;
+          maxAdmins?: number;
+          maxOwners?: number;
+          maxDrivers?: number;
+        }[];
+        setPlansMeta(
           plans.map((p) => ({
             planType: p.planType,
             label: p.displayName ?? planLabel(p.planType),
+            vehicleLimit: p.vehicleLimit,
+            maxAdmins: p.maxAdmins,
+            maxOwners: p.maxOwners,
+            maxDrivers: p.maxDrivers,
           })),
         );
       })
       .catch(() => {
-        setPlanOptions(PLAN_TYPES.map((p) => ({ planType: p, label: planLabel(p) })));
+        setPlansMeta(PLAN_TYPES.map((p) => ({ planType: p, label: planLabel(p) })));
       });
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !plansMeta.length) return;
+    applyPlanLimitsToForm(
+      plansMeta.find((p) => p.planType === form.planType),
+      setForm,
+    );
+  }, [form.planType, open, plansMeta]);
 
   if (!open) return null;
 
@@ -140,7 +192,9 @@ function CreateLicensePanel({
         maxAdmins: Number(form.maxAdmins),
         maxOwners: Number(form.maxOwners),
         maxDrivers: Number(form.maxDrivers),
-        maxVehicles: Number(form.maxVehicles),
+        ...(form.maxVehicles.trim()
+          ? { maxVehicles: Number(form.maxVehicles) }
+          : {}),
       };
       const res = await licensesService.create(payload);
       const created = res.data as CreatedLicense | undefined;
@@ -221,7 +275,7 @@ function CreateLicensePanel({
                 onChange={(e) => setForm({ ...form, planType: e.target.value })}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
               >
-                {(planOptions.length ? planOptions : PLAN_TYPES.map((p) => ({
+                {(plansMeta.length ? plansMeta : PLAN_TYPES.map((p) => ({
                   planType: p,
                   label: planLabel(p),
                 }))).map((p) => (
@@ -265,15 +319,17 @@ function CreateLicensePanel({
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Max Vehicles
-                {requiredAsterisk}
+                <span className="ml-1 text-xs font-normal text-slate-400">
+                  (optional — plan default if empty)
+                </span>
               </label>
               <input
                 type="number"
                 min={1}
-                required
                 value={form.maxVehicles}
                 onChange={(e) => setForm({ ...form, maxVehicles: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
+                placeholder="From selected plan"
+                className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-fleet-500 focus:ring-1 focus:ring-fleet-500/30"
               />
             </div>
 
@@ -294,9 +350,10 @@ function CreateLicensePanel({
             <div className="flex gap-3 rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm text-slate-600">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-fleet-500" />
               <p>
-                This will generate a unique license key in{' '}
-                <span className="font-mono text-xs">FLT-XXXX-YYYY-ZZZZ-WWWW</span> format. Share
-                the key with the contact email once generated.
+                Generates a key in{' '}
+                <span className="font-mono text-xs">FLT-XXXX-YYYY-ZZZZ-WWWW</span> format. After{' '}
+                <strong>Valid Until</strong>, company users may still log in for{' '}
+                <strong>7 days</strong> (grace period), then login is blocked until renewal.
               </p>
             </div>
           </div>
@@ -361,6 +418,17 @@ export function LicensesPage() {
   useEffect(() => {
     setPage(1);
   }, [statusFilter, planFilter]);
+
+  useEffect(() => {
+    if (!menuId) return;
+    const closeOnOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-license-actions]')) return;
+      setMenuId(null);
+    };
+    document.addEventListener('mousedown', closeOnOutside);
+    return () => document.removeEventListener('mousedown', closeOnOutside);
+  }, [menuId]);
 
   const copyKey = (key: string) => {
     navigator.clipboard.writeText(key);
@@ -498,12 +566,12 @@ export function LicensesPage() {
       </div>
 
       {/* Filters + metric */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-        <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+        <div className="flex flex-wrap items-center gap-3">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm outline-none focus:border-fleet-500"
+            className="h-9 min-w-[9.5rem] rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-fleet-500 focus:ring-1 focus:ring-fleet-500/30"
           >
             <option value="">All Statuses</option>
             {STATUS_OPTIONS.filter(Boolean).map((s) => (
@@ -515,7 +583,7 @@ export function LicensesPage() {
           <select
             value={planFilter}
             onChange={(e) => setPlanFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm outline-none focus:border-fleet-500"
+            className="h-9 min-w-[9.5rem] rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-fleet-500 focus:ring-1 focus:ring-fleet-500/30"
           >
             <option value="">All Plan Types</option>
             {PLAN_TYPES.map((p) => (
@@ -526,7 +594,7 @@ export function LicensesPage() {
           </select>
         </div>
 
-        <div className="flex min-w-[200px] flex-1 items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm lg:max-w-xs lg:ml-auto">
+        <div className="flex h-[4.25rem] min-w-[200px] flex-1 items-center justify-between rounded-xl border border-slate-200 bg-white px-5 shadow-sm lg:max-w-xs lg:ml-auto">
           <div>
             <p className="text-xs font-medium text-slate-500">Active Licenses</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">
@@ -591,15 +659,21 @@ export function LicensesPage() {
                     </td>
                     <td className="px-5 py-4 text-slate-600">{formatDate(l.validUntil)}</td>
                     <td className="relative px-5 py-4">
-                      <button
-                        type="button"
-                        onClick={() => setMenuId(menuId === l._id ? null : l._id)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
-                      >
-                        <MoreHorizontal className="h-5 w-5" />
-                      </button>
-                      {menuId === l._id && (
-                        <div className="absolute right-5 top-12 z-10 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                      <div className="relative inline-block" data-license-actions>
+                        <button
+                          type="button"
+                          onClick={() => setMenuId(menuId === l._id ? null : l._id)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
+                          aria-expanded={menuId === l._id}
+                          aria-haspopup="menu"
+                        >
+                          <MoreHorizontal className="h-5 w-5" />
+                        </button>
+                        {menuId === l._id && (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-full z-10 mt-1 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                          >
                           <button
                             type="button"
                             onClick={() => copyKey(l.licenseKey)}
@@ -648,8 +722,9 @@ export function LicensesPage() {
                               </button>
                             </>
                           )}
-                        </div>
-                      )}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

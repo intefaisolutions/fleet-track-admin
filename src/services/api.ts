@@ -42,6 +42,7 @@ api.interceptors.response.use(
 
         const isAuthRoute =
           requestUrl.includes('/auth/login') ||
+          requestUrl.includes('/auth/google') ||
           requestUrl.includes('/auth/setup-super-admin') ||
           requestUrl.includes('/auth/forgot-password') ||
           requestUrl.includes('/auth/verify-reset-otp') ||

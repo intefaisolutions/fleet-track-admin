@@ -4,7 +4,6 @@ import { toast } from 'react-toastify';
 import {
   Building2,
   Download,
-  Eye,
   IndianRupee,
   KeyRound,
   Plus,
@@ -347,19 +346,18 @@ export function DashboardPage() {
                 <th className="px-6 py-3">Date</th>
                 <th className="px-6 py-3">Amount</th>
                 <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Action</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400">
+                  <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
                     Loading...
                   </td>
                 </tr>
               ) : recentPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400">
+                  <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
                     No payments yet. Client subscription payments will appear here.
                   </td>
                 </tr>
@@ -383,15 +381,6 @@ export function DashboardPage() {
                     </td>
                     <td className="px-6 py-4">
                       <PaymentStatusBadge status={row.status} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <Link
-                        to={ROUTES.PENDING_PAYMENTS}
-                        className="inline-flex rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-fleet-600"
-                        aria-label="View payment"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
                     </td>
                   </tr>
                 ))

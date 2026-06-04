@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { STORAGE_KEYS, ROLES } from '../config/constants';
 import { authService, type LoginPayload } from '../services/auth.service';
-import type { AuthUser } from '../types/api';
+import type { AuthUser, LoginResponse } from '../types/api';
 import { normalizeEmail } from '../utils/validation';
 import { AuthContext } from './auth-context';
 
@@ -56,31 +56,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const completeLoginFromResponse = useCallback(
+    (data: LoginResponse | undefined) => {
+      if (!data?.accessToken || !data?.refreshToken || !data.user) {
+        throw new Error('Login failed');
+      }
+      const authUser = mapAuthUser(data.user as AuthUser & { _id?: string });
+      const allowed = Object.values(ROLES) as string[];
+      if (!allowed.includes(authUser.role)) {
+        throw new Error('Your role is not supported in this portal yet');
+      }
+      persistSession(data.accessToken, data.refreshToken, authUser);
+      return {
+        role: authUser.role,
+        permissions: authUser.permissions ?? [],
+        licenseNotice: data.licenseNotice,
+      };
+    },
+    [persistSession],
+  );
+
   const login = useCallback(
     async (payload: LoginPayload) => {
       const res = await authService.login({
         email: normalizeEmail(payload.email),
         password: payload.password,
       });
-
-      const data = res.data;
-      if (!data?.accessToken || !data?.refreshToken || !data.user) {
-        throw new Error('Login failed');
-      }
-
-      const authUser = mapAuthUser(data.user as AuthUser & { _id?: string });
-      const allowed = Object.values(ROLES) as string[];
-      if (!allowed.includes(authUser.role)) {
-        throw new Error('Your role is not supported in this portal yet');
-      }
-
-      persistSession(data.accessToken, data.refreshToken, authUser);
-      return {
-        role: authUser.role,
-        permissions: authUser.permissions ?? [],
-      };
+      return completeLoginFromResponse(res.data);
     },
-    [persistSession],
+    [completeLoginFromResponse],
+  );
+
+  const loginWithGoogle = useCallback(
+    async (idToken: string) => {
+      const res = await authService.loginWithGoogle(idToken);
+      return completeLoginFromResponse(res.data);
+    },
+    [completeLoginFromResponse],
   );
 
   const logout = useCallback(async () => {
@@ -96,10 +108,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: user?.role ?? null,
       loading,
       login,
+      loginWithGoogle,
       logout,
       setUser,
     }),
-    [user, loading, login, logout],
+    [user, loading, login, loginWithGoogle, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

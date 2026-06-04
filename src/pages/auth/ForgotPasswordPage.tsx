@@ -13,6 +13,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
+import { AuthPageFooter } from '../../components/auth/AuthPageFooter';
 import { authService } from '../../services/auth.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
@@ -378,23 +379,7 @@ export function ForgotPasswordPage() {
         </p>
       </main>
 
-      <footer className="flex flex-col gap-3 border-t border-slate-200 bg-white px-6 py-5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="font-semibold text-slate-700">FleetTrack</p>
-          <p>© 2024 FleetTrack Logistics Solutions. All rights reserved.</p>
-        </div>
-        <div className="flex flex-wrap gap-4">
-          <button type="button" className="hover:text-slate-700">
-            Privacy Policy
-          </button>
-          <button type="button" className="hover:text-slate-700">
-            Terms of Service
-          </button>
-          <button type="button" className="hover:text-slate-700">
-            Contact Support
-          </button>
-        </div>
-      </footer>
+      <AuthPageFooter />
     </div>
   );
 }

@@ -90,6 +90,19 @@ export interface RevenueOverviewCompanyRow {
   status: string;
 }
 
+export interface RevenueByPlanRow {
+  planType: string;
+  amount: number;
+  companyCount: number;
+}
+
+export interface PaymentStatusReport {
+  paidCount: number;
+  pendingCount: number;
+  month: number;
+  year: number;
+}
+
 export interface RevenueOverviewData {
   selectedMonth: number;
   selectedYear: number;
@@ -103,6 +116,8 @@ export interface RevenueOverviewData {
   monthlyTrend: SuperAdminRevenuePoint[];
   previousYearTrend: SuperAdminRevenuePoint[];
   revenueByCompany: RevenueOverviewCompanyRow[];
+  revenueByPlan: RevenueByPlanRow[];
+  paymentStatusReport: PaymentStatusReport;
   planDistribution: { planType: string; count: number }[];
   totalSubscriptions: number;
 }
