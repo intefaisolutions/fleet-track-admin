@@ -34,7 +34,9 @@ export interface CreateExpensePayload {
 export const expensesService = {
   list: () => getData<ExpenseRecord[]>('/expenses'),
   create: (data: CreateExpensePayload) => postData('/expenses', data),
-  update: (id: string, data: Partial<CreateExpensePayload>) =>
-    patchData(`/expenses/${id}`, data),
+  update: (id: string, data: Partial<CreateExpensePayload> & { id?: string; _id?: string }) => {
+    const { id: _idField, _id, ...body } = data;
+    return patchData(`/expenses/${id}`, body);
+  },
   remove: (id: string) => deleteData(`/expenses/${id}`),
 };

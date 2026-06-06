@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import Swal from 'sweetalert2';
 import {
   ChevronLeft,
   ChevronRight,
@@ -291,7 +292,25 @@ export function OwnerExpensesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this expense?')) return;
+    const result = await Swal.fire({
+      title: 'Delete expense?',
+      text: 'This expense will be permanently removed. This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#94a3b8',
+      focusCancel: true,
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'rounded-md',
+        cancelButton: 'rounded-md',
+      },
+    });
+    if (!result.isConfirmed) return;
+
     try {
       await expensesService.remove(id);
       toast.success('Expense deleted');
