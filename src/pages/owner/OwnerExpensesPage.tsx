@@ -78,6 +78,7 @@ function exportCsv(rows: ExpenseRecord[]) {
 function ExpenseFormModal({
   open,
   vehicles,
+  vehiclesLoading = false,
   initial,
   onClose,
   onSubmit,
@@ -85,6 +86,7 @@ function ExpenseFormModal({
 }: {
   open: boolean;
   vehicles: VehicleRecord[];
+  vehiclesLoading?: boolean;
   initial?: ExpenseRecord | null;
   onClose: () => void;
   onSubmit: (payload: CreateExpensePayload & { id?: string }) => void;
@@ -111,7 +113,7 @@ function ExpenseFormModal({
       setReceiptUrl(initial.receiptUrl ?? '');
       setDetails(categoryDetailsFromRecord(cat, initial.categoryDetails));
     } else {
-      setVehicleIdValue(vehicles[0]?._id ?? '');
+      setVehicleIdValue('');
       setCategory('FUEL');
       setAmount('');
       setExpenseDate(new Date().toISOString().slice(0, 10));
@@ -184,6 +186,7 @@ function ExpenseFormModal({
             setDetails={setDetails}
             receiptUrl={receiptUrl}
             setReceiptUrl={setReceiptUrl}
+            vehiclesLoading={vehiclesLoading}
           />
           <button
             type="submit"
@@ -416,7 +419,7 @@ export function OwnerExpensesPage() {
         </div>
       </div>
 
-      <ExpenseFormModal open={open} vehicles={vehicles} initial={editExpense} onClose={() => { setOpen(false); setEditExpense(null); }} onSubmit={handleCreateOrUpdate} loading={saving} />
+      <ExpenseFormModal open={open} vehicles={vehicles} vehiclesLoading={loading} initial={editExpense} onClose={() => { setOpen(false); setEditExpense(null); }} onSubmit={handleCreateOrUpdate} loading={saving} />
     </div>
   );
 }

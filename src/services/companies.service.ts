@@ -7,7 +7,8 @@ export interface RegisterCompanyPayload {
   adminName: string;
   email: string;
   phone: string;
-  password: string;
+  password?: string;
+  googleIdToken?: string;
 }
 
 export interface CompanyDetail {

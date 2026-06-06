@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
@@ -21,7 +21,11 @@ import {
 } from '../../services/licenses.service';
 import { AuthPageFooter } from '../../components/auth/AuthPageFooter';
 import { AuthPageBrand } from '../../components/auth/AuthPageBrand';
+import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
 import { getApiErrorMessage } from '../../utils/validation';
+import { decodeGoogleJwt } from '../../utils/googleJwt';
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 
 function FleetIllustration() {
   return (
@@ -58,6 +62,8 @@ export function RegisterCompanyPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [licenseVerified, setLicenseVerified] = useState(false);
   const [licensePreview, setLicensePreview] = useState<LicenseValidateResult | null>(null);
@@ -107,6 +113,35 @@ export function RegisterCompanyPage() {
   const fromInvitation = useMemo(
     () => !!searchParams.get('licenseKey')?.trim(),
     [searchParams],
+  );
+
+  const usingGoogle = Boolean(googleIdToken);
+
+  const handleGoogleCredential = useCallback(
+    (idToken: string) => {
+      setGoogleLoading(true);
+      try {
+        const profile = decodeGoogleJwt(idToken);
+        const googleEmail = profile.email?.trim().toLowerCase() ?? '';
+
+        if (lockedEmail && googleEmail && lockedEmail.toLowerCase() !== googleEmail) {
+          toast.error('Google email must match the license invitation email');
+          return;
+        }
+
+        setGoogleIdToken(idToken);
+        setForm((prev) => ({
+          ...prev,
+          email: googleEmail || prev.email,
+          adminName: profile.name?.trim() || prev.adminName,
+        }));
+
+        toast.success('Google account linked — verify license and complete registration');
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    [lockedEmail],
   );
 
   const handleVerifyLicense = async () => {
@@ -165,13 +200,15 @@ export function RegisterCompanyPage() {
       toast.error('Please accept the Terms of Service and Privacy Policy');
       return;
     }
-    if (form.password.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
+    if (!usingGoogle) {
+      if (form.password.length < 8) {
+        toast.error('Password must be at least 8 characters');
+        return;
+      }
+      if (form.password !== form.confirmPassword) {
+        toast.error('Passwords do not match');
+        return;
+      }
     }
     if (!effectiveCompanyName) {
       toast.error('Company name missing in license. Please enter company name.');
@@ -185,9 +222,15 @@ export function RegisterCompanyPage() {
         adminName: form.adminName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
-        password: form.password,
+        ...(usingGoogle
+          ? { googleIdToken: googleIdToken! }
+          : { password: form.password }),
       });
-      toast.success('Company registered! You can login now.');
+      toast.success(
+        usingGoogle
+          ? 'Company registered! Sign in with Google on the login page.'
+          : 'Company registered! You can login now.',
+      );
       navigate(ROUTES.SIGN_IN);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Registration failed'));
@@ -234,6 +277,28 @@ export function RegisterCompanyPage() {
                   Invitation link detected — license key and email are pre-filled.
                   Click <strong>Verify</strong> if not already verified.
                 </div>
+              )}
+
+              <div className="relative my-8">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-xs font-medium uppercase tracking-wider text-slate-400">
+                  <span className="bg-white px-3">Or continue with</span>
+                </div>
+              </div>
+
+              <GoogleSignInButton
+                clientId={GOOGLE_CLIENT_ID}
+                disabled={loading || googleLoading}
+                onCredential={handleGoogleCredential}
+              />
+
+              {usingGoogle && (
+                <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                  Signed in with Google as <strong>{form.email}</strong>. Password is not
+                  required — verify your license and tap Register.
+                </p>
               )}
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-4">
@@ -397,6 +462,8 @@ export function RegisterCompanyPage() {
                   )}
                 </div>
 
+                {!usingGoogle && (
+                  <>
                 <div>
                   <label
                     htmlFor="password"
@@ -469,6 +536,8 @@ export function RegisterCompanyPage() {
                     </button>
                   </div>
                 </div>
+                  </>
+                )}
 
                 <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
                   <input
@@ -504,11 +573,11 @@ export function RegisterCompanyPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || !licenseVerified || !acceptedLegal}
+                  disabled={loading || googleLoading || !licenseVerified || !acceptedLegal}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
                   style={{ backgroundColor: '#00AEEF' }}
                 >
-                  {loading ? 'Registering...' : 'Register'}
+                  {loading ? 'Registering...' : usingGoogle ? 'Register with Google' : 'Register'}
                   {!loading && <ArrowRight className="h-4 w-4" />}
                 </button>
               </form>

@@ -18,11 +18,7 @@ import {
 } from '../../config/expenseCategories';
 import type { VehicleRecord } from '../../services/vehicles.service';
 import { ExpenseCategoryFields } from './ExpenseCategoryFields';
-
-function vehicleOptionLabel(v: VehicleRecord) {
-  const title = [v.make, v.modelName].filter(Boolean).join(' ');
-  return title ? `${v.registrationNumber} (${title})` : (v.registrationNumber ?? 'Vehicle');
-}
+import { VehicleSelect } from './VehicleSelect';
 
 export function ExpenseFormBody({
   vehicles,
@@ -40,6 +36,7 @@ export function ExpenseFormBody({
   setDetails,
   receiptUrl,
   setReceiptUrl,
+  vehiclesLoading = false,
 }: {
   vehicles: VehicleRecord[];
   category: ExpenseCategoryCode;
@@ -56,6 +53,7 @@ export function ExpenseFormBody({
   setDetails: (d: CategoryDetails) => void;
   receiptUrl: string;
   setReceiptUrl: (url: string) => void;
+  vehiclesLoading?: boolean;
 }) {
   const { user } = useAuth();
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
@@ -132,18 +130,12 @@ export function ExpenseFormBody({
 
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-semibold text-slate-600">Vehicle *</label>
-          <select
-            required
+          <VehicleSelect
+            vehicles={vehicles}
             value={vehicleId}
-            onChange={(e) => setVehicleId(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
-          >
-            {vehicles.map((v) => (
-              <option key={v._id} value={v._id}>
-                {vehicleOptionLabel(v)}
-              </option>
-            ))}
-          </select>
+            onChange={setVehicleId}
+            loading={vehiclesLoading}
+          />
         </div>
 
         {meta.showOdometer && (
@@ -161,24 +153,23 @@ export function ExpenseFormBody({
           </div>
         )}
 
-        <div className={autoAmount ? 'sm:col-span-2' : ''}>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">
-            {amountFieldLabel(category)} *
-          </label>
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            required
-            readOnly={autoAmount}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder={autoAmount ? 'Calculated from fields below' : '0'}
-            className={`w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm ${
-              autoAmount ? 'bg-slate-50 text-slate-700' : ''
-            }`}
-          />
-        </div>
+        {!autoAmount && (
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
+              {amountFieldLabel(category)} *
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              required
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+        )}
 
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-semibold text-slate-600">Recorded By</label>
@@ -197,6 +188,24 @@ export function ExpenseFormBody({
         </p>
         <ExpenseCategoryFields category={category} details={details} setDetails={setDetails} />
       </div>
+
+      {autoAmount && (
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            {amountFieldLabel(category)} *
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            required
+            readOnly
+            value={amount}
+            placeholder="Calculated from fields above"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700"
+          />
+        </div>
+      )}
 
       {meta.showReceipt && (
         <div className="rounded-lg border border-dashed border-slate-200 p-3">

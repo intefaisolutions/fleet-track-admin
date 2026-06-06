@@ -28,19 +28,24 @@ export function OwnerAddExpensePage() {
   const [receiptUrl, setReceiptUrl] = useState('');
   const [details, setDetails] = useState<CategoryDetails>(emptyCategoryDetails('FUEL'));
   const [loading, setLoading] = useState(false);
+  const [vehiclesLoading, setVehiclesLoading] = useState(true);
 
   useEffect(() => {
+    setVehiclesLoading(true);
     vehiclesService
       .list()
       .then((res) => {
         const list = res.data ?? [];
         setVehicles(list);
-        setVehicleId(list[0]?._id ?? '');
+        if (list.length === 1 && list[0]?._id) {
+          setVehicleId(list[0]._id);
+        }
       })
       .catch((err: unknown) => {
         setVehicles([]);
         toast.error(getApiErrorMessage(err, 'Failed to load vehicles'));
-      });
+      })
+      .finally(() => setVehiclesLoading(false));
   }, []);
 
   const finalAmount = useMemo(
@@ -125,6 +130,7 @@ export function OwnerAddExpensePage() {
           setDetails={setDetails}
           receiptUrl={receiptUrl}
           setReceiptUrl={setReceiptUrl}
+          vehiclesLoading={vehiclesLoading}
         />
 
         <button
