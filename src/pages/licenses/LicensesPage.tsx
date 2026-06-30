@@ -464,16 +464,26 @@ export function LicensesPage() {
   };
 
   const handleRevoke = async (id: string) => {
-    const ok = await confirmAction({
+    const result = await Swal.fire({
       title: 'Revoke license?',
-      text: 'The linked company will not be able to use this license.',
-      confirmText: 'Yes, revoke',
+      text: 'The linked company will lose access. You can specify a grace period (in hours) before they are deactivated.',
+      input: 'number',
+      inputLabel: 'Grace Period (Hours)',
+      inputValue: 48,
       icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, revoke',
+      cancelButtonText: 'Cancel',
       confirmButtonColor: '#d97706',
+      inputAttributes: { min: '0', step: '1' },
+      customClass: { popup: 'rounded-xl', confirmButton: 'rounded-md', cancelButton: 'rounded-md' }
     });
-    if (!ok) return;
+
+    if (!result.isConfirmed) return;
+    const gracePeriodHours = result.value ? parseInt(result.value, 10) : 0;
+
     try {
-      await licensesService.revoke(id);
+      await licensesService.revoke(id, gracePeriodHours);
       toast.success('License revoked');
       load();
     } catch (err: unknown) {

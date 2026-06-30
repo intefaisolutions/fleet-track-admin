@@ -37,13 +37,13 @@ export function CompanyTopBar({ companyName, onMenuClick }: CompanyTopBarProps) 
           <Bell className="h-5 w-5" />
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
         </button>
-        <button
+        {/* <button
           type="button"
           className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
           aria-label="Help"
         >
           <HelpCircle className="h-5 w-5" />
-        </button>
+        </button> */}
         <div className="ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-white">
           {user?.fullName?.charAt(0) ?? 'A'}
         </div>

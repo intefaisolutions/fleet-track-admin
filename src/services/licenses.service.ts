@@ -48,7 +48,7 @@ export const licensesService = {
     getData<LicenseValidateResult>(
       `/licenses/validate?key=${encodeURIComponent(key)}`,
     ),
-  revoke: (id: string) => patchData(`/licenses/${id}/revoke`),
+  revoke: (id: string, gracePeriodHours?: number) => patchData(`/licenses/${id}/revoke`, { gracePeriodHours }),
   extend: (id: string, validUntil: string) =>
     patchData(`/licenses/${id}/extend`, { validUntil }),
   cancel: (id: string) => patchData(`/licenses/${id}/cancel`),

@@ -26,6 +26,16 @@ function formatDate(value?: string) {
 
 type PaymentStatus = 'NOT_PAID' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 export function CompanySubscriptionPage() {
   const [plans, setPlans] = useState<SubscriptionPlanRecord[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionRecord | null>(
@@ -93,28 +103,58 @@ export function CompanySubscriptionPage() {
   const currentPlanLabel = currentSubscription?.planType ?? 'FREE';
   const currentPlanMeta = plans.find((p) => p.planType === currentPlanLabel);
 
-  const handleMarkAsPaid = async () => {
+  const handleBuyPlan = async () => {
     if (!selectedPlan) {
       toast.error('Please select a plan first');
-      return;
-    }
-    if (!transactionId.trim()) {
-      toast.error('Please enter transaction ID');
       return;
     }
 
     setSubmitting(true);
     try {
-      await paymentsService.submit({
+      const res = await paymentsService.createRazorpayOrder({
         planType: selectedPlan.planType,
-        amount: selectedPlan.monthlyPriceInr,
-        transactionId: transactionId.trim(),
+        billingPeriod: 'MONTHLY',
       });
-      toast.success('Payment submitted. Waiting for manual verification.');
-      setLatestPaymentStatus('PENDING');
-      setTransactionId('');
+
+      const orderData = res.data as any;
+
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        toast.error('Failed to load Razorpay. Please check your connection.');
+        return;
+      }
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'FleetTrack',
+        description: `Upgrade to ${selectedPlan.planType} Plan`,
+        order_id: orderData.orderId,
+        handler: async function (response: any) {
+          try {
+            await paymentsService.verifyRazorpayPayment({
+              ...response,
+              planType: selectedPlan.planType,
+              billingPeriod: 'MONTHLY',
+            });
+            toast.success('Payment successful! Plan upgraded.');
+            setLatestPaymentStatus('VERIFIED');
+            setTimeout(() => window.location.reload(), 1500);
+          } catch (err: unknown) {
+            toast.error(getApiErrorMessage(err, 'Failed to verify payment'));
+          }
+        },
+        theme: { color: '#0ea5e9' },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        toast.error('Payment failed: ' + response.error.description);
+      });
+      rzp.open();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Failed to submit payment'));
+      toast.error(getApiErrorMessage(err, 'Failed to initialize payment'));
     } finally {
       setSubmitting(false);
     }
@@ -244,20 +284,14 @@ export function CompanySubscriptionPage() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
-          <input
-            value={transactionId}
-            onChange={(e) => setTransactionId(e.target.value)}
-            placeholder="Enter transaction ID (e.g. TXN123456789)"
-            className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
-          />
+        <div className="mt-4 flex justify-end">
           <button
             type="button"
-            onClick={handleMarkAsPaid}
-            disabled={submitting}
-            className="rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
+            onClick={handleBuyPlan}
+            disabled={submitting || !selectedPlan}
+            className="rounded-lg bg-fleet-500 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600 disabled:opacity-60"
           >
-            {submitting ? 'Submitting...' : 'I Have Paid'}
+            {submitting ? 'Processing...' : 'Buy via Razorpay'}
           </button>
         </div>
       </section>

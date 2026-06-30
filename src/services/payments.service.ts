@@ -7,4 +7,8 @@ export const paymentsService = {
   verify: (id: string) => patchData(`/payments/${id}/verify`),
   reject: (id: string, rejectionReason?: string) =>
     patchData(`/payments/${id}/reject`, { rejectionReason }),
+  createRazorpayOrder: (data: Record<string, unknown>) =>
+    postData('/payments/razorpay/create-order', data),
+  verifyRazorpayPayment: (data: Record<string, unknown>) =>
+    postData('/payments/razorpay/verify', data),
 };
