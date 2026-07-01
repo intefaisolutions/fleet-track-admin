@@ -144,9 +144,16 @@ export function AddUserModal({
             <input
               type="tel"
               required
+              minLength={10}
+              maxLength={10}
+              pattern="[0-9]{10}"
+              title="Please enter exactly 10 digits"
               value={form.phone}
-              onChange={(e) => updateSharedField('phone', e.target.value)}
-              placeholder="+91 9876543210"
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                updateSharedField('phone', val);
+              }}
+              placeholder="9876543210"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
           </div>

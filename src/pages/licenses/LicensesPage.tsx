@@ -341,6 +341,7 @@ function CreateLicensePanel({
               <input
                 type="date"
                 required
+                min={new Date().toISOString().split('T')[0]}
                 value={form.validUntil}
                 onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
@@ -815,6 +816,7 @@ export function LicensesPage() {
             </label>
             <input
               type="date"
+              min={new Date().toISOString().split('T')[0]}
               value={extendDate}
               onChange={(e) => setExtendDate(e.target.value)}
               className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"

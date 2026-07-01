@@ -205,20 +205,43 @@ export function CompaniesPage() {
   const handleSuspend = async (id: string) => {
     const company = companies.find((c) => c._id === id);
     if (!company) return;
-    const ok = await confirmAction({
+    const result = await Swal.fire({
       title: 'Suspend company?',
       text: `"${company.name}" users will lose access until reactivated.`,
-      confirmText: 'Yes, suspend',
+      input: 'text',
+      inputLabel: 'Reason for suspension',
+      inputPlaceholder: 'e.g. Non-payment, Violation of terms',
+      inputValidator: (value) => {
+        if (!value || value.trim().length === 0) {
+          return 'Reason is required!';
+        }
+        if (value.trim().length < 10) {
+          return 'Reason must be at least 10 characters long to provide clear context.';
+        }
+        if (value.trim().length > 250) {
+          return 'Reason must not exceed 250 characters.';
+        }
+        return null;
+      },
       icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, suspend',
       confirmButtonColor: '#d97706',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'rounded-md',
+        cancelButton: 'rounded-md',
+      },
     });
-    if (!ok) {
+    if (!result.isConfirmed || !result.value) {
       return;
     }
     setActionId(id);
     setActionType('suspend');
     try {
-      await companiesService.suspend(id);
+      await companiesService.suspend(id, result.value);
       toast.success('Company suspended');
       load();
     } catch (err: unknown) {

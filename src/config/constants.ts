@@ -35,6 +35,7 @@ export const ROUTES = {
   COMPANY_REPORTS: '/company/reports',
   COMPANY_DRIVERS: '/company/drivers',
   COMPANY_SETTINGS: '/company/settings',
+  COMPANY_WALLET: '/company/wallet',
   // Vehicle Owner
   OWNER_DASHBOARD: '/owner/dashboard',
   OWNER_VEHICLES: '/owner/vehicles',

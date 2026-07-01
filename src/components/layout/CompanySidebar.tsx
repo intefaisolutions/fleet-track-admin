@@ -9,6 +9,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Wallet,
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
@@ -20,6 +21,7 @@ const navItems = [
   { to: ROUTES.COMPANY_VEHICLES, label: 'Vehicles', icon: Truck },
   { to: ROUTES.COMPANY_EXPENSES, label: 'Expenses', icon: Banknote },
   { to: ROUTES.COMPANY_SUBSCRIPTION, label: 'Subscription', icon: CreditCard },
+  { to: ROUTES.COMPANY_WALLET, label: 'Wallet', icon: Wallet },
   { to: ROUTES.COMPANY_ADMINS, label: 'Admins', icon: Shield },
   { to: ROUTES.COMPANY_REPORTS, label: 'Reports', icon: BarChart3 },
   { to: ROUTES.COMPANY_SETTINGS, label: 'Settings', icon: Settings },

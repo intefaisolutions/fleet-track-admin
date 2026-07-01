@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { ASSETS } from '../../config/assets';
@@ -123,7 +124,24 @@ export function CompanyAdminsPage() {
   }, [page, totalPages]);
 
   const handleRemove = async (admin: CompanySubAdmin) => {
-    if (!window.confirm(`Remove ${admin.name} from company admins?`)) return;
+    const result = await Swal.fire({
+      title: 'Remove Sub-Admin?',
+      text: `Are you sure you want to remove ${admin.name} from company admins? They will lose access immediately.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, remove',
+      confirmButtonColor: '#dc2626',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'rounded-md',
+        cancelButton: 'rounded-md',
+      },
+    });
+
+    if (!result.isConfirmed) return;
+    
     setRemovingEmail(admin.email);
     try {
       await companiesService.removeSubAdmin(admin.email);

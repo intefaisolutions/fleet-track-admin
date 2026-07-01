@@ -192,6 +192,7 @@ export function RegisterCompanyPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevent double clicks
     if (!licenseVerified) {
       toast.error('Please verify your license key before registering');
       return;

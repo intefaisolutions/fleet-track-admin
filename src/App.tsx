@@ -25,6 +25,7 @@ import { CompanySubscriptionPage } from './pages/company/CompanySubscriptionPage
 import { CompanyReportsPage } from './pages/company/CompanyReportsPage';
 import { CompanySettingsPage } from './pages/company/CompanySettingsPage';
 import { CompanyAdminsPage } from './pages/company/CompanyAdminsPage';
+import { CompanyWalletPage } from './pages/company/CompanyWalletPage';
 import { CompanyPlaceholderPage } from './pages/company/CompanyPlaceholderPage';
 import { CompanyLayout } from './components/layout/CompanyLayout';
 import { OwnerDashboardPage } from './pages/owner/OwnerDashboardPage';
@@ -74,6 +75,7 @@ function App() {
               <Route path={ROUTES.COMPANY_USERS} element={<CompanyUsersPage />} />
               <Route path={ROUTES.COMPANY_EXPENSES} element={<CompanyExpensesPage />} />
               <Route path={ROUTES.COMPANY_SUBSCRIPTION} element={<CompanySubscriptionPage />} />
+              <Route path={ROUTES.COMPANY_WALLET} element={<CompanyWalletPage />} />
               <Route path={ROUTES.COMPANY_ADMINS} element={<CompanyAdminsPage />} />
               <Route path={ROUTES.COMPANY_REPORTS} element={<CompanyReportsPage />} />
               <Route path={ROUTES.COMPANY_DRIVERS} element={<CompanyPlaceholderPage title="Drivers" />} />

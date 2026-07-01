@@ -46,6 +46,7 @@ export function CompanySubscriptionPage() {
   const [selectedPlanType, setSelectedPlanType] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [paymentsHistory, setPaymentsHistory] = useState<any[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -77,7 +78,8 @@ export function CompanySubscriptionPage() {
         }
 
         if (paymentsResult.status === 'fulfilled') {
-          const rows = (paymentsResult.value.data as Array<{ status?: string }>) ?? [];
+          const rows = (paymentsResult.value.data as Array<any>) ?? [];
+          setPaymentsHistory(rows);
           const latest = rows[0]?.status?.toUpperCase();
           if (latest === 'VERIFIED') setLatestPaymentStatus('VERIFIED');
           else if (latest === 'PENDING') setLatestPaymentStatus('PENDING');
@@ -301,6 +303,50 @@ export function CompanySubscriptionPage() {
           All payments are non-refundable. Payment verification is manual and performed by
           the Company Owner after checking bank/UPI statement.
         </p>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">Payment History</h2>
+        {paymentsHistory.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">No past payments found.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600">
+              <thead className="bg-slate-50 uppercase text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Date</th>
+                  <th className="px-4 py-3 font-semibold">Plan</th>
+                  <th className="px-4 py-3 font-semibold">Amount</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Transaction ID</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paymentsHistory.map((payment) => (
+                  <tr key={payment._id} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-3 whitespace-nowrap">{formatDate(payment.createdAt)}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">{payment.planType}</td>
+                    <td className="px-4 py-3">{formatInr(payment.amount)}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide ${
+                          payment.status === 'VERIFIED'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : payment.status === 'REJECTED'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {payment.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">{payment.transactionId || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

@@ -59,7 +59,7 @@ export const companiesService = {
     postData('/companies/register', data),
   approve: (id: string) => patchData(`/companies/${id}/approve`),
   reject: (id: string) => patchData(`/companies/${id}/reject`),
-  suspend: (id: string) => patchData(`/companies/${id}/suspend`),
+  suspend: (id: string, reason: string) => patchData(`/companies/${id}/suspend`, { reason }),
   activate: (id: string) => patchData(`/companies/${id}/activate`),
   delete: (id: string) => deleteData(`/companies/${id}`),
   getSubAdmins: () =>
