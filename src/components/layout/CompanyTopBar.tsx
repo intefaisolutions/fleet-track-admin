@@ -1,4 +1,4 @@
-import { Bell, HelpCircle, Search } from 'lucide-react';
+import { Bell, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { MobileMenuButton } from './MobileMenuButton';
 

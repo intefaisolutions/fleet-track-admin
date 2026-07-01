@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, HelpCircle, Search, FileText } from 'lucide-react';
+import { Bell, Search, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MobileMenuButton } from './MobileMenuButton';
 import { ROUTES } from '../../config/constants';

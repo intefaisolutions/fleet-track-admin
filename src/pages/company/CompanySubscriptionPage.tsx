@@ -44,7 +44,6 @@ export function CompanySubscriptionPage() {
   const [paymentSettings, setPaymentSettings] = useState<Record<string, string>>({});
   const [latestPaymentStatus, setLatestPaymentStatus] = useState<PaymentStatus>('NOT_PAID');
   const [selectedPlanType, setSelectedPlanType] = useState('');
-  const [transactionId, setTransactionId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
