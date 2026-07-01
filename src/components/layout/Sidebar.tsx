@@ -9,6 +9,7 @@ import {
   LogOut,
   Settings,
   UserCircle,
+  Wallet,
 } from 'lucide-react';
 import {
   ROLES,
@@ -23,6 +24,7 @@ const navItems = [
   { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard:read' },
   { to: ROUTES.LICENSES, label: 'License', icon: KeyRound, permission: 'licenses:read' },
   { to: ROUTES.COMPANIES, label: 'Client Companies', icon: Building2, permission: 'companies:read' },
+  { to: ROUTES.ADMIN_WALLETS, label: 'Wallets', icon: Wallet, permission: 'payments:read' },
   { to: ROUTES.PRICING, label: 'Plans', icon: CreditCard, permission: 'settings:read' },
   { to: ROUTES.PAYMENT_SETTINGS, label: 'Payment Configuration', icon: CreditCard, permission: 'payments:write' },
   { to: ROUTES.REVENUE, label: 'Revenue Overview', icon: TrendingUp, permission: 'payments:read' },

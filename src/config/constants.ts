@@ -25,6 +25,7 @@ export const ROUTES = {
   PROFILE: '/profile',
   SETTINGS: '/settings',
   PENDING_PAYMENTS: '/pending-payments',
+  ADMIN_WALLETS: '/admin/wallets',
   // Company Admin
   COMPANY_DASHBOARD: '/company/dashboard',
   COMPANY_USERS: '/company/users',

@@ -17,6 +17,7 @@ import { SettingsPage } from './pages/settings/SettingsPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
 import { PendingPaymentsPage } from './pages/payments/PendingPaymentsPage';
 import { RevenueOverviewPage } from './pages/revenue/RevenueOverviewPage';
+import { AdminWalletsPage } from './pages/wallets/AdminWalletsPage';
 import { CompanyDashboardPage } from './pages/company/CompanyDashboardPage';
 import { CompanyVehiclesPage } from './pages/company/CompanyVehiclesPage';
 import { CompanyUsersPage } from './pages/company/CompanyUsersPage';
@@ -63,6 +64,7 @@ function App() {
               <Route path={ROUTES.PAYMENT_SETTINGS} element={<PaymentSettingsPage />} />
               <Route path={ROUTES.PENDING_PAYMENTS} element={<PendingPaymentsPage />} />
               <Route path={ROUTES.REVENUE} element={<RevenueOverviewPage />} />
+              <Route path={ROUTES.ADMIN_WALLETS} element={<AdminWalletsPage />} />
               <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
               <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
             </Route>
