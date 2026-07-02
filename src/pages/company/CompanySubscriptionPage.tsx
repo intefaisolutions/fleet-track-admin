@@ -119,6 +119,14 @@ export function CompanySubscriptionPage() {
 
       const orderData = res.data as any;
 
+      // Check if wallet fully covered the amount
+      if (orderData.orderId === 'WALLET_PAID') {
+        toast.success('Plan upgraded successfully using Wallet Credits!');
+        setLatestPaymentStatus('VERIFIED');
+        setTimeout(() => window.location.reload(), 1500);
+        return;
+      }
+
       const loaded = await loadRazorpayScript();
       if (!loaded) {
         toast.error('Failed to load Razorpay. Please check your connection.');

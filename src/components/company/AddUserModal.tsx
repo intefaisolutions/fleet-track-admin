@@ -121,7 +121,10 @@ export function AddUserModal({
         </div>
         <form onSubmit={handleSubmit} className="max-h-[min(75dvh,calc(100vh-10rem))] space-y-4 overflow-y-auto px-4 py-5 md:px-6">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Full Name</label>
+            <label className="mb-1 flex text-sm font-medium text-slate-700">
+              Full Name
+              <span className="ml-1 text-red-500">*</span>
+            </label>
             <input
               required
               value={form.fullName}
@@ -130,7 +133,10 @@ export function AddUserModal({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+            <label className="mb-1 flex text-sm font-medium text-slate-700">
+              Email
+              <span className="ml-1 text-red-500">*</span>
+            </label>
             <input
               type="email"
               required
@@ -140,7 +146,10 @@ export function AddUserModal({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Phone</label>
+            <label className="mb-1 flex text-sm font-medium text-slate-700">
+              Phone
+              <span className="ml-1 text-red-500">*</span>
+            </label>
             <input
               type="tel"
               required
@@ -159,8 +168,9 @@ export function AddUserModal({
           </div>
           {tab === 'drivers' && (
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 flex text-sm font-medium text-slate-700">
                 License Number
+                <span className="ml-1 text-red-500">*</span>
               </label>
               <input
                 required
@@ -173,8 +183,9 @@ export function AddUserModal({
             </div>
           )}
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 flex text-sm font-medium text-slate-700">
               Temporary Password
+              <span className="ml-1 text-red-500">*</span>
             </label>
             <div className="relative">
               <input

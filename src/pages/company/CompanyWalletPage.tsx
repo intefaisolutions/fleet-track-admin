@@ -32,7 +32,7 @@ export function CompanyWalletPage() {
     ])
       .then(([balanceResult, txsResult]) => {
         if (balanceResult.status === 'fulfilled') {
-          setBalance((balanceResult.value.data as any)?.balance ?? 0);
+          setBalance((balanceResult.value.data as any)?.walletBalance ?? 0);
         }
         if (txsResult.status === 'fulfilled') {
           setTransactions((txsResult.value.data as Array<any>) ?? []);
@@ -127,7 +127,7 @@ export function CompanyWalletPage() {
                     <td className="px-4 py-3 font-semibold">
                       {tx.type === 'CREDIT' ? '+' : '-'}{formatInr(tx.amount)}
                     </td>
-                    <td className="px-4 py-3 text-xs">{tx.description || '—'}</td>
+                    <td className="px-4 py-3 text-xs">{tx.reason || tx.description || '—'}</td>
                   </tr>
                 ))}
               </tbody>

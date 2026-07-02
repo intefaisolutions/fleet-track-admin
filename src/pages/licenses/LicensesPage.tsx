@@ -181,6 +181,12 @@ function CreateLicensePanel({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    
+    if (form.contactPhone && form.contactPhone.trim().length !== 10) {
+      toast.error('Contact phone must be exactly 10 digits');
+      return;
+    }
+    
     setLoading(true);
     try {
       const payload: CreateLicensePayload = {
@@ -260,7 +266,10 @@ function CreateLicensePanel({
               <input
                 type="tel"
                 value={form.contactPhone}
-                onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setForm({ ...form, contactPhone: val });
+                }}
                 placeholder="+91 9876543210"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
               />
