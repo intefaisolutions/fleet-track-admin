@@ -6,6 +6,7 @@ import {
   Info,
   Link2,
   RefreshCw,
+  Search,
   UserMinus,
   Users,
 } from 'lucide-react';
@@ -35,7 +36,7 @@ function findVehicleForDriver(driverIdValue: string, vehicles: VehicleRecord[]) 
 }
 
 export function OwnerDriversPage() {
-  const { search = '' } = useOutletContext<{ search?: string }>();
+  const [search, setSearch] = useState('');
   const [drivers, setDrivers] = useState<DriverRecord[]>([]);
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +153,17 @@ export function OwnerDriversPage() {
           <span className="font-semibold">View available drivers</span> from your company.
           You cannot add new drivers here — contact your Company Admin to register drivers.
         </p>
+      </div>
+
+      <div className="relative max-w-md w-full">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by driver name or phone..."
+          className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+        />
       </div>
 
       {loading ? (

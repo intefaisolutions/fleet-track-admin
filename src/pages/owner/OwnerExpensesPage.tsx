@@ -9,6 +9,7 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  Search,
   Trash2,
   X,
 } from 'lucide-react';
@@ -204,7 +205,7 @@ function ExpenseFormModal({
 
 export function OwnerExpensesPage() {
   const navigate = useNavigate();
-  const { search = '' } = useOutletContext<{ search?: string }>();
+  const [search, setSearch] = useState('');
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -358,7 +359,17 @@ export function OwnerExpensesPage() {
         ))}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search expenses..."
+            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+          />
+        </div>
         <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm">
           <option value="">All Vehicles</option>
           {vehicles.map((v) => <option key={v._id} value={v._id}>{v.registrationNumber}</option>)}

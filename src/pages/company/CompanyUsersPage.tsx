@@ -129,15 +129,12 @@ function exportCsv(
 
 export function CompanyUsersPage() {
   const { user } = useAuth();
-  const ctx = useOutletContext<{ search?: string; setSearch?: (s: string) => void } | undefined>();
-  const search = ctx?.search ?? '';
-  const setSearch = ctx?.setSearch ?? (() => {});
-
   const [tab, setTab] = useState<Tab>('all');
   const [modalTab, setModalTab] = useState<CreateTab>('owners');
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [vehicleCounts, setVehicleCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);

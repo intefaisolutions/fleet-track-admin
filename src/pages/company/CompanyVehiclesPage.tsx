@@ -116,13 +116,12 @@ function exportCsv(rows: VehicleRecord[]) {
 }
 
 export function CompanyVehiclesPage() {
-  const ctx = useOutletContext<{ companyName?: string; search?: string; setSearch?: (s: string) => void } | undefined>();
+  const ctx = useOutletContext<{ companyName?: string } | undefined>();
   const companyName = ctx?.companyName ?? 'Your Company';
-  const search = ctx?.search ?? '';
-  const setSearch = ctx?.setSearch ?? (() => {});
 
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [page, setPage] = useState(1);
 

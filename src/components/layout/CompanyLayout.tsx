@@ -10,7 +10,6 @@ import { MobileSidebarOverlay } from './MobileSidebarOverlay';
 export function CompanyLayout() {
   const { user } = useAuth();
   const [companyName, setCompanyName] = useState<string>();
-  const [search, setSearch] = useState('');
   const { open, close, toggle } = useMobileSidebar();
 
   useEffect(() => {
@@ -29,9 +28,9 @@ export function CompanyLayout() {
       <CompanySidebar mobileOpen={open} onNavigate={close} />
       <MobileSidebarOverlay open={open} onClose={close} />
       <div className="flex min-h-screen min-w-0 flex-col md:ml-64">
-        <CompanyTopBar companyName={companyName} search={search} onSearchChange={setSearch} onMenuClick={toggle} />
+        <CompanyTopBar companyName={companyName} onMenuClick={toggle} />
         <main className="flex-1 overflow-x-hidden p-4 md:p-6">
-          <Outlet context={{ companyName, search, setSearch }} />
+          <Outlet context={{ companyName }} />
         </main>
         <footer className="border-t border-slate-200 bg-white px-4 py-3 text-center text-xs text-slate-400 md:px-6">
           © 2024 FleetTrack Management Systems. All rights reserved. Version 4.2.1-stable
