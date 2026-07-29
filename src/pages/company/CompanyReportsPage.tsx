@@ -4,12 +4,9 @@ import { Download, FileBarChart2 } from 'lucide-react';
 import { expensesService, type ExpenseRecord } from '../../services/expenses.service';
 import { buildCategoryStats } from '../../config/expenseCategories';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr } from '../../utils/currency';
 
 type GroupRow = { name: string; amount: number };
-
-function formatInr(amount: number) {
-  return `₹${amount.toLocaleString('en-IN')}`;
-}
 
 function monthLabel(yearMonth: string) {
   const [year, month] = yearMonth.split('-').map(Number);

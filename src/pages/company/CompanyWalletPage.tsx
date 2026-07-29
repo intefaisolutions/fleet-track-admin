@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
+import { formatInr } from '../../utils/currency';
 import { Wallet, Info, ArrowDownCircle, CheckCircle2 } from 'lucide-react';
 import { walletsService } from '../../services/wallets.service';
-
-function formatInr(amount: number) {
-  return `₹${amount.toLocaleString('en-IN')}`;
-}
 
 function formatDate(value?: string) {
   if (!value) return '—';

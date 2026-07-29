@@ -17,6 +17,7 @@ import { createExpenseWithOfflineSupport } from '../../services/expense-offline.
 import type { CreateExpensePayload } from '../../services/expenses.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import { toNumber } from '../../utils/currency';
 import { ExpenseSyncStatusBanner } from '../../components/expenses/ExpenseSyncStatusBanner';
 
 export function OwnerAddExpensePage() {
@@ -85,7 +86,7 @@ export function OwnerAddExpensePage() {
       amount: finalAmount,
       expenseDate,
       receiptUrl: receiptUrl || undefined,
-      odometerKm: odometerKm ? Number(odometerKm) : undefined,
+      odometerKm: odometerKm ? toNumber(odometerKm) : undefined,
       categoryDetails: sanitizeCategoryDetails(category, details, selectedFuelType),
       description:
         category === 'OTHER'

@@ -23,12 +23,9 @@ import {
   normalizeExpenseCategory,
 } from '../../config/expenseCategories';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr } from '../../utils/currency';
 
 const PAGE_SIZE = 10;
-
-function formatInr(n: number) {
-  return `₹ ${n.toLocaleString('en-IN')}`;
-}
 
 function expenseEffectiveDate(e: ExpenseRecord): Date {
   const raw = e.expenseDate ?? e.createdAt;

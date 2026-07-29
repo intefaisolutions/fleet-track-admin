@@ -15,6 +15,7 @@ import { ROUTES, ROLES, supportAdminHasPermission } from '../../config/constants
 import { StatCard } from '../../components/ui/StatCard';
 import { platformService, type SuperAdminDashboardData, type SuperAdminPaymentRow } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr, formatInrShort } from '../../utils/currency';
 
 type DashboardData = SuperAdminDashboardData & {
   revenueThisMonth?: number;
@@ -30,16 +31,6 @@ type DashboardData = SuperAdminDashboardData & {
 type PaymentRow = SuperAdminPaymentRow & {
   companyId?: { name?: string } | string;
 };
-
-function formatInr(amount: number) {
-  return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatInrShort(amount: number) {
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-  if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}k`;
-  return formatInr(amount);
-}
 
 function companyName(row: PaymentRow): string {
   if (row.companyName) return row.companyName;

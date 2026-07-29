@@ -36,12 +36,9 @@ import { ROUTES } from '../../config/constants';
 import { ModalPanel } from '../../components/ui/ModalPanel';
 import { ExpenseSyncStatusBanner } from '../../components/expenses/ExpenseSyncStatusBanner';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr, formatGroupedNumber, toNumber } from '../../utils/currency';
 
 const PAGE_SIZE = 10;
-
-function formatInr(n: number) {
-  return `Rs ${n.toLocaleString('en-IN')}`;
-}
 
 function formatDate(iso?: string) {
   if (!iso) return '-';
@@ -111,9 +108,17 @@ function ExpenseFormModal({
       const cat = normalizeExpenseCategory(initial.category);
       setVehicleIdValue(vehicleId(initial.vehicleId));
       setCategory(cat);
-      setAmount(String(initial.amount ?? ''));
+      setAmount(
+        initial.amount != null
+          ? formatGroupedNumber(initial.amount, { allowDecimal: true })
+          : '',
+      );
       setExpenseDate((initial.expenseDate ?? initial.createdAt ?? '').slice(0, 10));
-      setOdometerKm(initial.odometerKm != null ? String(initial.odometerKm) : '');
+      setOdometerKm(
+        initial.odometerKm != null
+          ? formatGroupedNumber(initial.odometerKm)
+          : '',
+      );
       setReceiptUrl(initial.receiptUrl ?? '');
       setDetails(categoryDetailsFromRecord(cat, initial.categoryDetails));
     } else {
@@ -162,7 +167,7 @@ function ExpenseFormModal({
           : details.serviceNotes?.trim() || details.repairNotes?.trim() || undefined,
       expenseDate: expenseDate || undefined,
       receiptUrl: receiptUrl || undefined,
-      odometerKm: odometerKm ? Number(odometerKm) : undefined,
+      odometerKm: odometerKm ? toNumber(odometerKm) : undefined,
       categoryDetails: sanitizeCategoryDetails(
         category,
         details,

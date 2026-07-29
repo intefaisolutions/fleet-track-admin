@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { Upload, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { uploadImage } from '../../services/storage.service';
+import { formatGroupedNumber, formatInr } from '../../utils/currency';
 import { getApiErrorMessage } from '../../utils/validation';
 import {
   EXPENSE_CATEGORY_ORDER,
@@ -12,7 +13,9 @@ import {
   emptyCategoryDetails,
   expenseCategoryLabel,
   getCategoryMeta,
+  getFuelQuantityUnit,
   isAmountAutoCalculated,
+  isCngFuelType,
   isElectricFuelType,
   normalizeExpenseCategory,
   parseDecimalInput,
@@ -25,7 +28,7 @@ import { VehicleSelect } from './VehicleSelect';
 
 function formatMoneyDisplay(value: number): string {
   if (!value || value <= 0) return '';
-  return value.toFixed(2);
+  return formatGroupedNumber(value, { allowDecimal: true });
 }
 
 export function ExpenseFormBody({
@@ -75,6 +78,8 @@ export function ExpenseFormBody({
   );
   const fuelType = selectedVehicle?.fuelType ?? null;
   const isElectric = isFuel && isElectricFuelType(fuelType);
+  const isCng = isFuel && isCngFuelType(fuelType);
+  const fuelUnit = getFuelQuantityUnit(fuelType);
 
   const computed = useMemo(
     () => computeExpenseAmount(category, details, amount, fuelType),
@@ -84,9 +89,9 @@ export function ExpenseFormBody({
   const fuelPreview = useMemo(() => {
     if (!isFuel || isElectric) return null;
     const cost = parseDecimalInput(details.pricePerLitre || details.ratePerLitre);
-    const litres = parseDecimalInput(details.litres);
+    const quantity = parseDecimalInput(details.litres);
     const total = computeExpenseAmount('FUEL', details, undefined, fuelType);
-    return { cost, litres, total };
+    return { cost, quantity, total };
   }, [isFuel, isElectric, details, fuelType]);
 
   const electricPreview = useMemo(() => {
@@ -194,7 +199,11 @@ export function ExpenseFormBody({
               <span className="font-semibold text-slate-700">
                 {selectedVehicle.fuelType}
               </span>
-              {isElectric ? ' — electric charging form shown' : null}
+              {isElectric
+                ? ' — electric charging form shown'
+                : isCng
+                  ? ' — CNG measured in kg'
+                  : null}
             </p>
           ) : null}
         </div>
@@ -205,13 +214,14 @@ export function ExpenseFormBody({
               Odometer Reading (km) *
             </label>
             <input
-              type="number"
-              min={0}
-              step="any"
+              type="text"
+              inputMode="numeric"
               required
               value={odometerKm}
-              onChange={(e) => setOdometerKm(e.target.value)}
-              placeholder="e.g. 45500"
+              onChange={(e) =>
+                setOdometerKm(formatGroupedNumber(e.target.value))
+              }
+              placeholder="e.g. 45,500"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
             />
           </div>
@@ -223,12 +233,15 @@ export function ExpenseFormBody({
               {amountFieldLabel(category, fuelType)} *
             </label>
             <input
-              type="number"
-              min={0}
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               required
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) =>
+                setAmount(
+                  formatGroupedNumber(e.target.value, { allowDecimal: true }),
+                )
+              }
               placeholder="0"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
             />
@@ -259,8 +272,8 @@ export function ExpenseFormBody({
         </p>
         {isFuel && !vehicleId ? (
           <p className="mb-3 text-xs text-amber-700">
-            Select a vehicle first. The form switches between petrol/diesel and
-            electric fields based on fuel type.
+            Select a vehicle first. The form switches between petrol/diesel (litres),
+            CNG (kg), and electric (kWh) based on fuel type.
           </p>
         ) : null}
         {isElectric ? (
@@ -271,8 +284,9 @@ export function ExpenseFormBody({
           </p>
         ) : isFuel ? (
           <p className="mb-3 text-xs text-slate-500">
-            Enter <strong>Cost Per Litre</strong> and <strong>Total Litres</strong>. Total
-            Amount updates automatically (decimals supported).
+            Enter <strong>{fuelUnit.rateLabel}</strong> and{' '}
+            <strong>{fuelUnit.quantityLabel}</strong>. Total Amount updates
+            automatically (decimals supported).
           </p>
         ) : null}
         <ExpenseCategoryFields
@@ -292,8 +306,8 @@ export function ExpenseFormBody({
               <>
                 Calculation:{' '}
                 <span className="font-mono font-semibold text-slate-800">
-                  {electricPreview.energy} kWh × ₹{electricPreview.rate} ×{' '}
-                  {electricPreview.efficiency} = ₹{electricPreview.total.toFixed(2)}
+                  {electricPreview.energy} kWh × {formatInr(electricPreview.rate)} ×{' '}
+                  {electricPreview.efficiency} = {formatInr(electricPreview.total)}
                 </span>
               </>
             ) : (
@@ -304,18 +318,18 @@ export function ExpenseFormBody({
         {fuelPreview ? (
           <p className="mt-3 text-xs text-slate-500">
             {fuelPreview.cost != null &&
-            fuelPreview.litres != null &&
+            fuelPreview.quantity != null &&
             fuelPreview.cost > 0 &&
-            fuelPreview.litres > 0 ? (
+            fuelPreview.quantity > 0 ? (
               <>
                 Calculation:{' '}
                 <span className="font-mono font-semibold text-slate-700">
-                  ₹{fuelPreview.cost} × {fuelPreview.litres} L = ₹
-                  {fuelPreview.total.toFixed(2)}
+                  {formatInr(fuelPreview.cost)} × {fuelPreview.quantity}{' '}
+                  {fuelUnit.short} = {formatInr(fuelPreview.total)}
                 </span>
               </>
             ) : (
-              <>Total Amount = Cost Per Litre × Total Litres</>
+              <>Total Amount = {fuelUnit.formula}</>
             )}
           </p>
         ) : null}
@@ -336,7 +350,7 @@ export function ExpenseFormBody({
               isElectric
                 ? 'Auto: Energy × Electricity Rate × Efficiency'
                 : isFuel
-                  ? 'Auto: Cost Per Litre × Total Litres'
+                  ? `Auto: ${fuelUnit.formula}`
                   : 'Calculated from fields above'
             }
             aria-readonly="true"
@@ -346,7 +360,7 @@ export function ExpenseFormBody({
             {isElectric
               ? 'Read-only. Calculated live from Energy × Electricity Rate × Efficiency.'
               : isFuel
-                ? 'Read-only. Calculated live as you type Cost Per Litre and Total Litres.'
+                ? `Read-only. Calculated live as you type ${fuelUnit.rateLabel} and ${fuelUnit.quantityLabel}.`
                 : 'Read-only. Calculated automatically from the fields above.'}
           </p>
         </div>

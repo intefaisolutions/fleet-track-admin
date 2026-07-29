@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ROLES, supportAdminHasPermission } from '../../config/constants';
 import { platformService } from '../../services/platform.service';
 import { getApiErrorMessage, validatePhone } from '../../utils/validation';
+import { formatInr } from '../../utils/currency';
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -420,7 +421,7 @@ export function SettingsPage() {
             <p className="mt-1 text-xl font-bold text-slate-900">
               {summaryLoading
                 ? '—'
-                : `₹${(summary.revenueThisMonth ?? 0).toLocaleString('en-IN')}`}
+                : formatInr(summary.revenueThisMonth ?? 0)}
             </p>
             <TrendingUp className="mt-2 h-4 w-4 text-fleet-500" />
           </div>

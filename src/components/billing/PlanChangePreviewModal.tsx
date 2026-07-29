@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatInr } from '../../utils/currency';
 
 interface PreviewData {
   currentPlan: string;
@@ -57,13 +58,13 @@ export const PlanChangePreviewModal: React.FC<PlanChangePreviewModalProps> = ({
                 <div className="text-center flex-1">
                   <p className="text-sm text-gray-500 font-medium">Current Plan</p>
                   <p className="text-lg font-bold text-gray-800">{previewData.currentPlan || 'Current'}</p>
-                  <p className="text-sm text-gray-600">₹{previewData.currentPrice}</p>
+                  <p className="text-sm text-gray-600">{formatInr(previewData.currentPrice)}</p>
                 </div>
                 <div className="text-indigo-400 font-bold px-2">→</div>
                 <div className="text-center flex-1">
                   <p className="text-sm text-gray-500 font-medium">New Plan</p>
                   <p className="text-lg font-bold text-indigo-700">{previewData.newPlan}</p>
-                  <p className="text-sm text-gray-600">₹{previewData.newPrice}</p>
+                  <p className="text-sm text-gray-600">{formatInr(previewData.newPrice)}</p>
                 </div>
               </div>
 
@@ -79,7 +80,7 @@ export const PlanChangePreviewModal: React.FC<PlanChangePreviewModalProps> = ({
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Unused Credit</span>
-                  <span className="font-medium text-green-600">+₹{previewData.creditGenerated}</span>
+                  <span className="font-medium text-green-600">+{formatInr(previewData.creditGenerated)}</span>
                 </div>
               </div>
 
@@ -89,11 +90,11 @@ export const PlanChangePreviewModal: React.FC<PlanChangePreviewModalProps> = ({
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Wallet Used</span>
-                  <span className="font-medium text-red-500">-₹{previewData.walletUsed}</span>
+                  <span className="font-medium text-red-500">-{formatInr(previewData.walletUsed)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Wallet Balance After Change</span>
-                  <span className="font-medium">₹{previewData.walletBalanceAfter}</span>
+                  <span className="font-medium">{formatInr(previewData.walletBalanceAfter)}</span>
                 </div>
               </div>
 
@@ -102,7 +103,7 @@ export const PlanChangePreviewModal: React.FC<PlanChangePreviewModalProps> = ({
               {/* Final Amount */}
               <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-200">
                 <span className="font-bold text-gray-800 text-lg">Amount To Pay Today</span>
-                <span className="font-bold text-indigo-700 text-xl">₹{previewData.amountToPay}</span>
+                <span className="font-bold text-indigo-700 text-xl">{formatInr(previewData.amountToPay)}</span>
               </div>
             </div>
           ) : (

@@ -32,6 +32,7 @@ import {
   type CreatedLicense,
 } from '../../services/licenses.service';
 import { platformService } from '../../services/platform.service';
+import { copyToClipboard } from '../../utils/clipboard';
 import { getApiErrorMessage } from '../../utils/validation';
 
 const PLAN_TYPES = ['FREE', 'BASIC', 'STANDARD', 'PREMIUM', 'ENTERPRISE'] as const;
@@ -440,9 +441,10 @@ export function LicensesPage() {
     return () => document.removeEventListener('mousedown', closeOnOutside);
   }, [menuId]);
 
-  const copyKey = (key: string) => {
-    navigator.clipboard.writeText(key);
-    toast.success('License key copied');
+  const copyKey = async (key: string) => {
+    const ok = await copyToClipboard(key);
+    if (ok) toast.success('License key copied');
+    else toast.error('Could not copy license key');
     setMenuId(null);
   };
 

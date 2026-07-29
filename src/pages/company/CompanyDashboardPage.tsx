@@ -6,7 +6,6 @@ import {
   Download,
   Filter,
   IdCard,
-  Map,
   Plus,
   Star,
   TrendingUp,
@@ -22,10 +21,7 @@ import {
   type CompanyDashboardOwner,
 } from '../../services/reports.service';
 import { getApiErrorMessage } from '../../utils/validation';
-
-function formatInr(amount: number) {
-  return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-}
+import { formatInr } from '../../utils/currency';
 
 function formatExpiry(iso: string | null) {
   if (!iso) return null;
@@ -162,14 +158,6 @@ export function CompanyDashboardPage() {
                 <Plus className="h-4 w-4" />
                 New Deployment
               </Link>
-              <button
-                type="button"
-                onClick={() => toast.info('Fleet map view coming soon')}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                <Map className="h-4 w-4" />
-                View Map
-              </button>
             </div>
           </div>
         </div>

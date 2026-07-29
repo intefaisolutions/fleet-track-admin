@@ -25,3 +25,99 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Screen-only / print-only helpers */
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  @page {
+    margin: 12mm 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: revert !important;
+  }
+
+  /* Layout chrome */
+  aside,
+  .Toastify,
+  [data-print-hide='true'] {
+    display: none !important;
+  }
+
+  /* Full-bleed content when sidebar is gone */
+  .print-content-shell {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Report print document */
+  .owner-reports-page .print-report-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    opacity: 1 !important;
+    margin-bottom: 12px !important;
+    padding: 14px 16px !important;
+    background: #fff !important;
+  }
+
+  .owner-reports-page .print-report-section h2 {
+    font-size: 12px !important;
+    margin: 0 0 8px !important;
+    padding: 6px 10px !important;
+    border-radius: 6px;
+    background: #e0f2fe !important;
+    color: #0078b3 !important;
+    border-bottom: none !important;
+  }
+
+  .owner-reports-page .print-detail-scroll {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .owner-reports-page table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .owner-reports-page th,
+  .owner-reports-page td {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+
+  .owner-reports-page th {
+    background: #f1f5f9 !important;
+    color: #64748b !important;
+  }
+
+  tr.print-show-row {
+    display: table-row !important;
+  }
+}

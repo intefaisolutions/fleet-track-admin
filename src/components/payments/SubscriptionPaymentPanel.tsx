@@ -11,6 +11,7 @@ import {
 import { paymentsService } from '../../services/payments.service';
 import type { SubscriptionPlanRecord } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr } from '../../utils/currency';
 
 export type UpgradePaymentMethod = 'RAZORPAY' | 'UPI' | 'BANK_TRANSFER';
 
@@ -28,10 +29,6 @@ const loadRazorpayScript = () =>
     script.onerror = () => resolve(false);
     document.body.appendChild(script);
   });
-
-function formatInr(amount: number) {
-  return `₹${amount.toLocaleString('en-IN')}`;
-}
 
 const METHODS: Array<{
   id: UpgradePaymentMethod;
@@ -62,17 +59,22 @@ const METHODS: Array<{
 export function SubscriptionPaymentPanel({
   selectedPlan,
   paymentSettings,
+  billingPeriod = 'MONTHLY',
   onSuccess,
 }: {
   selectedPlan: SubscriptionPlanRecord | null;
   paymentSettings: PaymentSettings;
+  billingPeriod?: 'MONTHLY' | 'YEARLY';
   onSuccess?: () => void;
 }) {
   const [method, setMethod] = useState<UpgradePaymentMethod>('RAZORPAY');
   const [transactionId, setTransactionId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const amount = selectedPlan?.monthlyPriceInr ?? 0;
+  const amount =
+    billingPeriod === 'YEARLY'
+      ? selectedPlan?.yearlyPriceInr ?? 0
+      : selectedPlan?.monthlyPriceInr ?? 0;
   const upiId =
     paymentSettings.upiId?.trim() ||
     paymentSettings.defaultUpiId?.trim() ||
@@ -100,7 +102,7 @@ export function SubscriptionPaymentPanel({
     try {
       const res = await paymentsService.createRazorpayOrder({
         planType: selectedPlan.planType,
-        billingPeriod: 'MONTHLY',
+        billingPeriod,
       });
       const orderData = res.data as {
         orderId?: string;
@@ -149,7 +151,7 @@ export function SubscriptionPaymentPanel({
               await paymentsService.verifyRazorpayPayment({
                 ...response,
                 planType: selectedPlan.planType,
-                billingPeriod: 'MONTHLY',
+                billingPeriod,
               });
               toast.success('Payment successful! Subscription activated.');
               onSuccess?.();
@@ -217,8 +219,8 @@ export function SubscriptionPaymentPanel({
     try {
       await paymentsService.submit({
         planType: selectedPlan.planType,
-        billingPeriod: 'MONTHLY',
-        amount: selectedPlan.monthlyPriceInr,
+        billingPeriod,
+        amount,
         transactionId: transactionId.trim(),
         paymentMethod: method,
         notes:
@@ -278,7 +280,9 @@ export function SubscriptionPaymentPanel({
         <span className="font-semibold">
           {selectedPlan ? formatInr(amount) : '—'}{' '}
           {selectedPlan
-            ? `(${selectedPlan.displayName ?? selectedPlan.planType})`
+            ? `(${selectedPlan.displayName ?? selectedPlan.planType} · ${
+                billingPeriod === 'YEARLY' ? 'Yearly' : 'Monthly'
+              })`
             : ''}
         </span>
       </div>

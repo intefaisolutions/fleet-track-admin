@@ -1,5 +1,6 @@
 import { Copy, Mail, X } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { copyToClipboard } from '../../utils/clipboard';
 
 export interface GeneratedLicense {
   _id: string;
@@ -22,9 +23,10 @@ export function LicenseSuccessModal({
   onSendEmail: () => void;
   sendingEmail: boolean;
 }) {
-  const copyKey = () => {
-    navigator.clipboard.writeText(license.licenseKey);
-    toast.success('License key copied');
+  const copyKey = async () => {
+    const ok = await copyToClipboard(license.licenseKey);
+    if (ok) toast.success('License key copied');
+    else toast.error('Could not copy license key');
   };
 
   return (

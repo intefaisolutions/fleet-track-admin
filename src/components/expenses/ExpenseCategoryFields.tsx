@@ -3,6 +3,7 @@ import {
   normalizeExpenseCategory,
   type CategoryDetails,
 } from '../../config/expenseCategories';
+import { formatGroupedNumber } from '../../utils/currency';
 
 const inputClass =
   'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20';
@@ -77,30 +78,47 @@ export function ExpenseCategoryFields({
           );
         }
 
+        if (field.type === 'number') {
+          const allowDecimal = DECIMAL_FIELD_KEYS.has(field.key);
+          return (
+            <div key={field.key} className={field.fullWidth ? 'sm:col-span-2' : undefined}>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">{label}</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                required={field.required}
+                value={details[field.key] ?? ''}
+                placeholder={field.placeholder}
+                onChange={(e) =>
+                  setDetails({
+                    ...details,
+                    [field.key]: formatGroupedNumber(e.target.value, {
+                      allowDecimal,
+                    }),
+                  })
+                }
+                className={inputClass}
+              />
+              {field.key === 'chargingEfficiency' ? (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Factor (0.95) or percent (95). Used as Energy × Rate × Efficiency.
+                </p>
+              ) : null}
+            </div>
+          );
+        }
+
         return (
           <div key={field.key} className={field.fullWidth ? 'sm:col-span-2' : undefined}>
             <label className="mb-1 block text-xs font-semibold text-slate-600">{label}</label>
             <input
-              type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
-              step={
-                field.type === 'number'
-                  ? DECIMAL_FIELD_KEYS.has(field.key)
-                    ? '0.01'
-                    : 'any'
-                  : undefined
-              }
-              min={field.type === 'number' ? 0 : undefined}
+              type={field.type === 'date' ? 'date' : 'text'}
               required={field.required}
               value={details[field.key] ?? ''}
               placeholder={field.placeholder}
               onChange={(e) => setDetails({ ...details, [field.key]: e.target.value })}
               className={inputClass}
             />
-            {field.key === 'chargingEfficiency' ? (
-              <p className="mt-1 text-[11px] text-slate-400">
-                Factor (0.95) or percent (95). Used as Energy × Rate × Efficiency.
-              </p>
-            ) : null}
           </div>
         );
       })}

@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'react';
+import { formatInr } from '../../utils/currency';
 import { Wallet, Building2 } from 'lucide-react';
 import { walletsService } from '../../services/wallets.service';
 import { companiesService } from '../../services/companies.service';
-
-function formatInr(amount: number) {
-  return `₹${amount.toLocaleString('en-IN')}`;
-}
 
 function formatDate(value?: string) {
   if (!value) return '—';

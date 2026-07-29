@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { paymentsService } from '../../services/payments.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr } from '../../utils/currency';
 
 export function PendingPaymentsPage() {
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
@@ -41,7 +42,7 @@ export function PendingPaymentsPage() {
               className="flex items-center justify-between rounded-xl border bg-white p-4"
             >
               <div>
-                <p className="font-medium">₹{String(p.amount)} — {String(p.planType)}</p>
+                <p className="font-medium">{formatInr(Number(p.amount))} — {String(p.planType)}</p>
                 <p className="text-xs text-slate-500">TXN: {String(p.transactionId)}</p>
               </div>
               <button

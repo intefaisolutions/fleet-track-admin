@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.9:3000/api/v1';
+  import.meta.env.VITE_API_BASE_URL || 'http://10.215.106.230:3000/api/v1';
 
 export const STORAGE_KEYS = {
   ACCESS_TOKEN: 'fleetAccessToken',
@@ -22,6 +22,7 @@ export const ROUTES = {
   // Company Owner (Super Admin)
   DASHBOARD: '/dashboard',
   COMPANIES: '/companies',
+  COMPANY_DETAIL: '/companies/:id',
   LICENSES: '/licenses',
   PRICING: '/pricing',
   PAYMENT_SETTINGS: '/payment-settings',

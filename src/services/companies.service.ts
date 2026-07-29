@@ -25,6 +25,37 @@ export interface CompanyDetail {
   status?: string;
   planType?: string;
   vehicleLimit?: number;
+  maxAdmins?: number;
+  maxOwners?: number;
+  maxDrivers?: number;
+  walletBalance?: number;
+  createdAt?: string;
+  subscription?: {
+    planType?: string;
+    status?: string;
+    billingPeriod?: string;
+    startDate?: string;
+    currentPeriodEnd?: string;
+    originalPrice?: number;
+    amountPaid?: number;
+    vehicleLimit?: number;
+  } | null;
+  stats?: {
+    vehicleCount: number;
+    driverCount: number;
+    expenseCount: number;
+    expenseTotal: number;
+    ownerCount: number;
+    adminCount: number;
+  };
+}
+
+export interface CompanyDetailPayload extends CompanyDetail {
+  vehicles: Array<Record<string, unknown>>;
+  drivers: Array<Record<string, unknown>>;
+  expenses: Array<Record<string, unknown>>;
+  payments: Array<Record<string, unknown>>;
+  users: Array<Record<string, unknown>>;
 }
 
 export interface LicenseActivationStatus {
@@ -68,6 +99,7 @@ export const companiesService = {
     getData<unknown[]>(status ? `/companies?status=${status}` : '/companies'),
   getAll: () => getData<unknown[]>('/companies'),
   getById: (id: string) => getData<CompanyDetail>(`/companies/${id}`),
+  getDetail: (id: string) => getData<CompanyDetailPayload>(`/companies/${id}/detail`),
   update: (id: string, data: Partial<CompanyDetail>) =>
     patchData<CompanyDetail>(`/companies/${id}`, data),
   create: (data: CreateCompanyPayload) => postData('/companies', data),

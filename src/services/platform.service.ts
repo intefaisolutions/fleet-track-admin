@@ -53,6 +53,22 @@ export const PLAN_SUPPORT_TYPES = [
   '24x7 Phone',
 ] as const;
 
+/** Parse stored supportType (single value or comma-separated multi). */
+export function parseSupportTypes(raw?: string | null): string[] {
+  const value = (raw ?? '').trim();
+  if (!value) return ['Email'];
+  if ((PLAN_SUPPORT_TYPES as readonly string[]).includes(value)) return [value];
+  const parts = value
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : ['Email'];
+}
+
+export function joinSupportTypes(types: string[]): string {
+  return types.join(', ');
+}
+
 export interface SuperAdminDashboardStats {
   revenueThisMonth: number;
   revenueTarget: number;

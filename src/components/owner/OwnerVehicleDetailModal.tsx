@@ -1,3 +1,4 @@
+import { formatInr } from '../../utils/currency';
 import { useEffect, useMemo, useState } from 'react';
 import { FileText, Receipt, X } from 'lucide-react';
 import { expensesService, type ExpenseRecord } from '../../services/expenses.service';
@@ -21,11 +22,6 @@ function formatDate(iso?: string) {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function formatInr(n?: number) {
-  if (n == null) return '—';
-  return `₹${n.toLocaleString('en-IN')}`;
 }
 
 function vehicleIdFromExpense(exp: ExpenseRecord): string {
@@ -132,7 +128,7 @@ export function OwnerVehicleDetailModal({
               ['Odometer', `${(vehicle.currentOdometerKm ?? 0).toLocaleString('en-IN')} km`],
               ['Status', vehicle.status],
               ['Purchase Date', formatDate(vehicle.purchaseDate)],
-              ['Purchase Cost', formatInr(vehicle.purchaseCost)],
+              ['Purchase Cost', vehicle.purchaseCost != null ? formatInr(vehicle.purchaseCost) : '—'],
               ['Assigned Driver', refName(vehicle.assignedDriverId, 'Unassigned')],
               ['Insurance Expiry', formatDate(vehicle.insuranceExpiry)],
               ['PUC Expiry', formatDate(vehicle.pucExpiry)],

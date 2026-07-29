@@ -14,6 +14,7 @@ import {
   type SubscriptionPlanRecord,
 } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr } from '../../utils/currency';
 
 const PLAN_ORDER = ['FREE', 'BASIC', 'STANDARD', 'PREMIUM', 'ENTERPRISE'] as const;
 
@@ -177,10 +178,10 @@ export function PricingPage() {
                           <p className="font-mono text-xs text-slate-400">{plan.planType}</p>
                         </td>
                         <td className="px-3 py-3 text-sm text-slate-700">
-                          ₹{plan.monthlyPriceInr.toLocaleString('en-IN')}
+                          {formatInr(plan.monthlyPriceInr)}
                         </td>
                         <td className="px-3 py-3 text-sm text-slate-700">
-                          ₹{plan.yearlyPriceInr.toLocaleString('en-IN')}
+                          {formatInr(plan.yearlyPriceInr)}
                         </td>
                         <td className="px-3 py-3 text-sm text-slate-700">
                           {formatVehicles(plan.vehicleLimit)}
@@ -189,7 +190,11 @@ export function PricingPage() {
                           {formatRetention(plan.dataRetentionDays)}
                         </td>
                         <td className="px-3 py-3 text-sm text-slate-700">
-                          {plan.supportType || '—'}
+                          {(plan.supportType || '—')
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                            .join(' · ') || '—'}
                         </td>
                         <td className="max-w-[220px] px-3 py-3 text-xs text-slate-600">
                           {plan.features?.length ? plan.features.join(', ') : '—'}

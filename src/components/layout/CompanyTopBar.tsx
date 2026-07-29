@@ -53,7 +53,7 @@ export function CompanyTopBar({ companyName, onMenuClick }: CompanyTopBarProps) 
   };
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 md:flex-nowrap md:gap-3 md:px-6 md:py-0">
+    <header className="relative z-30 flex min-h-16 shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 md:flex-nowrap md:gap-3 md:px-6 md:py-0">
       {onMenuClick && <MobileMenuButton onClick={onMenuClick} />}
       <div className="min-w-0 max-w-[42%] shrink-0 sm:max-w-[180px] md:hidden">
         <p className="truncate text-sm font-bold text-slate-900">
@@ -103,7 +103,7 @@ export function CompanyTopBar({ companyName, onMenuClick }: CompanyTopBarProps) 
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
         <NotificationBell />
-        <div className="ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-white">
+        <div className="ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-fleet-500 to-fleet-700 text-sm font-semibold text-white shadow-sm shadow-fleet-500/20">
           {user?.fullName?.charAt(0) ?? 'A'}
         </div>
       </div>

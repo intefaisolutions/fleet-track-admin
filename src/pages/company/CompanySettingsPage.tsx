@@ -16,6 +16,7 @@ import {
 import { driversService, type DriverRecord } from '../../services/drivers.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
 import { subscriptionsService } from '../../services/subscriptions.service';
+import { copyToClipboard } from '../../utils/clipboard';
 import { getApiErrorMessage } from '../../utils/validation';
 
 function formatExpiry(iso?: string) {
@@ -408,8 +409,11 @@ export function CompanySettingsPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    void navigator.clipboard.writeText(licenseKey);
-                    toast.success('License key copied');
+                    void (async () => {
+                      const ok = await copyToClipboard(licenseKey);
+                      if (ok) toast.success('License key copied');
+                      else toast.error('Could not copy license key');
+                    })();
                   }}
                   className="mt-2 text-xs font-medium text-fleet-600 hover:underline"
                 >

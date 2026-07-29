@@ -1,6 +1,8 @@
 /**
  * SRS Section 8 — expense categories 8.1–8.7 (+ Other).
  */
+import { formatGroupedNumber } from '../utils/currency';
+
 export const EXPENSE_CATEGORY_ORDER = [
   'FUEL',
   'SERVICE',
@@ -72,7 +74,7 @@ export type CategoryMeta = {
   detailFields: CategoryFieldDef[];
 };
 
-/** Petrol / Diesel / CNG fuel expense fields */
+/** Petrol / Diesel fuel expense fields (liquid — litres) */
 export const FUEL_ICE_DETAIL_FIELDS: CategoryFieldDef[] = [
   {
     key: 'pricePerLitre',
@@ -93,6 +95,36 @@ export const FUEL_ICE_DETAIL_FIELDS: CategoryFieldDef[] = [
     label: 'Fuel Station Name',
     type: 'text',
     placeholder: 'Indian Oil, NH-48',
+  },
+  {
+    key: 'paymentMethod',
+    label: 'Payment Method',
+    type: 'select',
+    options: PAYMENT_METHOD_OPTIONS,
+  },
+];
+
+/** CNG is sold by weight (kg), not litres — same storage keys for compatibility */
+export const FUEL_CNG_DETAIL_FIELDS: CategoryFieldDef[] = [
+  {
+    key: 'pricePerLitre',
+    label: 'Cost Per Kg (₹)',
+    type: 'number',
+    required: true,
+    placeholder: '76.67',
+  },
+  {
+    key: 'litres',
+    label: 'Total Kg',
+    type: 'number',
+    required: true,
+    placeholder: '8.5',
+  },
+  {
+    key: 'fuelStationName',
+    label: 'CNG Station Name',
+    type: 'text',
+    placeholder: 'IGL CNG Station',
   },
   {
     key: 'paymentMethod',
@@ -143,10 +175,40 @@ export function isElectricFuelType(fuelType?: string | null): boolean {
   return (fuelType ?? '').trim().toLowerCase() === 'electric';
 }
 
+export function isCngFuelType(fuelType?: string | null): boolean {
+  return (fuelType ?? '').trim().toLowerCase() === 'cng';
+}
+
+/** Unit labels for petrol/diesel (L) vs CNG (kg) fuel forms */
+export function getFuelQuantityUnit(fuelType?: string | null): {
+  short: string;
+  rateLabel: string;
+  quantityLabel: string;
+  formula: string;
+  stationHint: string;
+} {
+  if (isCngFuelType(fuelType)) {
+    return {
+      short: 'kg',
+      rateLabel: 'Cost Per Kg',
+      quantityLabel: 'Total Kg',
+      formula: 'Cost Per Kg × Total Kg',
+      stationHint: 'CNG',
+    };
+  }
+  return {
+    short: 'L',
+    rateLabel: 'Cost Per Litre',
+    quantityLabel: 'Total Litres',
+    formula: 'Cost Per Litre × Total Litres',
+    stationHint: 'petrol/diesel',
+  };
+}
+
 export function getFuelDetailFields(fuelType?: string | null): CategoryFieldDef[] {
-  return isElectricFuelType(fuelType)
-    ? FUEL_ELECTRIC_DETAIL_FIELDS
-    : FUEL_ICE_DETAIL_FIELDS;
+  if (isElectricFuelType(fuelType)) return FUEL_ELECTRIC_DETAIL_FIELDS;
+  if (isCngFuelType(fuelType)) return FUEL_CNG_DETAIL_FIELDS;
+  return FUEL_ICE_DETAIL_FIELDS;
 }
 
 export const EXPENSE_CATEGORY_META: Record<ExpenseCategoryCode, CategoryMeta> = {
@@ -373,18 +435,20 @@ export function hasElectricExpenseDetails(
   );
 }
 
-/** Parse a decimal input; empty / invalid → null */
+/** Parse a decimal input; empty / invalid → null. Accepts Indian grouping commas. */
 export function parseDecimalInput(raw?: string): number | null {
   if (raw == null) return null;
   const trimmed = String(raw).trim();
   if (!trimmed) return null;
-  const n = Number(trimmed);
+  const normalized = trimmed.replace(/,/g, '');
+  const n = Number(normalized);
   if (!Number.isFinite(n)) return null;
   return n;
 }
 
 /**
- * Fuel (ICE): Total Amount = Cost Per Litre × Total Litres
+ * Fuel (petrol/diesel/CNG): Total Amount = rate × quantity
+ * (CNG uses kg; petrol/diesel use litres — same detail keys)
  */
 export function computeFuelTotalAmount(details: CategoryDetails): number {
   const costPerLitre = parseDecimalInput(
@@ -461,18 +525,25 @@ export function categoryDetailsFromRecord(
     }
   }
 
-  const fieldKeys =
+  const fieldDefs =
     code === 'FUEL'
       ? [
-          ...FUEL_ICE_DETAIL_FIELDS.map((f) => f.key),
-          ...FUEL_ELECTRIC_DETAIL_FIELDS.map((f) => f.key),
+          ...FUEL_ICE_DETAIL_FIELDS,
+          ...FUEL_CNG_DETAIL_FIELDS,
+          ...FUEL_ELECTRIC_DETAIL_FIELDS,
         ]
-      : EXPENSE_CATEGORY_META[code].detailFields.map((f) => f.key);
+      : EXPENSE_CATEGORY_META[code].detailFields;
 
-  for (const key of fieldKeys) {
-    const v = raw[key];
-    if (v != null && v !== '') {
-      base[key] = String(v);
+  for (const field of fieldDefs) {
+    const v = raw[field.key];
+    if (v == null || v === '') continue;
+    if (field.type === 'number') {
+      base[field.key] = formatGroupedNumber(
+        typeof v === 'number' ? v : String(v),
+        { allowDecimal: true },
+      );
+    } else {
+      base[field.key] = String(v);
     }
   }
   return base;
@@ -487,7 +558,7 @@ export function computeExpenseAmount(
   const code = normalizeExpenseCategory(category);
   const rule = EXPENSE_CATEGORY_META[code].amountRule;
   if (rule.mode === 'manual') {
-    return Number(manualAmount || 0);
+    return parseDecimalInput(manualAmount) ?? 0;
   }
   if (rule.formula === 'fuel') {
     const electric =
@@ -496,10 +567,10 @@ export function computeExpenseAmount(
       ? computeElectricTotalAmount(details)
       : computeFuelTotalAmount(details);
   }
-  const labour = Number(details.labourCost || 0);
-  const parts = Number(details.partsCost || 0);
+  const labour = parseDecimalInput(details.labourCost) ?? 0;
+  const parts = parseDecimalInput(details.partsCost) ?? 0;
   if (labour > 0 || parts > 0) return labour + parts;
-  return Number(manualAmount || 0);
+  return parseDecimalInput(manualAmount) ?? 0;
 }
 
 export function sanitizeCategoryDetails(
@@ -514,8 +585,8 @@ export function sanitizeCategoryDetails(
     const raw = details[field.key]?.trim?.() ?? '';
     if (!raw) continue;
     if (field.type === 'number') {
-      const n = Number(raw);
-      if (!Number.isNaN(n)) out[field.key] = n;
+      const n = parseDecimalInput(raw);
+      if (n != null) out[field.key] = n;
     } else {
       out[field.key] = raw;
     }
@@ -581,29 +652,30 @@ export function validateExpenseForm(input: {
       return 'Total Cost could not be calculated. Check Energy, Rate, and Efficiency.';
     }
   } else if (code === 'FUEL') {
+    const unit = getFuelQuantityUnit(input.fuelType);
     const costRaw = input.details.pricePerLitre?.trim() ?? '';
-    const litresRaw = input.details.litres?.trim() ?? '';
+    const qtyRaw = input.details.litres?.trim() ?? '';
 
-    if (!costRaw) return 'Cost Per Litre is required';
-    const costPerLitre = parseDecimalInput(costRaw);
-    if (costPerLitre == null) {
-      return 'Cost Per Litre must be a valid number (decimals allowed).';
+    if (!costRaw) return `${unit.rateLabel} is required`;
+    const cost = parseDecimalInput(costRaw);
+    if (cost == null) {
+      return `${unit.rateLabel} must be a valid number (decimals allowed).`;
     }
-    if (costPerLitre <= 0) {
-      return 'Cost Per Litre must be greater than zero.';
+    if (cost <= 0) {
+      return `${unit.rateLabel} must be greater than zero.`;
     }
 
-    if (!litresRaw) return 'Total Litres is required';
-    const totalLitres = parseDecimalInput(litresRaw);
-    if (totalLitres == null) {
-      return 'Total Litres must be a valid number (decimals allowed).';
+    if (!qtyRaw) return `${unit.quantityLabel} is required`;
+    const qty = parseDecimalInput(qtyRaw);
+    if (qty == null) {
+      return `${unit.quantityLabel} must be a valid number (decimals allowed).`;
     }
-    if (totalLitres <= 0) {
-      return 'Total Litres must be greater than zero.';
+    if (qty <= 0) {
+      return `${unit.quantityLabel} must be greater than zero.`;
     }
 
     if (computeFuelTotalAmount(input.details) <= 0) {
-      return 'Total Amount could not be calculated. Check Cost Per Litre and Total Litres.';
+      return `Total Amount could not be calculated. Check ${unit.rateLabel} and ${unit.quantityLabel}.`;
     }
   } else {
     for (const field of meta.detailFields) {
@@ -623,7 +695,7 @@ export function validateExpenseForm(input: {
       return 'Total Cost is calculated automatically from Energy × Electricity Rate × Efficiency.';
     }
     return code === 'FUEL'
-      ? 'Total Amount is calculated automatically from Cost Per Litre × Total Litres.'
+      ? `Total Amount is calculated automatically from ${getFuelQuantityUnit(input.fuelType).formula}.`
       : 'Please enter a valid amount';
   }
 

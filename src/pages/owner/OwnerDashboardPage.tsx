@@ -17,10 +17,7 @@ import { OwnerMetricCard } from '../../components/owner/OwnerMetricCard';
 import { reportsService, type CompanyDashboardData } from '../../services/reports.service';
 import { expenseCategoryLabel } from '../../config/expenseCategories';
 import { getApiErrorMessage } from '../../utils/validation';
-
-function formatInr(value: number) {
-  return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-}
+import { formatInr } from '../../utils/currency';
 
 export function OwnerDashboardPage() {
   const { user } = useAuth();

@@ -21,15 +21,19 @@ const initialOwner = {
   fullName: '',
   email: '',
   phone: '',
+  address: '',
   password: '',
+  confirmPassword: '',
 };
 
 const initialDriver = {
-  ...initialOwner,
+  fullName: '',
+  email: '',
+  phone: '',
+  password: '',
+  confirmPassword: '',
   licenseNumber: '',
 };
-
-type SharedFormFields = keyof typeof initialOwner;
 
 export function AddUserModal({
   open,
@@ -42,6 +46,7 @@ export function AddUserModal({
   const [driverForm, setDriverForm] = useState(initialDriver);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   if (!open) return null;
 
@@ -49,6 +54,7 @@ export function AddUserModal({
     setOwnerForm(initialOwner);
     setDriverForm(initialDriver);
     setShowPassword(false);
+    setShowConfirm(false);
     onClose();
   };
 
@@ -68,18 +74,44 @@ export function AddUserModal({
       toast.error('Company context missing');
       return;
     }
+
+    const password =
+      tab === 'owners' ? ownerForm.password : driverForm.password;
+    const confirmPassword =
+      tab === 'owners' ? ownerForm.confirmPassword : driverForm.confirmPassword;
+
+    if (password.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
     setLoading(true);
     try {
       if (tab === 'owners') {
+        const address = ownerForm.address.trim();
         const res = await usersService.create({
-          ...ownerForm,
+          fullName: ownerForm.fullName.trim(),
+          email: ownerForm.email.trim(),
+          phone: ownerForm.phone.trim(),
+          ...(address ? { address } : {}),
+          password: ownerForm.password,
           role: ROLES.VEHICLE_OWNER,
           companyId,
         });
         toast.success('Vehicle owner created');
         notifyWelcomeEmail(res.meta?.welcomeEmailSent);
       } else {
-        const res = await driversService.create(driverForm);
+        const res = await driversService.create({
+          fullName: driverForm.fullName.trim(),
+          email: driverForm.email.trim(),
+          phone: driverForm.phone.trim(),
+          password: driverForm.password,
+          licenseNumber: driverForm.licenseNumber.trim(),
+        });
         toast.success('Driver created');
         notifyWelcomeEmail(res.meta?.welcomeEmailSent);
       }
@@ -93,14 +125,8 @@ export function AddUserModal({
   };
 
   const form = tab === 'owners' ? ownerForm : driverForm;
-
-  const updateSharedField = (field: SharedFormFields, value: string) => {
-    if (tab === 'owners') {
-      setOwnerForm((prev) => ({ ...prev, [field]: value }));
-    } else {
-      setDriverForm((prev) => ({ ...prev, [field]: value }));
-    }
-  };
+  const passwordValue = form.password;
+  const confirmValue = form.confirmPassword;
 
   return (
     <>
@@ -128,7 +154,12 @@ export function AddUserModal({
             <input
               required
               value={form.fullName}
-              onChange={(e) => updateSharedField('fullName', e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (tab === 'owners') setOwnerForm((p) => ({ ...p, fullName: value }));
+                else setDriverForm((p) => ({ ...p, fullName: value }));
+              }}
+              placeholder="Rajesh Sharma"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
           </div>
@@ -141,13 +172,18 @@ export function AddUserModal({
               type="email"
               required
               value={form.email}
-              onChange={(e) => updateSharedField('email', e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (tab === 'owners') setOwnerForm((p) => ({ ...p, email: value }));
+                else setDriverForm((p) => ({ ...p, email: value }));
+              }}
+              placeholder="rajesh@abctransport.com"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
           </div>
           <div>
             <label className="mb-1 flex text-sm font-medium text-slate-700">
-              Phone
+              Phone Number
               <span className="ml-1 text-red-500">*</span>
             </label>
             <input
@@ -160,12 +196,30 @@ export function AddUserModal({
               value={form.phone}
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                updateSharedField('phone', val);
+                if (tab === 'owners') setOwnerForm((p) => ({ ...p, phone: val }));
+                else setDriverForm((p) => ({ ...p, phone: val }));
               }}
               placeholder="9876543210"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
           </div>
+          {tab === 'owners' && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Address
+                <span className="ml-1 text-xs font-normal text-slate-400">(optional)</span>
+              </label>
+              <textarea
+                rows={2}
+                value={ownerForm.address}
+                onChange={(e) =>
+                  setOwnerForm((p) => ({ ...p, address: e.target.value }))
+                }
+                placeholder="123, Gandhi Nagar, Delhi"
+                className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+              />
+            </div>
+          )}
           {tab === 'drivers' && (
             <div>
               <label className="mb-1 flex text-sm font-medium text-slate-700">
@@ -184,7 +238,7 @@ export function AddUserModal({
           )}
           <div>
             <label className="mb-1 flex text-sm font-medium text-slate-700">
-              Temporary Password
+              Password
               <span className="ml-1 text-red-500">*</span>
             </label>
             <div className="relative">
@@ -192,8 +246,13 @@ export function AddUserModal({
                 type={showPassword ? 'text' : 'password'}
                 required
                 minLength={8}
-                value={form.password}
-                onChange={(e) => updateSharedField('password', e.target.value)}
+                value={passwordValue}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (tab === 'owners') setOwnerForm((p) => ({ ...p, password: value }));
+                  else setDriverForm((p) => ({ ...p, password: value }));
+                }}
+                placeholder="Set new password"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 pr-11 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
               />
               <button
@@ -203,6 +262,42 @@ export function AddUserModal({
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 flex text-sm font-medium text-slate-700">
+              Confirm Password
+              <span className="ml-1 text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirm ? 'text' : 'password'}
+                required
+                minLength={8}
+                value={confirmValue}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (tab === 'owners') {
+                    setOwnerForm((p) => ({ ...p, confirmPassword: value }));
+                  } else {
+                    setDriverForm((p) => ({ ...p, confirmPassword: value }));
+                  }
+                }}
+                placeholder="Must match password"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 pr-11 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
+              >
+                {showConfirm ? (
                   <EyeOff className="h-5 w-5" />
                 ) : (
                   <Eye className="h-5 w-5" />

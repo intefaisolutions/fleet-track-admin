@@ -5,6 +5,7 @@ export interface UserRecord {
   fullName: string;
   email: string;
   phone: string;
+  address?: string;
   role: string;
   status: string;
   companyId?: string;
@@ -15,6 +16,7 @@ export interface CreateUserPayload {
   fullName: string;
   email: string;
   phone: string;
+  address?: string;
   password: string;
   role: string;
   companyId?: string;

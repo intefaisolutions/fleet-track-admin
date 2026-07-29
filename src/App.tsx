@@ -11,6 +11,7 @@ import { SetupSuperAdminPage } from './pages/auth/SetupSuperAdminPage';
 import { RegisterCompanyPage } from './pages/auth/RegisterCompanyPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { CompaniesPage } from './pages/companies/CompaniesPage';
+import { CompanyDetailPage } from './pages/companies/CompanyDetailPage';
 import { LicensesPage } from './pages/licenses/LicensesPage';
 import { PricingPage } from './pages/pricing/PricingPage';
 import { PaymentSettingsPage } from './pages/settings/PaymentSettingsPage';
@@ -63,6 +64,7 @@ function App() {
             <Route element={<AdminLayout />}>
               <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
               <Route path={ROUTES.COMPANIES} element={<CompaniesPage />} />
+              <Route path={ROUTES.COMPANY_DETAIL} element={<CompanyDetailPage />} />
               <Route path={ROUTES.LICENSES} element={<LicensesPage />} />
               <Route path={ROUTES.PRICING} element={<PricingPage />} />
               <Route path={ROUTES.PAYMENT_SETTINGS} element={<PaymentSettingsPage />} />

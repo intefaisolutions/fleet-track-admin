@@ -7,6 +7,7 @@ import {
   type RevenueOverviewData,
 } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr, formatInrShort } from '../../utils/currency';
 
 const MONTHS = [
   'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
@@ -14,17 +15,6 @@ const MONTHS = [
 ] as const;
 
 const PLAN_CHART_COLORS = ['#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd', '#e0f2fe'];
-
-function formatInr(amount: number) {
-  return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-}
-
-function formatInrCompact(amount: number) {
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)} Crore`;
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)} L`;
-  if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}k`;
-  return formatInr(amount);
-}
 
 function trendText(percent: number, suffix: string) {
   const sign = percent >= 0 ? '↑' : '↓';
@@ -201,7 +191,7 @@ export function RevenueOverviewPage() {
         />
         <StatCard
           title="Yearly Revenue"
-          value={loading ? '—' : formatInrCompact(data?.yearlyRevenue ?? 0)}
+          value={loading ? '—' : formatInrShort(data?.yearlyRevenue ?? 0)}
           trend={
             loading || !data
               ? undefined

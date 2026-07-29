@@ -9,6 +9,9 @@ import {
   normalizeExpenseCategory,
 } from '../../config/expenseCategories';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr } from '../../utils/currency';
+import { useAuth } from '../../context/AuthContext';
+import { downloadOwnerReportsExcel } from '../../utils/exportOwnerReportsExcel';
 
 const REPORT_IDS = [
   'monthly',
@@ -22,10 +25,6 @@ const REPORT_IDS = [
 type ReportId = (typeof REPORT_IDS)[number];
 
 const DEFAULT_SELECTED = new Set<ReportId>(REPORT_IDS);
-
-function inr(value: number) {
-  return `Rs ${value.toLocaleString('en-IN')}`;
-}
 
 function expenseDate(e: ExpenseRecord) {
   return new Date(e.expenseDate ?? e.createdAt ?? 0);
@@ -41,19 +40,6 @@ function vehicleLabel(v?: ExpenseRecord['vehicleId']) {
   if (!v || typeof v === 'string') return 'Unknown Vehicle';
   const title = [v.make, v.modelName].filter(Boolean).join(' ');
   return `${v.registrationNumber ?? '—'}${title ? ` (${title})` : ''}`;
-}
-
-function exportCsvLike(filename: string, rows: string[][]) {
-  const csv = rows
-    .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 function ReportSection({
@@ -73,7 +59,7 @@ function ReportSection({
 }) {
   return (
     <section
-      className={`rounded-xl border bg-white p-5 shadow-sm transition ${
+      className={`print-report-section rounded-xl border bg-white p-5 shadow-sm transition ${
         selected
           ? 'border-fleet-400 ring-2 ring-fleet-500/25'
           : 'border-slate-200 opacity-75'
@@ -83,7 +69,7 @@ function ReportSection({
       <button
         type="button"
         onClick={() => onToggle(id)}
-        className="mb-3 flex w-full items-center gap-3 text-left"
+        className="no-print mb-3 flex w-full items-center gap-3 text-left"
       >
         <span
           className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
@@ -100,12 +86,14 @@ function ReportSection({
           {selected ? 'Included in export' : 'Tap to include'}
         </span>
       </button>
+      <h2 className="print-only mb-2 text-base font-bold text-slate-900">{title}</h2>
       <div className={selected ? '' : 'pointer-events-none'}>{children}</div>
     </section>
   );
 }
 
 export function OwnerReportsPage() {
+  const { user } = useAuth();
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [month, setMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
@@ -253,62 +241,18 @@ export function OwnerReportsPage() {
     ]);
   }, [yearlyExpenses]);
 
-  const buildExportCsv = () => {
-    const rows: string[][] = [];
-    const period = `${month}/${year}`;
-
-    if (isSelected('monthly')) {
-      rows.push(['Monthly Report', period]);
-      rows.push(['Total', String(monthlyTotal)]);
-      rows.push(['Expense count', String(monthlyExpenses.length)]);
-      rows.push([]);
-    }
-
-    if (isSelected('yearly')) {
-      rows.push(['Yearly Report', year]);
-      rows.push(['Total', String(yearlyTotal)]);
-      rows.push(['Expense count', String(yearlyExpenses.length)]);
-      rows.push([]);
-    }
-
-    if (isSelected('vehicle')) {
-      rows.push(['Vehicle-wise Report', year]);
-      rows.push(['Registration', 'Amount']);
-      vehicleWise.forEach((v) => rows.push([v.reg ?? '', String(v.amount)]));
-      rows.push([]);
-    }
-
-    if (isSelected('category')) {
-      rows.push(['Category-wise Report', year]);
-      rows.push(['Category', 'Count', 'Amount']);
-      categoryWise.forEach((c) =>
-        rows.push([c.label, String(c.count), String(c.amount)]),
-      );
-      rows.push([]);
-    }
-
-    if (isSelected('fuel')) {
-      rows.push(['Fuel Efficiency Report', year]);
-      rows.push(['Registration', 'Km per litre']);
-      fuelEfficiency.forEach((f) =>
-        rows.push([
-          f.reg ?? '',
-          f.hasData && f.kmPerLitre > 0 ? String(f.kmPerLitre) : '',
-        ]),
-      );
-      rows.push([]);
-    }
-
-    if (isSelected('detail')) {
-      rows.push(['Expense detail', year]);
-      rows.push(['Date', 'Vehicle', 'Category', 'Amount', 'Description']);
-      rows.push(...reportRows);
-    }
-
-    return rows;
-  };
+  const periodLabel = useMemo(() => {
+    const d = new Date(Number(year), Number(month) - 1, 1);
+    if (Number.isNaN(d.getTime())) return `${month}/${year}`;
+    return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  }, [year, month]);
 
   const printReport = () => {
+    if (selectedReports.size === 0) {
+      toast.error('Select at least one report to print');
+      return;
+    }
+
     const style = document.createElement('style');
     style.id = 'owner-report-print-filter';
     const hideRules = REPORT_IDS.filter((id) => !selectedReports.has(id))
@@ -316,18 +260,51 @@ export function OwnerReportsPage() {
       .join('\n');
     style.textContent = `@media print { ${hideRules} }`;
     document.head.appendChild(style);
+
+    const prevTitle = document.title;
+    document.title = `FleetTrack — Expense Reports — ${periodLabel}`;
+
+    const cleanup = () => {
+      style.remove();
+      document.title = prevTitle;
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
     window.print();
-    window.setTimeout(() => style.remove(), 1000);
+    window.setTimeout(cleanup, 1500);
   };
 
-  const exportExcel = () => {
-    const rows = buildExportCsv();
-    if (rows.length === 0) {
+  const exportExcel = async () => {
+    if (selectedReports.size === 0) {
       toast.error('Select at least one report to export');
       return;
     }
-    exportCsvLike(`owner_reports_${year}_${month}.csv`, rows);
-    toast.success('Selected reports exported');
+    try {
+      await downloadOwnerReportsExcel({
+        year,
+        month,
+        periodLabel,
+        ownerName: user?.fullName || user?.email || '—',
+        selected: selectedReports,
+        monthlyTotal,
+        monthlyCount: monthlyExpenses.length,
+        yearlyTotal,
+        yearlyCount: yearlyExpenses.length,
+        vehicleWise,
+        categoryWise,
+        fuelEfficiency,
+        detailRows: yearlyExpenses.map((e) => ({
+          date: expenseDate(e).toLocaleDateString('en-IN'),
+          vehicle: vehicleLabel(e.vehicleId),
+          category: expenseCategoryLabel(e.category),
+          amount: Number(e.amount) || 0,
+          description: e.description ?? '',
+        })),
+      });
+      toast.success('Excel report downloaded');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Excel export failed'));
+    }
   };
 
   const exportPdf = () => {
@@ -339,7 +316,37 @@ export function OwnerReportsPage() {
 
   return (
     <div className="owner-reports-page space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <header className="print-only mb-4 overflow-hidden rounded-lg border border-slate-200">
+        <div className="bg-slate-900 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            FleetTrack — Vehicle Owner Portal
+          </p>
+          <h1 className="mt-0.5 text-xl font-bold text-white">Expense Reports</h1>
+        </div>
+        <div className="bg-fleet-500 px-4 py-1.5 text-xs font-semibold text-white">
+          {periodLabel}
+        </div>
+        <div className="grid gap-2 bg-white px-4 py-3 text-sm text-slate-600 sm:grid-cols-2">
+          <p>
+            Owner:{' '}
+            <span className="font-semibold text-slate-900">
+              {user?.fullName || user?.email || '—'}
+            </span>
+          </p>
+          <p>
+            Generated:{' '}
+            <span className="font-semibold text-slate-900">
+              {new Date().toLocaleString('en-IN')}
+            </span>
+          </p>
+          <p>
+            Reports included:{' '}
+            <span className="font-semibold text-slate-900">{selectedCount}</span>
+          </p>
+        </div>
+      </header>
+
+      <div className="no-print flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Reports</h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -374,7 +381,7 @@ export function OwnerReportsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
         <p className="text-sm text-slate-600">
           <span className="font-semibold text-slate-900">{selectedCount}</span> of{' '}
           {REPORT_IDS.length} reports selected for export / print
@@ -388,7 +395,7 @@ export function OwnerReportsPage() {
         </button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="no-print grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600">Year</label>
           <input
@@ -413,7 +420,7 @@ export function OwnerReportsPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-2 print:grid-cols-2">
         <ReportSection
           id="monthly"
           title="Monthly Report"
@@ -421,7 +428,7 @@ export function OwnerReportsPage() {
           onToggle={toggleReport}
         >
           <p className="mt-1 text-2xl font-bold text-slate-900">
-            {loading ? '—' : inr(monthlyTotal)}
+            {loading ? '—' : formatInr(monthlyTotal)}
           </p>
           <p className="text-sm text-slate-500">
             {month}/{year}: {monthlyExpenses.length} expenses
@@ -435,7 +442,7 @@ export function OwnerReportsPage() {
           onToggle={toggleReport}
         >
           <p className="mt-1 text-2xl font-bold text-slate-900">
-            {loading ? '—' : inr(yearlyTotal)}
+            {loading ? '—' : formatInr(yearlyTotal)}
           </p>
           <p className="text-sm text-slate-500">
             {year}: {yearlyExpenses.length} expenses
@@ -443,7 +450,7 @@ export function OwnerReportsPage() {
         </ReportSection>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 lg:grid-cols-2 print:grid-cols-2">
         <ReportSection
           id="vehicle"
           title="Vehicle-wise Report"
@@ -457,8 +464,9 @@ export function OwnerReportsPage() {
               <li className="text-slate-400">No expenses for selected year.</li>
             ) : (
               vehicleWise.map((v) => (
-                <li key={v.reg}>
-                  {v.reg}: {inr(v.amount)}
+                <li key={v.reg} className="flex justify-between gap-3 border-b border-slate-100 pb-1">
+                  <span>{v.reg}</span>
+                  <span className="font-semibold">{formatInr(v.amount)}</span>
                 </li>
               ))
             )}
@@ -478,8 +486,12 @@ export function OwnerReportsPage() {
               <li className="text-slate-400">No data for {year}</li>
             ) : (
               categoryWise.map((c) => (
-                <li key={c.code}>
-                  {c.label}: {c.count} · {inr(c.amount)}
+                <li key={c.code} className="flex justify-between gap-3 border-b border-slate-100 pb-1">
+                  <span>
+                    {c.label}{' '}
+                    <span className="text-slate-400">({c.count})</span>
+                  </span>
+                  <span className="font-semibold">{formatInr(c.amount)}</span>
                 </li>
               ))
             )}
@@ -500,9 +512,11 @@ export function OwnerReportsPage() {
             <li className="text-slate-400">No vehicles found.</li>
           ) : (
             fuelEfficiency.map((f) => (
-              <li key={f.reg}>
-                {f.reg}:{' '}
-                {f.hasData && f.kmPerLitre > 0 ? `${f.kmPerLitre} km/l` : '—'}
+              <li key={f.reg} className="flex justify-between gap-3 border-b border-slate-100 pb-1">
+                <span>{f.reg}</span>
+                <span className="font-semibold">
+                  {f.hasData && f.kmPerLitre > 0 ? `${f.kmPerLitre} km/l` : '—'}
+                </span>
               </li>
             ))
           )}
@@ -515,10 +529,10 @@ export function OwnerReportsPage() {
         selected={isSelected('detail')}
         onToggle={toggleReport}
       >
-        <p className="mb-3 text-xs text-slate-500">
+        <p className="no-print mb-3 text-xs text-slate-500">
           Full list for {year} — included in Excel export when selected.
         </p>
-        <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-100">
+        <div className="print-detail-scroll max-h-48 overflow-y-auto rounded-lg border border-slate-100">
           <table className="min-w-full text-left text-xs">
             <thead className="sticky top-0 bg-slate-50 font-semibold text-slate-500">
               <tr>
@@ -542,24 +556,31 @@ export function OwnerReportsPage() {
                   </td>
                 </tr>
               ) : (
-                reportRows.slice(0, 50).map((row, i) => (
-                  <tr key={i}>
+                reportRows.map((row, i) => (
+                  <tr
+                    key={i}
+                    className={i >= 50 ? 'print-show-row hidden' : undefined}
+                  >
                     <td className="px-3 py-2 text-slate-600">{row[0]}</td>
                     <td className="px-3 py-2 font-medium text-slate-800">{row[1]}</td>
                     <td className="px-3 py-2">{row[2]}</td>
-                    <td className="px-3 py-2 font-semibold">{inr(Number(row[3]))}</td>
+                    <td className="px-3 py-2 font-semibold">{formatInr(Number(row[3]))}</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
           {reportRows.length > 50 && (
-            <p className="border-t border-slate-100 px-3 py-2 text-xs text-slate-500">
-              Showing 50 of {reportRows.length} — full list in export.
+            <p className="no-print border-t border-slate-100 px-3 py-2 text-xs text-slate-500">
+              Showing 50 of {reportRows.length} — full list in export / print.
             </p>
           )}
         </div>
       </ReportSection>
+
+      <p className="print-only mt-6 border-t border-slate-200 pt-3 text-center text-[10px] text-slate-400">
+        Generated by FleetTrack · For internal use only
+      </p>
     </div>
   );
 }

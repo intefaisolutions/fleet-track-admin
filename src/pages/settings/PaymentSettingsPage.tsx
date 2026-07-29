@@ -11,6 +11,7 @@ import { ROUTES } from '../../config/constants';
 import { platformService } from '../../services/platform.service';
 import { paymentsService } from '../../services/payments.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import { formatInr } from '../../utils/currency';
 
 interface PaymentRow {
   _id: string;
@@ -336,7 +337,7 @@ export function PaymentSettingsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 font-medium text-slate-900">
-                        ₹{Number(row.amount).toLocaleString('en-IN')}
+                        {formatInr(Number(row.amount))}
                       </td>
                       <td className="px-6 py-4 font-mono text-xs text-slate-600">
                         {row.transactionId}

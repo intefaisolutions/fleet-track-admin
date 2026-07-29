@@ -49,7 +49,7 @@ export function OwnerTopBar({ onMenuClick }: OwnerTopBarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 md:flex-nowrap md:gap-4 md:px-6 md:py-0">
+    <header className="relative z-30 flex min-h-16 shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 md:flex-nowrap md:gap-4 md:px-6 md:py-0">
       {onMenuClick && <MobileMenuButton onClick={onMenuClick} />}
       
       <div ref={searchRef} className="relative min-w-0 flex-1 basis-full md:basis-auto md:max-w-xl">

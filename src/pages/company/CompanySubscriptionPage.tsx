@@ -12,10 +12,7 @@ import {
 } from '../../services/platform.service';
 import { paymentsService } from '../../services/payments.service';
 import { getApiErrorMessage } from '../../utils/validation';
-
-function formatInr(amount: number) {
-  return `₹${amount.toLocaleString('en-IN')}`;
-}
+import { formatInr } from '../../utils/currency';
 
 function formatDate(value?: string) {
   if (!value) return '—';
@@ -38,6 +35,7 @@ export function CompanySubscriptionPage() {
   const [paymentSettings, setPaymentSettings] = useState<Record<string, string>>({});
   const [latestPaymentStatus, setLatestPaymentStatus] = useState<PaymentStatus>('NOT_PAID');
   const [selectedPlanType, setSelectedPlanType] = useState('');
+  const [billingPeriod, setBillingPeriod] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
   const [loading, setLoading] = useState(true);
   const [paymentsHistory, setPaymentsHistory] = useState<
     Array<{
@@ -185,13 +183,49 @@ export function CompanySubscriptionPage() {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-900">Available Plans</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Available Plans</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Choose monthly or yearly billing, then select a plan. Your subscription
+              starts on the purchase date.
+            </p>
+          </div>
+          <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => setBillingPeriod('MONTHLY')}
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                billingPeriod === 'MONTHLY'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-600 hover:bg-white'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingPeriod('YEARLY')}
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                billingPeriod === 'YEARLY'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-600 hover:bg-white'
+              }`}
+            >
+              Yearly
+            </button>
+          </div>
+        </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {loading ? (
             <p className="text-sm text-slate-400">Loading plans...</p>
           ) : (
             sortedPlans.map((plan) => {
               const active = selectedPlanType === plan.planType;
+              const price =
+                billingPeriod === 'YEARLY'
+                  ? plan.yearlyPriceInr
+                  : plan.monthlyPriceInr;
               return (
                 <button
                   key={plan.planType}
@@ -207,7 +241,8 @@ export function CompanySubscriptionPage() {
                     {plan.displayName ?? plan.planType}
                   </p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {formatInr(plan.monthlyPriceInr)}/month
+                    {formatInr(price)}
+                    {billingPeriod === 'YEARLY' ? '/year' : '/month'}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">{plan.vehicleLimit} vehicles</p>
                 </button>
@@ -226,6 +261,7 @@ export function CompanySubscriptionPage() {
           <SubscriptionPaymentPanel
             selectedPlan={selectedPlan}
             paymentSettings={paymentSettings}
+            billingPeriod={billingPeriod}
             onSuccess={() => setTimeout(() => reload(), 800)}
           />
         </div>

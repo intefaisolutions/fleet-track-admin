@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
 import {
   Ban,
   Building2,
   CheckCircle2,
+  ChevronRight,
   Mail,
   RotateCcw,
   Search,
@@ -13,6 +15,7 @@ import {
 import { companiesService } from '../../services/companies.service';
 import type { Company } from '../../types/api';
 import { getApiErrorMessage } from '../../utils/validation';
+import { ROUTES } from '../../config/constants';
 
 const PLAN_OPTIONS = ['', 'FREE', 'BASIC', 'STANDARD', 'PREMIUM', 'ENTERPRISE'] as const;
 
@@ -46,6 +49,7 @@ function PlanBadge({ plan }: { plan?: string }) {
 
 function CompanyCard({
   company,
+  onOpen,
   onSuspend,
   onActivate,
   onDelete,
@@ -54,6 +58,7 @@ function CompanyCard({
   deleting,
 }: {
   company: Company;
+  onOpen: (id: string) => void;
   onSuspend: (id: string) => void;
   onActivate: (id: string) => void;
   onDelete: (id: string) => void;
@@ -66,38 +71,51 @@ function CompanyCard({
 
   return (
     <article className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-          <Building2 className="h-5 w-5" />
+      <button
+        type="button"
+        onClick={() => onOpen(company._id)}
+        className="w-full text-left"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <PlanBadge plan={company.planType} />
         </div>
-        <PlanBadge plan={company.planType} />
-      </div>
 
-      <h2 className="mt-4 text-base font-bold text-slate-900">{company.name}</h2>
+        <h2 className="mt-4 flex items-center gap-1 text-base font-bold text-slate-900">
+          {company.name}
+          <ChevronRight className="h-4 w-4 text-slate-300" />
+        </h2>
 
-      <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
-        <Mail className="h-3.5 w-3.5 shrink-0" />
-        {company.email}
-      </p>
-
-      <div className="mt-4 flex items-center gap-1.5 text-sm text-slate-600">
-        <Truck className="h-4 w-4 text-slate-400" />
-        <span className="font-medium text-slate-800">{company.vehicleCount ?? 0}</span>
-        <span className="text-slate-400">vehicles</span>
-      </div>
-
-      <div className="mt-3 border-t border-slate-100 pt-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Registered
+        <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
+          <Mail className="h-3.5 w-3.5 shrink-0" />
+          {company.email}
         </p>
-        <p className="mt-0.5 text-sm font-medium text-slate-700">
-          {formatDate(company.createdAt)}
-        </p>
-      </div>
 
-      {isSuspended && (
-        <p className="mt-2 text-xs font-medium text-amber-700">Suspended</p>
-      )}
+        <div className="mt-4 flex items-center gap-1.5 text-sm text-slate-600">
+          <Truck className="h-4 w-4 text-slate-400" />
+          <span className="font-medium text-slate-800">{company.vehicleCount ?? 0}</span>
+          <span className="text-slate-400">vehicles</span>
+        </div>
+
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Registered
+          </p>
+          <p className="mt-0.5 text-sm font-medium text-slate-700">
+            {formatDate(company.createdAt)}
+          </p>
+        </div>
+
+        {isSuspended && (
+          <p className="mt-2 text-xs font-medium text-amber-700">Suspended</p>
+        )}
+
+        <p className="mt-3 text-xs font-semibold text-fleet-600">
+          Tap to view full details →
+        </p>
+      </button>
 
       <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-4">
         {isSuspended ? (
@@ -135,6 +153,7 @@ function CompanyCard({
 }
 
 export function CompaniesPage() {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -377,6 +396,7 @@ export function CompaniesPage() {
             <CompanyCard
               key={company._id}
               company={company}
+              onOpen={(cid) => navigate(`/companies/${cid}`)}
               onSuspend={handleSuspend}
               onActivate={handleActivate}
               onDelete={handleDelete}

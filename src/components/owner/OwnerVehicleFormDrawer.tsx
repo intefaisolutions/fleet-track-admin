@@ -9,6 +9,10 @@ import {
 } from '../../services/vehicles.service';
 import { uploadImage } from '../../services/storage.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import {
+  formatGroupedNumber,
+  toNumber,
+} from '../../utils/currency';
 
 const VEHICLE_TYPES = [
   { value: 'TRUCK', label: 'Truck' },
@@ -61,9 +65,10 @@ function vehicleToForm(v: VehicleRecord) {
     year: v.year ? String(v.year) : String(currentYear),
     type: (v.vehicleType ?? 'TRUCK') as CreateVehiclePayload['type'],
     fuelType: v.fuelType ?? 'Diesel',
-    currentOdometerKm: String(v.currentOdometerKm ?? 0),
+    currentOdometerKm: formatGroupedNumber(v.currentOdometerKm ?? 0),
     purchaseDate: isoDateForInput(v.purchaseDate),
-    purchaseCost: v.purchaseCost != null ? String(v.purchaseCost) : '',
+    purchaseCost:
+      v.purchaseCost != null ? formatGroupedNumber(v.purchaseCost) : '',
     assignedDriverId: driverIdFromRef(v.assignedDriverId),
     imageUrl: v.imageUrl ?? '',
     status: v.status ?? 'ACTIVE',
@@ -124,20 +129,24 @@ export function OwnerVehicleFormDrawer({
     }
   };
 
-  const buildPayload = (): Partial<CreateVehiclePayload> => ({
-    registrationNumber: form.registrationNumber.trim(),
-    modelName: form.modelName.trim(),
-    make: form.make.trim() || undefined,
-    type: form.type,
-    fuelType: form.fuelType,
-    year: Number(form.year) || undefined,
-    currentOdometerKm: Number(form.currentOdometerKm) || 0,
-    purchaseDate: form.purchaseDate || undefined,
-    purchaseCost: form.purchaseCost ? Number(form.purchaseCost) : undefined,
-    assignedDriverId: form.assignedDriverId || undefined,
-    imageUrl: form.imageUrl || undefined,
-    status: form.status as CreateVehiclePayload['status'],
-  });
+  const buildPayload = (): Partial<CreateVehiclePayload> => {
+    return {
+      registrationNumber: form.registrationNumber.trim(),
+      modelName: form.modelName.trim(),
+      make: form.make.trim() || undefined,
+      type: form.type,
+      fuelType: form.fuelType,
+      year: Number(form.year) || undefined,
+      currentOdometerKm: toNumber(form.currentOdometerKm),
+      purchaseDate: form.purchaseDate || undefined,
+      purchaseCost: form.purchaseCost.trim()
+        ? toNumber(form.purchaseCost)
+        : undefined,
+      assignedDriverId: form.assignedDriverId || undefined,
+      imageUrl: form.imageUrl || undefined,
+      status: form.status as CreateVehiclePayload['status'],
+    };
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -292,12 +301,16 @@ export function OwnerVehicleFormDrawer({
                   Current Odometer (km) *
                 </label>
                 <input
-                  type="number"
-                  min={0}
+                  type="text"
+                  inputMode="numeric"
                   required
+                  placeholder="45,500"
                   value={form.currentOdometerKm}
                   onChange={(e) =>
-                    setForm({ ...form, currentOdometerKm: e.target.value })
+                    setForm({
+                      ...form,
+                      currentOdometerKm: formatGroupedNumber(e.target.value),
+                    })
                   }
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
                 />
@@ -318,11 +331,16 @@ export function OwnerVehicleFormDrawer({
                   Purchase Cost (₹)
                 </label>
                 <input
-                  type="number"
-                  min={0}
-                  step="1"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="8,50,000"
                   value={form.purchaseCost}
-                  onChange={(e) => setForm({ ...form, purchaseCost: e.target.value })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      purchaseCost: formatGroupedNumber(e.target.value),
+                    })
+                  }
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
                 />
               </div>
