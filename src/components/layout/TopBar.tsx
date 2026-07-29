@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Search, FileText } from 'lucide-react';
+import { Search, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MobileMenuButton } from './MobileMenuButton';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { ROUTES } from '../../config/constants';
 
 const SEARCHABLE_PAGES = [
@@ -87,21 +88,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-        </button>
-        {/* <button
-          type="button"
-          className="hidden items-center gap-1 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 sm:flex"
-        >
-          <HelpCircle className="h-4 w-4" />
-          Help
-        </button> */}
+        <NotificationBell />
       </div>
     </header>
   );

@@ -27,6 +27,22 @@ export interface CompanyDetail {
   vehicleLimit?: number;
 }
 
+export interface LicenseActivationStatus {
+  companyName: string;
+  email: string;
+  maskedEmail: string;
+  licenseActivated: boolean;
+  requiresActivation: boolean;
+  resendCooldownSeconds?: number;
+  canResendEmail?: boolean;
+}
+
+export interface LicenseResendResult {
+  maskedEmail: string;
+  resendCooldownSeconds: number;
+  canResendEmail: boolean;
+}
+
 export interface CompanySubAdmin {
   name: string;
   email: string;
@@ -70,4 +86,12 @@ export const companiesService = {
     deleteData<CompanySubAdminsPayload>(
       `/companies/me/sub-admins/${encodeURIComponent(email)}`,
     ),
+  getLicenseActivationStatus: () =>
+    getData<LicenseActivationStatus>('/companies/me/license-activation'),
+  activateLicense: (licenseKey: string) =>
+    postData<LicenseActivationStatus>('/companies/me/activate-license', {
+      licenseKey,
+    }),
+  resendLicenseEmail: () =>
+    postData<LicenseResendResult>('/companies/me/resend-license-email', {}),
 };

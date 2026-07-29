@@ -29,6 +29,8 @@ export interface CreateExpensePayload {
   receiptUrl?: string;
   categoryDetails?: Record<string, unknown>;
   odometerKm?: number;
+  /** Offline draft dedupe key — stable across retries */
+  clientRequestId?: string;
 }
 
 export const expensesService = {

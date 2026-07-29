@@ -1,11 +1,15 @@
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+  import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.9:3000/api/v1';
 
 export const STORAGE_KEYS = {
   ACCESS_TOKEN: 'fleetAccessToken',
   REFRESH_TOKEN: 'fleetRefreshToken',
   ADMIN_USER: 'fleetAdminUser',
   ROLE: 'fleetRole',
+  /** Driver-only: last client activity timestamp (ms) for 7-day auto logout */
+  DRIVER_LAST_ACTIVITY: 'fleetDriverLastActivity',
+  /** Offline expense drafts awaiting sync */
+  EXPENSE_DRAFTS: 'fleetExpenseDrafts',
 } as const;
 
 export const ROUTES = {
@@ -27,6 +31,7 @@ export const ROUTES = {
   PENDING_PAYMENTS: '/pending-payments',
   ADMIN_WALLETS: '/admin/wallets',
   // Company Admin
+  COMPANY_LICENSE_ACTIVATION: '/company/license-activation',
   COMPANY_DASHBOARD: '/company/dashboard',
   COMPANY_USERS: '/company/users',
   COMPANY_VEHICLES: '/company/vehicles',
@@ -122,14 +127,19 @@ export function supportAdminHasAnyNavPermission(permissions: string[] = []): boo
   );
 }
 
-export function homeRouteForRole(role: string, permissions: string[] = []): string {
+export function homeRouteForRole(
+  role: string,
+  permissions: string[] = [],
+  _requiresLicenseActivation = false,
+): string {
   switch (role) {
     case ROLES.SUPER_ADMIN:
       return ROUTES.DASHBOARD;
     case ROLES.SUPPORT_ADMIN:
       return firstSupportAdminRoute(permissions);
     case ROLES.COMPANY_ADMIN:
-      return ROUTES.COMPANY_DASHBOARD;
+      // Always land on License Verification; page redirects verified users to Dashboard.
+      return ROUTES.COMPANY_LICENSE_ACTIVATION;
     case ROLES.VEHICLE_OWNER:
       return ROUTES.OWNER_DASHBOARD;
     case ROLES.DRIVER:

@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { useMobileSidebar } from '../../hooks/useMobileSidebar';
+import { ExpenseOfflineSyncBootstrap } from '../expenses/ExpenseOfflineSyncBootstrap';
 import { MobileSidebarOverlay } from './MobileSidebarOverlay';
 import { OwnerSidebar } from './OwnerSidebar';
 import { OwnerTopBar } from './OwnerTopBar';
@@ -9,6 +10,7 @@ export function OwnerLayout() {
 
   return (
     <div className="min-h-screen bg-surface">
+      <ExpenseOfflineSyncBootstrap />
       <OwnerSidebar mobileOpen={open} onNavigate={close} />
       <MobileSidebarOverlay open={open} onClose={close} />
       <div className="flex min-h-screen min-w-0 flex-col md:ml-64">

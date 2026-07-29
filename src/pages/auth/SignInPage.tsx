@@ -1,4 +1,4 @@
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
@@ -20,7 +20,8 @@ import { getApiErrorMessage } from '../../utils/validation';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 
 export function SignInPage() {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated, role, user, loading: authLoading } =
+    useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,16 +29,26 @@ export function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Already signed in — follow role home (Company Admin → License Verification first)
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !role) return;
+    navigate(homeRouteForRole(role, user?.permissions ?? []), { replace: true });
+  }, [authLoading, isAuthenticated, role, user?.permissions, navigate]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { role, permissions, licenseNotice } = await login({ email, password });
+      const { role: nextRole, permissions, licenseNotice } = await login({
+        email,
+        password,
+      });
       toast.success('Welcome back!');
       if (licenseNotice?.message) {
         toast.warn(licenseNotice.message, { autoClose: 12000 });
       }
-      navigate(homeRouteForRole(role, permissions));
+      // Company Admin always goes License Verification → Dashboard (if already verified)
+      navigate(homeRouteForRole(nextRole, permissions), { replace: true });
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Login failed'));
     } finally {
@@ -49,12 +60,13 @@ export function SignInPage() {
     async (idToken: string) => {
       setGoogleLoading(true);
       try {
-        const { role, permissions, licenseNotice } = await loginWithGoogle(idToken);
+        const { role: nextRole, permissions, licenseNotice } =
+          await loginWithGoogle(idToken);
         toast.success('Signed in with Google');
         if (licenseNotice?.message) {
           toast.warn(licenseNotice.message, { autoClose: 12000 });
         }
-        navigate(homeRouteForRole(role, permissions));
+        navigate(homeRouteForRole(nextRole, permissions), { replace: true });
       } catch (err: unknown) {
         toast.error(getApiErrorMessage(err, 'Google sign-in failed'));
       } finally {

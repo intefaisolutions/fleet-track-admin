@@ -17,6 +17,10 @@ export interface AuthUser {
   isEmailVerified: boolean;
   companyId?: string;
   permissions?: string[];
+  /** Company Admin only — must complete license activation before dashboard */
+  requiresLicenseActivation?: boolean;
+  lastLogin?: string | Date | null;
+  lastActivity?: string | Date | null;
 }
 
 export interface LicenseGraceNotice {

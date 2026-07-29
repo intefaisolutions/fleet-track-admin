@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AdminLayout } from './components/layout/AdminLayout';
+import { DriverAutoLogout } from './components/auth/DriverAutoLogout';
 import { SignInPage } from './pages/auth/SignInPage';
 import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage';
 import { TermsOfServicePage } from './pages/legal/TermsOfServicePage';
@@ -20,6 +21,7 @@ import { RevenueOverviewPage } from './pages/revenue/RevenueOverviewPage';
 import { AdminWalletsPage } from './pages/wallets/AdminWalletsPage';
 import { CompanyDashboardPage } from './pages/company/CompanyDashboardPage';
 import { CompanyVehiclesPage } from './pages/company/CompanyVehiclesPage';
+import { CompanyDriversPage } from './pages/company/CompanyDriversPage';
 import { CompanyUsersPage } from './pages/company/CompanyUsersPage';
 import { CompanyExpensesPage } from './pages/company/CompanyExpensesPage';
 import { CompanySubscriptionPage } from './pages/company/CompanySubscriptionPage';
@@ -27,7 +29,6 @@ import { CompanyReportsPage } from './pages/company/CompanyReportsPage';
 import { CompanySettingsPage } from './pages/company/CompanySettingsPage';
 import { CompanyAdminsPage } from './pages/company/CompanyAdminsPage';
 import { CompanyWalletPage } from './pages/company/CompanyWalletPage';
-import { CompanyPlaceholderPage } from './pages/company/CompanyPlaceholderPage';
 import { CompanyLayout } from './components/layout/CompanyLayout';
 import { OwnerDashboardPage } from './pages/owner/OwnerDashboardPage';
 import { OwnerVehiclesPage } from './pages/owner/OwnerVehiclesPage';
@@ -39,14 +40,17 @@ import { OwnerSettingsPage } from './pages/owner/OwnerSettingsPage';
 import { OwnerUpgradePlanPage } from './pages/owner/OwnerUpgradePlanPage';
 import { OwnerLayout } from './components/layout/OwnerLayout';
 import { DriverDashboardPage } from './pages/driver/DriverDashboardPage';
+import { LicenseActivationPage } from './pages/auth/LicenseActivationPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RoleProtectedRoute } from './routes/RoleProtectedRoute';
+import { CompanyLicenseActivatedRoute } from './routes/CompanyLicenseActivatedRoute';
 import { ROUTES, ROLES } from './config/constants';
 
 function App() {
   return (
     <>
       <BrowserRouter>
+        <DriverAutoLogout />
         <Routes>
           <Route path={ROUTES.SIGN_IN} element={<SignInPage />} />
           <Route path={ROUTES.PRIVACY_POLICY} element={<PrivacyPolicyPage />} />
@@ -71,17 +75,23 @@ function App() {
           </Route>
 
           <Route element={<RoleProtectedRoute allowedRoles={[ROLES.COMPANY_ADMIN]} />}>
-            <Route element={<CompanyLayout />}>
-              <Route path={ROUTES.COMPANY_DASHBOARD} element={<CompanyDashboardPage />} />
-              <Route path={ROUTES.COMPANY_VEHICLES} element={<CompanyVehiclesPage />} />
-              <Route path={ROUTES.COMPANY_USERS} element={<CompanyUsersPage />} />
-              <Route path={ROUTES.COMPANY_EXPENSES} element={<CompanyExpensesPage />} />
-              <Route path={ROUTES.COMPANY_SUBSCRIPTION} element={<CompanySubscriptionPage />} />
-              <Route path={ROUTES.COMPANY_WALLET} element={<CompanyWalletPage />} />
-              <Route path={ROUTES.COMPANY_ADMINS} element={<CompanyAdminsPage />} />
-              <Route path={ROUTES.COMPANY_REPORTS} element={<CompanyReportsPage />} />
-              <Route path={ROUTES.COMPANY_DRIVERS} element={<CompanyPlaceholderPage title="Drivers" />} />
-              <Route path={ROUTES.COMPANY_SETTINGS} element={<CompanySettingsPage />} />
+            <Route
+              path={ROUTES.COMPANY_LICENSE_ACTIVATION}
+              element={<LicenseActivationPage />}
+            />
+            <Route element={<CompanyLicenseActivatedRoute />}>
+              <Route element={<CompanyLayout />}>
+                <Route path={ROUTES.COMPANY_DASHBOARD} element={<CompanyDashboardPage />} />
+                <Route path={ROUTES.COMPANY_VEHICLES} element={<CompanyVehiclesPage />} />
+                <Route path={ROUTES.COMPANY_DRIVERS} element={<CompanyDriversPage />} />
+                <Route path={ROUTES.COMPANY_USERS} element={<CompanyUsersPage />} />
+                <Route path={ROUTES.COMPANY_EXPENSES} element={<CompanyExpensesPage />} />
+                <Route path={ROUTES.COMPANY_SUBSCRIPTION} element={<CompanySubscriptionPage />} />
+                <Route path={ROUTES.COMPANY_WALLET} element={<CompanyWalletPage />} />
+                <Route path={ROUTES.COMPANY_ADMINS} element={<CompanyAdminsPage />} />
+                <Route path={ROUTES.COMPANY_REPORTS} element={<CompanyReportsPage />} />
+                <Route path={ROUTES.COMPANY_SETTINGS} element={<CompanySettingsPage />} />
+              </Route>
             </Route>
           </Route>
 

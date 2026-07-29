@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import { AlertTriangle, Plus, Save } from 'lucide-react';
-import { CreatePlanModal } from '../../components/pricing/CreatePlanModal';
+import Swal from 'sweetalert2';
+import {
+  AlertTriangle,
+  Pencil,
+  Plus,
+  Power,
+  Trash2,
+} from 'lucide-react';
+import { PlanFormModal } from '../../components/pricing/CreatePlanModal';
 import {
   platformService,
   type SubscriptionPlanRecord,
@@ -10,28 +17,6 @@ import { getApiErrorMessage } from '../../utils/validation';
 
 const PLAN_ORDER = ['FREE', 'BASIC', 'STANDARD', 'PREMIUM', 'ENTERPRISE'] as const;
 
-const PLAN_LABELS: Record<string, string> = {
-  FREE: 'Free Plan',
-  BASIC: 'Basic Plan',
-  STANDARD: 'Standard Plan',
-  PREMIUM: 'Premium Plan',
-  ENTERPRISE: 'Enterprise Plan',
-};
-
-const PLAN_FEATURES: Record<string, string> = {
-  FREE: 'Basic logbook, 7-day data.',
-  BASIC: 'Fuel cost calculator, driver assignment, export to Excel.',
-  STANDARD: 'Maintenance scheduling, document expiry alerts, chat support.',
-  PREMIUM: 'Efficiency reports, expense approval workflow, vendor management.',
-  ENTERPRISE: 'Custom reports, white-label, 24x7 phone support, 1 year+ data.',
-};
-
-type PlanDraft = {
-  vehicleLimit: string;
-  monthlyPriceInr: string;
-  yearlyPriceInr: string;
-};
-
 function sortPlans(list: SubscriptionPlanRecord[]) {
   return [...list].sort((a, b) => {
     const ai = PLAN_ORDER.indexOf(a.planType as (typeof PLAN_ORDER)[number]);
@@ -39,117 +24,35 @@ function sortPlans(list: SubscriptionPlanRecord[]) {
     if (ai >= 0 && bi >= 0) return ai - bi;
     if (ai >= 0) return -1;
     if (bi >= 0) return 1;
-    return a.planType.localeCompare(b.planType);
+    return (a.displayName || a.planType).localeCompare(b.displayName || b.planType);
   });
 }
 
-function planToDraft(plan: SubscriptionPlanRecord): PlanDraft {
-  return {
-    vehicleLimit: String(plan.vehicleLimit),
-    monthlyPriceInr: String(plan.monthlyPriceInr),
-    yearlyPriceInr: String(plan.yearlyPriceInr),
-  };
+function formatRetention(days?: number) {
+  if (!days) return '—';
+  if (days >= 365) return `${days} days (1 year+)`;
+  return `${days} days`;
 }
 
-function PlanRow({
-  plan,
-  draft,
-  onChange,
-  onSave,
-  saving,
-}: {
-  plan: SubscriptionPlanRecord;
-  draft: PlanDraft;
-  onChange: (patch: Partial<PlanDraft>) => void;
-  onSave: () => void;
-  saving: boolean;
-}) {
-  const key = plan.planType.toUpperCase();
-  const featureText = plan.features?.length
-    ? plan.features.join(', ')
-    : (PLAN_FEATURES[key] ?? '—');
-  const planLabel = plan.displayName || PLAN_LABELS[key] || key;
-  const vehicleDisplay = key === 'ENTERPRISE' && Number(draft.vehicleLimit) >= 9999
-    ? 'Unlimited'
-    : `${draft.vehicleLimit} vehicles`;
-
-  return (
-    <tr className="border-b border-slate-200">
-      <td className="px-3 py-3 text-sm font-semibold text-slate-900">{planLabel}</td>
-      <td className="px-3 py-3 text-sm text-slate-700">
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={1}
-            value={draft.vehicleLimit}
-            onChange={(e) => onChange({ vehicleLimit: e.target.value })}
-            className="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-fleet-500"
-          />
-          <span className="text-xs text-slate-500">{vehicleDisplay}</span>
-        </div>
-      </td>
-      <td className="px-3 py-3">
-        <div className="flex items-center">
-          <span className="mr-1.5 text-sm text-slate-500">₹</span>
-          <input
-            type="number"
-            min={0}
-            value={draft.monthlyPriceInr}
-            onChange={(e) => onChange({ monthlyPriceInr: e.target.value })}
-            className="w-28 rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-fleet-500"
-          />
-        </div>
-      </td>
-      <td className="px-3 py-3">
-        <div className="flex items-center">
-          <span className="mr-1.5 text-sm text-slate-500">₹</span>
-          <input
-            type="number"
-            min={0}
-            value={draft.yearlyPriceInr}
-            onChange={(e) => onChange({ yearlyPriceInr: e.target.value })}
-            className="w-28 rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-fleet-500"
-          />
-        </div>
-      </td>
-      <td className="px-3 py-3 text-sm text-slate-700">{featureText}</td>
-      <td className="px-3 py-3 text-right">
-        <button
-          type="button"
-          disabled={saving}
-          onClick={onSave}
-          className="inline-flex items-center gap-1.5 rounded-md bg-fleet-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
-        >
-          <Save className="h-3.5 w-3.5" />
-          {saving ? 'Saving...' : 'Save'}
-        </button>
-      </td>
-    </tr>
-  );
+function formatVehicles(limit: number) {
+  if (limit >= 9999) return 'Unlimited';
+  return `${limit} vehicles`;
 }
 
 export function PricingPage() {
   const [plans, setPlans] = useState<SubscriptionPlanRecord[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, PlanDraft>>({});
   const [loading, setLoading] = useState(true);
-  const [savingPlan, setSavingPlan] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<SubscriptionPlanRecord | null>(null);
+  const [busyPlan, setBusyPlan] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
     platformService
       .getPricingOverview()
       .then((res) => {
-        const data = res.data;
-        if (!data) return;
-        const list = (data.plans ?? []) as SubscriptionPlanRecord[];
-        const sorted = sortPlans(list);
-        setPlans(sorted);
-        const nextDrafts: Record<string, PlanDraft> = {};
-        sorted.forEach((p) => {
-          nextDrafts[p.planType] = planToDraft(p);
-        });
-        setDrafts(nextDrafts);
+        const list = (res.data?.plans ?? []) as SubscriptionPlanRecord[];
+        setPlans(sortPlans(list));
       })
       .catch((err: unknown) =>
         toast.error(getApiErrorMessage(err, 'Failed to load pricing')),
@@ -161,59 +64,63 @@ export function PricingPage() {
     load();
   }, [load]);
 
-  const updateDraft = (planType: string, patch: Partial<PlanDraft>) => {
-    setDrafts((prev) => ({
-      ...prev,
-      [planType]: { ...prev[planType], ...patch },
-    }));
-  };
+  const sortedPlans = useMemo(() => sortPlans(plans), [plans]);
 
-  const savePlan = async (planType: string) => {
-    const draft = drafts[planType];
-    if (!draft) return;
-
-    const monthly = Number(draft.monthlyPriceInr);
-    const yearly = Number(draft.yearlyPriceInr);
-    if (Number.isNaN(monthly) || Number.isNaN(yearly) || monthly < 0 || yearly < 0) {
-      toast.error('Enter valid prices');
-      return;
-    }
-
-    const vehicleLimit = Number(draft.vehicleLimit);
-    if (Number.isNaN(vehicleLimit) || vehicleLimit < 1) {
-      toast.error('Enter a valid vehicle limit');
-      return;
-    }
-
-    setSavingPlan(planType);
+  const toggleStatus = async (plan: SubscriptionPlanRecord) => {
+    const next = plan.isActive === false;
+    setBusyPlan(plan.planType);
     try {
-      await platformService.updatePlanPricing(planType, {
-        monthlyPriceInr: Math.round(monthly),
-        yearlyPriceInr: Math.round(yearly),
-        vehicleLimit: Math.round(vehicleLimit),
-      });
-      const saved = plans.find((p) => p.planType === planType);
-      const title = saved?.displayName || PLAN_LABELS[planType] || planType;
-      toast.success(`${title} plan updated`);
+      await platformService.setPlanStatus(plan.planType, next);
+      toast.success(
+        next
+          ? `${plan.displayName || plan.planType} enabled`
+          : `${plan.displayName || plan.planType} disabled for new subscriptions`,
+      );
       load();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Failed to save plan'));
+      toast.error(getApiErrorMessage(err, 'Failed to update plan status'));
     } finally {
-      setSavingPlan(null);
+      setBusyPlan(null);
     }
   };
 
-  const sortedPlans = useMemo(() => sortPlans(plans), [plans]);
+  const handleDelete = async (plan: SubscriptionPlanRecord) => {
+    if (plan.isSystem) {
+      toast.error('System plans cannot be deleted. Disable them instead.');
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: 'Delete plan?',
+      text: `Delete "${plan.displayName || plan.planType}"? This is blocked if any company still uses it.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      confirmButtonText: 'Delete',
+    });
+    if (!result.isConfirmed) return;
+
+    setBusyPlan(plan.planType);
+    try {
+      await platformService.deletePlan(plan.planType);
+      toast.success('Plan deleted');
+      load();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to delete plan'));
+    } finally {
+      setBusyPlan(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">4.4 Pricing Settings Page</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Subscription Plans</h1>
           <p className="mt-2 max-w-4xl text-sm text-slate-600">
-            The Company Owner can set and update subscription prices for all plans.
-            When prices are updated, existing subscribers keep their current price (price lock)
-            and new subscribers pay the new price.
+            Manage plans dynamically from the database — create, update, enable/disable, or delete.
+            Price and catalog changes apply to new subscribers only; existing companies keep their
+            current subscription.
           </p>
         </div>
         <button
@@ -233,28 +140,110 @@ export function PricingPage() {
       ) : (
         <div className="space-y-4">
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-[980px] w-full border-collapse">
+            <table className="min-w-[1100px] w-full border-collapse">
               <thead className="bg-[#2f75b5] text-white">
                 <tr>
-                  <th className="px-3 py-3 text-left text-sm font-semibold">Plan</th>
-                  <th className="px-3 py-3 text-left text-sm font-semibold">Vehicle Limit</th>
-                  <th className="px-3 py-3 text-left text-sm font-semibold">Default Monthly Price</th>
-                  <th className="px-3 py-3 text-left text-sm font-semibold">Default Yearly Price</th>
-                  <th className="px-3 py-3 text-left text-sm font-semibold">Key Features</th>
-                  <th className="px-3 py-3 text-right text-sm font-semibold">Action</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Plan Name</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Monthly</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Yearly</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Vehicles</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Data Retention</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Support</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Features</th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">Status</th>
+                  <th className="px-3 py-3 text-right text-sm font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {sortedPlans.map((plan) => (
-                  <PlanRow
-                    key={plan.planType}
-                    plan={plan}
-                    draft={drafts[plan.planType] ?? planToDraft(plan)}
-                    onChange={(patch) => updateDraft(plan.planType, patch)}
-                    onSave={() => savePlan(plan.planType)}
-                    saving={savingPlan === plan.planType}
-                  />
-                ))}
+                {sortedPlans.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-3 py-10 text-center text-sm text-slate-400">
+                      No plans found. Create your first plan.
+                    </td>
+                  </tr>
+                ) : (
+                  sortedPlans.map((plan) => {
+                    const active = plan.isActive !== false;
+                    const busy = busyPlan === plan.planType;
+                    return (
+                      <tr
+                        key={plan.planType}
+                        className={`border-b border-slate-200 ${active ? '' : 'bg-slate-50 opacity-80'}`}
+                      >
+                        <td className="px-3 py-3">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {plan.displayName || plan.planType}
+                          </p>
+                          <p className="font-mono text-xs text-slate-400">{plan.planType}</p>
+                        </td>
+                        <td className="px-3 py-3 text-sm text-slate-700">
+                          ₹{plan.monthlyPriceInr.toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-slate-700">
+                          ₹{plan.yearlyPriceInr.toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-slate-700">
+                          {formatVehicles(plan.vehicleLimit)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-slate-700">
+                          {formatRetention(plan.dataRetentionDays)}
+                        </td>
+                        <td className="px-3 py-3 text-sm text-slate-700">
+                          {plan.supportType || '—'}
+                        </td>
+                        <td className="max-w-[220px] px-3 py-3 text-xs text-slate-600">
+                          {plan.features?.length ? plan.features.join(', ') : '—'}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              active
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {active ? 'Active' : 'Disabled'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              title="Edit"
+                              disabled={busy}
+                              onClick={() => setEditing(plan)}
+                              className="rounded-md border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title={active ? 'Disable' : 'Enable'}
+                              disabled={busy}
+                              onClick={() => toggleStatus(plan)}
+                              className="rounded-md border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              <Power className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title={
+                                plan.isSystem
+                                  ? 'System plans cannot be deleted'
+                                  : 'Delete'
+                              }
+                              disabled={busy || !!plan.isSystem}
+                              onClick={() => handleDelete(plan)}
+                              className="rounded-md border border-slate-200 p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-40"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -262,16 +251,24 @@ export function PricingPage() {
           <div className="flex items-start gap-2 rounded border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              Note: The Company Owner can change any plan price at any time. Changes apply only to
-              new subscribers. Existing subscribers continue paying their agreed price.
+              Catalog changes never migrate existing companies off their plan. Disable a plan to
+              hide it from new upgrades; delete only unused custom plans.
             </p>
           </div>
         </div>
       )}
 
-      <CreatePlanModal
+      <PlanFormModal
         open={createOpen}
+        mode="create"
         onClose={() => setCreateOpen(false)}
+        onSuccess={load}
+      />
+      <PlanFormModal
+        open={!!editing}
+        mode="edit"
+        plan={editing}
+        onClose={() => setEditing(null)}
         onSuccess={load}
       />
     </div>

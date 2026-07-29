@@ -9,9 +9,22 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const url = config.url ?? '';
+  const isPublicAuth =
+    url.includes('/auth/login') ||
+    url.includes('/auth/google') ||
+    url.includes('/auth/setup-super-admin') ||
+    url.includes('/auth/forgot-password') ||
+    url.includes('/auth/verify-reset-otp') ||
+    url.includes('/auth/reset-password') ||
+    url.includes('/companies/register') ||
+    url.includes('/licenses/validate');
+
+  if (!isPublicAuth) {
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -49,19 +62,60 @@ api.interceptors.response.use(
           requestUrl.includes('/auth/reset-password') ||
           requestUrl.includes('/auth/refresh') ||
           requestUrl.includes('/auth/refresh-token') ||
+          requestUrl.includes('/auth/logout') ||
           requestUrl.includes('/licenses/validate') ||
           requestUrl.includes('/companies/register');
 
         // Show "Session expired" only for protected routes after login.
         if (token && !isAuthRoute) {
-          toast.error('Session expired. Please login again.');
+          const responseMessage =
+            'data' in error.response &&
+            error.response.data &&
+            typeof error.response.data === 'object' &&
+            'message' in error.response.data &&
+            typeof (error.response.data as { message?: unknown }).message ===
+              'string'
+              ? (error.response.data as { message: string }).message
+              : null;
+
+          toast.error(
+            responseMessage?.includes('inactivity')
+              ? responseMessage
+              : 'Session expired. Please login again.',
+          );
           localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
           localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
           localStorage.removeItem(STORAGE_KEYS.ADMIN_USER);
           localStorage.removeItem(STORAGE_KEYS.ROLE);
+          localStorage.removeItem(STORAGE_KEYS.DRIVER_LAST_ACTIVITY);
           window.location.href = ROUTES.SIGN_IN;
         }
       } else if (status === 403) {
+        const responseData =
+          'data' in error.response &&
+          error.response.data &&
+          typeof error.response.data === 'object'
+            ? (error.response.data as {
+                message?: string;
+                data?: { requiresLicenseActivation?: boolean };
+              })
+            : null;
+
+        if (responseData?.data?.requiresLicenseActivation) {
+          toast.error(
+            responseData.message ||
+              'License verification required before accessing this area.',
+          );
+          if (
+            !window.location.pathname.startsWith(
+              ROUTES.COMPANY_LICENSE_ACTIVATION,
+            )
+          ) {
+            window.location.assign(ROUTES.COMPANY_LICENSE_ACTIVATION);
+          }
+          return Promise.reject(error);
+        }
+
         toast.error("Access denied. You don't have permission for this action.");
         const role = localStorage.getItem(STORAGE_KEYS.ROLE);
         if (role === ROLES.SUPPORT_ADMIN && !window.location.pathname.startsWith(ROUTES.PROFILE)) {

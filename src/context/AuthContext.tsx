@@ -10,6 +10,10 @@ import { STORAGE_KEYS, ROLES } from '../config/constants';
 import { authService, type LoginPayload } from '../services/auth.service';
 import type { AuthUser, LoginResponse } from '../types/api';
 import { normalizeEmail } from '../utils/validation';
+import {
+  clearDriverLastActivity,
+  writeDriverLastActivity,
+} from '../utils/driverSessionStorage';
 import { AuthContext } from './auth-context';
 
 function mapAuthUser(raw: AuthUser & { _id?: string }): AuthUser {
@@ -25,7 +29,18 @@ function mapAuthUser(raw: AuthUser & { _id?: string }): AuthUser {
     isEmailVerified: raw.isEmailVerified,
     companyId: raw.companyId ? String(raw.companyId) : undefined,
     permissions: raw.permissions ?? [],
+    requiresLicenseActivation: !!raw.requiresLicenseActivation,
+    lastLogin: raw.lastLogin ?? null,
+    lastActivity: raw.lastActivity ?? null,
   };
+}
+
+function clearSessionStorage() {
+  localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.ADMIN_USER);
+  localStorage.removeItem(STORAGE_KEYS.ROLE);
+  clearDriverLastActivity();
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -44,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setUser(mapAuthUser(JSON.parse(stored) as AuthUser & { _id?: string }));
       } catch {
-        localStorage.clear();
+        clearSessionStorage();
         setLoading(false);
         return;
       }
@@ -57,6 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const authUser = mapAuthUser(res.data as AuthUser & { _id?: string });
           localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(authUser));
           setUser(authUser);
+          if (authUser.role === ROLES.DRIVER) {
+            writeDriverLastActivity();
+          }
         }
       })
       .catch(() => {})
@@ -69,6 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
       localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(authUser));
       localStorage.setItem(STORAGE_KEYS.ROLE, authUser.role);
+      if (authUser.role === ROLES.DRIVER) {
+        writeDriverLastActivity();
+      } else {
+        clearDriverLastActivity();
+      }
       setUser(authUser);
     },
     [],
@@ -89,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: authUser.role,
         permissions: authUser.permissions ?? [],
         licenseNotice: data.licenseNotice,
+        requiresLicenseActivation: !!authUser.requiresLicenseActivation,
       };
     },
     [persistSession],
@@ -113,8 +137,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [completeLoginFromResponse],
   );
 
+  const markLicenseActivated = useCallback(() => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, requiresLicenseActivation: false };
+      localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const logout = useCallback(async () => {
-    localStorage.clear();
+    try {
+      await authService.logout();
+    } catch {
+      // Still clear local session even if API fails
+    }
+    clearSessionStorage();
     setUser(null);
   }, []);
 
@@ -129,8 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithGoogle,
       logout,
       setUser,
+      markLicenseActivated,
     }),
-    [user, loading, login, loginWithGoogle, logout],
+    [user, loading, login, loginWithGoogle, logout, markLicenseActivated],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

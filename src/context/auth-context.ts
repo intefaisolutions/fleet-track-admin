@@ -12,14 +12,17 @@ export interface AuthContextValue {
     role: string;
     permissions: string[];
     licenseNotice?: import('../types/api').LicenseGraceNotice;
+    requiresLicenseActivation?: boolean;
   }>;
   loginWithGoogle: (idToken: string) => Promise<{
     role: string;
     permissions: string[];
     licenseNotice?: import('../types/api').LicenseGraceNotice;
+    requiresLicenseActivation?: boolean;
   }>;
   logout: () => Promise<void>;
   setUser: (user: AuthUser | null) => void;
+  markLicenseActivated: () => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(

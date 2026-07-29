@@ -16,7 +16,10 @@ export interface SubscriptionPlanRecord {
   displayName?: string;
   description?: string;
   features?: string[];
+  supportType?: string;
+  dataRetentionDays?: number;
   isSystem?: boolean;
+  isActive?: boolean;
   vehicleLimit: number;
   monthlyPriceInr: number;
   yearlyPriceInr: number;
@@ -31,11 +34,24 @@ export interface CreatePlanPayload {
   vehicleLimit: number;
   monthlyPriceInr: number;
   yearlyPriceInr: number;
+  dataRetentionDays?: number;
+  supportType?: string;
   maxAdmins?: number;
   maxOwners?: number;
   maxDrivers?: number;
   features?: string[];
+  isActive?: boolean;
 }
+
+export type UpdatePlanPayload = Partial<CreatePlanPayload>;
+
+export const PLAN_SUPPORT_TYPES = [
+  'Community',
+  'Email',
+  'Chat + Email',
+  'Priority Chat',
+  '24x7 Phone',
+] as const;
 
 export interface SuperAdminDashboardStats {
   revenueThisMonth: number;
@@ -135,6 +151,21 @@ export const platformService = {
     );
   },
   createPlan: (data: CreatePlanPayload) => postData<SubscriptionPlanRecord>('/platform/plans', data),
+  updatePlan: (planType: string, data: UpdatePlanPayload) =>
+    patchData<SubscriptionPlanRecord>(
+      `/platform/plans/${encodeURIComponent(planType)}`,
+      data,
+    ),
+  /** @deprecated use updatePlan */
+  updatePlanPricing: (planType: string, data: Record<string, number>) =>
+    patchData(`/platform/plans/${encodeURIComponent(planType)}`, data),
+  setPlanStatus: (planType: string, isActive: boolean) =>
+    patchData<SubscriptionPlanRecord>(
+      `/platform/plans/${encodeURIComponent(planType)}/status`,
+      { isActive },
+    ),
+  deletePlan: (planType: string) =>
+    deleteData(`/platform/plans/${encodeURIComponent(planType)}`),
   /** Super Admin dashboard — SRS 4.1 */
   getDashboard: () => getData<SuperAdminDashboardData>('/platform/dashboard'),
   /** @deprecated use getDashboard */
@@ -142,8 +173,6 @@ export const platformService = {
   getPaymentSettings: () => getData('/platform/payment-settings'),
   updatePaymentSettings: (data: Record<string, string>) =>
     patchData('/platform/payment-settings', data),
-  updatePlanPricing: (planType: string, data: Record<string, number>) =>
-    patchData(`/platform/plans/${planType}`, data),
   getSupportAdmins: () =>
     getData<{ name: string; email: string; permissions: string[] }[]>(
       '/platform/support-admins',

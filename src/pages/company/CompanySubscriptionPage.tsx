@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { CheckCircle2, Clock3, CreditCard, Wallet } from 'lucide-react';
-import { subscriptionsService, type SubscriptionRecord } from '../../services/subscriptions.service';
+import { SubscriptionPaymentPanel } from '../../components/payments/SubscriptionPaymentPanel';
+import {
+  subscriptionsService,
+  type SubscriptionRecord,
+} from '../../services/subscriptions.service';
 import {
   platformService,
   type SubscriptionPlanRecord,
@@ -26,16 +30,6 @@ function formatDate(value?: string) {
 
 type PaymentStatus = 'NOT_PAID' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 
-const loadRazorpayScript = () => {
-  return new Promise((resolve) => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-};
-
 export function CompanySubscriptionPage() {
   const [plans, setPlans] = useState<SubscriptionPlanRecord[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<SubscriptionRecord | null>(
@@ -44,11 +38,21 @@ export function CompanySubscriptionPage() {
   const [paymentSettings, setPaymentSettings] = useState<Record<string, string>>({});
   const [latestPaymentStatus, setLatestPaymentStatus] = useState<PaymentStatus>('NOT_PAID');
   const [selectedPlanType, setSelectedPlanType] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [paymentsHistory, setPaymentsHistory] = useState<any[]>([]);
+  const [paymentsHistory, setPaymentsHistory] = useState<
+    Array<{
+      _id: string;
+      createdAt?: string;
+      planType?: string;
+      amount: number;
+      status: string;
+      transactionId?: string;
+      paymentMethod?: string;
+      paymentGateway?: string;
+    }>
+  >([]);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     setLoading(true);
     Promise.allSettled([
       subscriptionsService.list(),
@@ -78,7 +82,8 @@ export function CompanySubscriptionPage() {
         }
 
         if (paymentsResult.status === 'fulfilled') {
-          const rows = (paymentsResult.value.data as Array<any>) ?? [];
+          const rows =
+            (paymentsResult.value.data as typeof paymentsHistory) ?? [];
           setPaymentsHistory(rows);
           const latest = rows[0]?.status?.toUpperCase();
           if (latest === 'VERIFIED') setLatestPaymentStatus('VERIFIED');
@@ -87,9 +92,15 @@ export function CompanySubscriptionPage() {
           else setLatestPaymentStatus('NOT_PAID');
         }
       })
-      .catch(() => {})
+      .catch((err: unknown) =>
+        toast.error(getApiErrorMessage(err, 'Failed to load subscription')),
+      )
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const sortedPlans = useMemo(
     () => [...plans].sort((a, b) => a.monthlyPriceInr - b.monthlyPriceInr),
@@ -104,91 +115,25 @@ export function CompanySubscriptionPage() {
   const currentPlanLabel = currentSubscription?.planType ?? 'FREE';
   const currentPlanMeta = plans.find((p) => p.planType === currentPlanLabel);
 
-  const handleBuyPlan = async () => {
-    if (!selectedPlan) {
-      toast.error('Please select a plan first');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await paymentsService.createRazorpayOrder({
-        planType: selectedPlan.planType,
-        billingPeriod: 'MONTHLY',
-      });
-
-      const orderData = res.data as any;
-
-      // Check if wallet fully covered the amount
-      if (orderData.orderId === 'WALLET_PAID') {
-        toast.success('Plan upgraded successfully using Wallet Credits!');
-        setLatestPaymentStatus('VERIFIED');
-        setTimeout(() => window.location.reload(), 1500);
-        return;
-      }
-
-      const loaded = await loadRazorpayScript();
-      if (!loaded) {
-        toast.error('Failed to load Razorpay. Please check your connection.');
-        return;
-      }
-
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'FleetTrack',
-        description: `Upgrade to ${selectedPlan.planType} Plan`,
-        order_id: orderData.orderId,
-        handler: async function (response: any) {
-          try {
-            await paymentsService.verifyRazorpayPayment({
-              ...response,
-              planType: selectedPlan.planType,
-              billingPeriod: 'MONTHLY',
-            });
-            toast.success('Payment successful! Plan upgraded.');
-            setLatestPaymentStatus('VERIFIED');
-            setTimeout(() => window.location.reload(), 1500);
-          } catch (err: unknown) {
-            toast.error(getApiErrorMessage(err, 'Failed to verify payment'));
-          }
-        },
-        theme: { color: '#0ea5e9' },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on('payment.failed', function (response: any) {
-        toast.error('Payment failed: ' + response.error.description);
-      });
-      rzp.open();
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Failed to initialize payment'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">Subscription / Upgrade</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Manage your active plan and upgrade by manual payment. Company Admin can only view
-          plans and submit payment proof.
+          Upgrade with Razorpay (instant) or Manual UPI / Bank Transfer (pending Super Admin
+          verification). Existing manual payment flow is unchanged.
         </p>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            View Current Plan
+            Current Plan
           </p>
-          <p className="mt-2 text-xl font-bold text-slate-900">
-            {currentPlanLabel} Plan
-          </p>
+          <p className="mt-2 text-xl font-bold text-slate-900">{currentPlanLabel} Plan</p>
           <p className="mt-1 text-sm text-slate-600">
-            Vehicle Limit: {currentSubscription?.vehicleLimit ?? currentPlanMeta?.vehicleLimit ?? 0}
+            Vehicle Limit:{' '}
+            {currentSubscription?.vehicleLimit ?? currentPlanMeta?.vehicleLimit ?? 0}
           </p>
           <p className="mt-1 text-sm text-slate-600">
             Expires: {formatDate(currentSubscription?.currentPeriodEnd)}
@@ -197,26 +142,23 @@ export function CompanySubscriptionPage() {
 
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            View Payment Details
+            Manual Payment Details
           </p>
           <div className="mt-3 space-y-2 text-sm text-slate-700">
             <p className="flex items-center gap-2">
               <Wallet className="h-4 w-4 text-fleet-600" />
-              UPI: {paymentSettings.upiId || 'business@okhdfcbank'}
+              UPI: {paymentSettings.upiId || '—'}
             </p>
             <p className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-fleet-600" />
-              A/C: {paymentSettings.bankAccountNumber || 'XXXXXXXX1234'}
-            </p>
-            <p className="text-xs text-slate-500">
-              Verification is manual by Company Owner after statement check.
+              A/C: {paymentSettings.bankAccountNumber || '—'}
             </p>
           </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Check Payment Status
+            Latest Payment Status
           </p>
           <div className="mt-3">
             {latestPaymentStatus === 'VERIFIED' ? (
@@ -243,7 +185,7 @@ export function CompanySubscriptionPage() {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-900">View Available Plans</h2>
+        <h2 className="text-lg font-bold text-slate-900">Available Plans</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {loading ? (
             <p className="text-sm text-slate-400">Loading plans...</p>
@@ -261,13 +203,13 @@ export function CompanySubscriptionPage() {
                       : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
-                  <p className="text-sm font-semibold text-slate-900">{plan.planType}</p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {plan.displayName ?? plan.planType}
+                  </p>
                   <p className="mt-1 text-sm text-slate-600">
                     {formatInr(plan.monthlyPriceInr)}/month
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {plan.vehicleLimit} vehicles
-                  </p>
+                  <p className="mt-1 text-xs text-slate-500">{plan.vehicleLimit} vehicles</p>
                 </button>
               );
             })
@@ -276,40 +218,24 @@ export function CompanySubscriptionPage() {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-900">Upgrade Plan</h2>
+        <h2 className="text-lg font-bold text-slate-900">Upgrade & Pay</h2>
         <p className="mt-2 text-sm text-slate-500">
-          Select higher plan, make payment manually, then click &quot;I Have Paid&quot; with transaction ID.
+          Select a plan above, choose Razorpay / Manual UPI / Bank Transfer, then pay.
         </p>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            Current: <span className="font-semibold">{currentPlanLabel}</span>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            Selected: <span className="font-semibold">{selectedPlan?.planType ?? '—'}</span>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            Amount: <span className="font-semibold">{formatInr(selectedPlan?.monthlyPriceInr ?? 0)}</span>
-          </div>
-        </div>
-
-        <div className="mt-4 flex justify-end">
-          <button
-            type="button"
-            onClick={handleBuyPlan}
-            disabled={submitting || !selectedPlan}
-            className="rounded-lg bg-fleet-500 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600 disabled:opacity-60"
-          >
-            {submitting ? 'Processing...' : 'Buy via Razorpay'}
-          </button>
+        <div className="mt-4">
+          <SubscriptionPaymentPanel
+            selectedPlan={selectedPlan}
+            paymentSettings={paymentSettings}
+            onSuccess={() => setTimeout(() => reload(), 800)}
+          />
         </div>
       </section>
 
       <section className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
         <p className="font-semibold">Note</p>
         <p className="mt-1">
-          All payments are non-refundable. Payment verification is manual and performed by
-          the Company Owner after checking bank/UPI statement.
+          Razorpay payments auto-activate after signature verification. Manual UPI / Bank
+          Transfer stay pending until Super Admin verifies. All payments are non-refundable.
         </p>
       </section>
 
@@ -324,16 +250,24 @@ export function CompanySubscriptionPage() {
                 <tr>
                   <th className="px-4 py-3 font-semibold">Date</th>
                   <th className="px-4 py-3 font-semibold">Plan</th>
+                  <th className="px-4 py-3 font-semibold">Method</th>
                   <th className="px-4 py-3 font-semibold">Amount</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Transaction ID</th>
+                  <th className="px-4 py-3 font-semibold">Payment / TXN ID</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paymentsHistory.map((payment) => (
                   <tr key={payment._id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 whitespace-nowrap">{formatDate(payment.createdAt)}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900">{payment.planType}</td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {formatDate(payment.createdAt)}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-900">
+                      {payment.planType}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {payment.paymentMethod || payment.paymentGateway || '—'}
+                    </td>
                     <td className="px-4 py-3">{formatInr(payment.amount)}</td>
                     <td className="px-4 py-3">
                       <span
@@ -341,14 +275,16 @@ export function CompanySubscriptionPage() {
                           payment.status === 'VERIFIED'
                             ? 'bg-emerald-100 text-emerald-700'
                             : payment.status === 'REJECTED'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-amber-100 text-amber-700'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-amber-100 text-amber-700'
                         }`}
                       >
                         {payment.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs">{payment.transactionId || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-xs">
+                      {payment.transactionId || '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

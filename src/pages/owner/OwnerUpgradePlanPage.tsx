@@ -1,18 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import {
-  CheckCircle2,
-  IndianRupee,
-  Loader2,
-  QrCode,
-  Send,
-  Sparkles,
-} from 'lucide-react';
+import { IndianRupee, Loader2, Sparkles } from 'lucide-react';
+import { SubscriptionPaymentPanel } from '../../components/payments/SubscriptionPaymentPanel';
 import {
   platformService,
   type SubscriptionPlanRecord,
 } from '../../services/platform.service';
-import { paymentsService } from '../../services/payments.service';
 import { reportsService } from '../../services/reports.service';
 import { getApiErrorMessage } from '../../utils/validation';
 
@@ -27,12 +20,9 @@ export function OwnerUpgradePlanPage() {
   const [limit, setLimit] = useState(0);
   const [planLabel, setPlanLabel] = useState('Free Plan');
   const [selectedPlanType, setSelectedPlanType] = useState('');
-  const [transactionId, setTransactionId] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     setLoading(true);
     Promise.allSettled([
       platformService.getPlans(),
@@ -59,8 +49,15 @@ export function OwnerUpgradePlanPage() {
           }
         }
       })
+      .catch((err: unknown) =>
+        toast.error(getApiErrorMessage(err, 'Failed to load upgrade options')),
+      )
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const sortedPlans = useMemo(
     () => [...plans].sort((a, b) => a.monthlyPriceInr - b.monthlyPriceInr),
@@ -72,50 +69,7 @@ export function OwnerUpgradePlanPage() {
     [plans, selectedPlanType],
   );
 
-  const upiId =
-    paymentSettings.upiId?.trim() ||
-    paymentSettings.defaultUpiId?.trim() ||
-    '';
-  const amount = selectedPlan?.monthlyPriceInr ?? 0;
   const atLimit = limit > 0 && used >= limit;
-
-  const upiLink = useMemo(() => {
-    if (!upiId || !amount) return '';
-    return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('FleetTrack')}&am=${amount}&cu=INR&tn=${encodeURIComponent(selectedPlan?.displayName ?? selectedPlan?.planType ?? 'Plan')}`;
-  }, [upiId, amount, selectedPlan]);
-
-  const submitPayment = async () => {
-    if (!selectedPlan) {
-      toast.error('Please select a plan first');
-      return;
-    }
-    if (!upiId) {
-      toast.error('Payment UPI is not configured. Contact your company admin.');
-      return;
-    }
-    if (transactionId.trim().length < 6) {
-      toast.error('Please enter a valid transaction ID');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await paymentsService.submit({
-        planType: selectedPlan.planType,
-        amount: selectedPlan.monthlyPriceInr,
-        paymentMethod: 'UPI',
-        transactionId: transactionId.trim(),
-        upiId,
-        notes: `Owner upgrade to ${selectedPlan.displayName ?? selectedPlan.planType}`,
-      });
-      setSubmitted(true);
-      toast.success('Payment submitted. Company Owner will verify shortly.');
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Could not submit payment'));
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -131,8 +85,8 @@ export function OwnerUpgradePlanPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Upgrade Plan</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Add more vehicles when you reach your plan limit. Pay via UPI and submit your
-          transaction ID for verification.
+          Pay with Razorpay for instant activation, or Manual UPI / Bank Transfer for
+          verification-based upgrade.
         </p>
       </div>
 
@@ -184,13 +138,8 @@ export function OwnerUpgradePlanPage() {
                   <span className="text-xs font-normal text-slate-500">/ month</span>
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Up to {plan.vehicleLimit} vehicles
+                  Up to {plan.vehicleLimit} vehicles · {formatInr(plan.yearlyPriceInr)}/year
                 </p>
-                {plan.description && (
-                  <p className="mt-3 text-xs leading-relaxed text-slate-600">
-                    {plan.description}
-                  </p>
-                )}
               </button>
             );
           })}
@@ -198,75 +147,14 @@ export function OwnerUpgradePlanPage() {
       )}
 
       {selectedPlan && (
-        <section className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900">Payment Instructions</h2>
-            <ol className="mt-3 list-decimal space-y-2 pl-4 text-sm text-slate-700">
-              <li>Select your desired plan above.</li>
-              <li>Pay using PhonePe or Google Pay to the UPI ID below.</li>
-              <li>Return here and tap &quot;I Have Paid&quot; with your transaction ID.</li>
-              <li>Company Owner verifies payment — your plan updates automatically.</li>
-            </ol>
-
-            <div className="mt-4 space-y-3 rounded-lg bg-slate-50 p-4">
-              <div>
-                <p className="text-xs text-slate-500">UPI ID</p>
-                <p className="font-semibold text-slate-900">
-                  {upiId || 'Not configured — ask Company Admin'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Amount</p>
-                <p className="font-semibold text-slate-900">
-                  {formatInr(amount)} ({selectedPlan.displayName ?? selectedPlan.planType})
-                </p>
-              </div>
-            </div>
-
-            {upiLink && (
-              <a
-                href={upiLink}
-                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-fleet-200 bg-fleet-50 px-4 py-2.5 text-sm font-semibold text-fleet-700 hover:bg-fleet-100"
-              >
-                <QrCode className="h-4 w-4" />
-                Open UPI App
-              </a>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900">I Have Paid</h2>
-            <p className="mt-1 text-sm text-slate-500">Enter your UPI transaction ID.</p>
-
-            <div className="mt-4 space-y-3">
-              <input
-                value={transactionId}
-                onChange={(e) => setTransactionId(e.target.value.toUpperCase())}
-                placeholder="TXN123456789"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm uppercase outline-none focus:border-fleet-500 focus:ring-1 focus:ring-fleet-500"
-              />
-              <button
-                type="button"
-                onClick={submitPayment}
-                disabled={saving || submitted || !upiId}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-fleet-500 py-3 text-sm font-semibold text-white hover:bg-fleet-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Send className="h-4 w-4" />
-                {saving ? 'Submitting...' : submitted ? 'Submitted' : 'I Have Paid'}
-              </button>
-            </div>
-
-            {submitted && (
-              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                <p className="flex items-center gap-2 font-semibold">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Payment submitted successfully.
-                </p>
-                <p className="mt-1 text-xs">
-                  Company Owner will verify your bank payment and upgrade your vehicle limit.
-                </p>
-              </div>
-            )}
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-base font-bold text-slate-900">Pay & Upgrade</h2>
+          <div className="mt-4">
+            <SubscriptionPaymentPanel
+              selectedPlan={selectedPlan}
+              paymentSettings={paymentSettings}
+              onSuccess={() => setTimeout(() => reload(), 800)}
+            />
           </div>
         </section>
       )}

@@ -1,24 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Upload } from 'lucide-react';
+import { Upload, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { uploadImage } from '../../services/storage.service';
 import { getApiErrorMessage } from '../../utils/validation';
 import {
   EXPENSE_CATEGORY_ORDER,
   amountFieldLabel,
+  computeElectricTotalAmount,
   computeExpenseAmount,
   emptyCategoryDetails,
   expenseCategoryLabel,
   getCategoryMeta,
   isAmountAutoCalculated,
+  isElectricFuelType,
   normalizeExpenseCategory,
+  parseDecimalInput,
   type CategoryDetails,
   type ExpenseCategoryCode,
 } from '../../config/expenseCategories';
 import type { VehicleRecord } from '../../services/vehicles.service';
 import { ExpenseCategoryFields } from './ExpenseCategoryFields';
 import { VehicleSelect } from './VehicleSelect';
+
+function formatMoneyDisplay(value: number): string {
+  if (!value || value <= 0) return '';
+  return value.toFixed(2);
+}
 
 export function ExpenseFormBody({
   vehicles,
@@ -59,17 +67,52 @@ export function ExpenseFormBody({
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const meta = getCategoryMeta(category);
   const autoAmount = isAmountAutoCalculated(category);
+  const isFuel = category === 'FUEL';
+
+  const selectedVehicle = useMemo(
+    () => vehicles.find((v) => v._id === vehicleId) ?? null,
+    [vehicles, vehicleId],
+  );
+  const fuelType = selectedVehicle?.fuelType ?? null;
+  const isElectric = isFuel && isElectricFuelType(fuelType);
 
   const computed = useMemo(
-    () => computeExpenseAmount(category, details, amount),
-    [category, details, amount],
+    () => computeExpenseAmount(category, details, amount, fuelType),
+    [category, details, amount, fuelType],
   );
 
+  const fuelPreview = useMemo(() => {
+    if (!isFuel || isElectric) return null;
+    const cost = parseDecimalInput(details.pricePerLitre || details.ratePerLitre);
+    const litres = parseDecimalInput(details.litres);
+    const total = computeExpenseAmount('FUEL', details, undefined, fuelType);
+    return { cost, litres, total };
+  }, [isFuel, isElectric, details, fuelType]);
+
+  const electricPreview = useMemo(() => {
+    if (!isElectric) return null;
+    const energy = parseDecimalInput(details.energyNeeded);
+    const rate = parseDecimalInput(details.electricityRate);
+    let efficiency = parseDecimalInput(details.chargingEfficiency);
+    const total = computeElectricTotalAmount(details);
+    if (efficiency != null && efficiency > 1) efficiency = efficiency / 100;
+    return { energy, rate, efficiency, total };
+  }, [isElectric, details]);
+
+  // Live sync auto amount
   useEffect(() => {
-    if (autoAmount && computed > 0) {
-      setAmount(String(computed));
-    }
+    if (!autoAmount) return;
+    setAmount(computed > 0 ? formatMoneyDisplay(computed) : '');
   }, [autoAmount, computed, setAmount]);
+
+  const handleVehicleChange = (id: string) => {
+    setVehicleId(id);
+    if (category === 'FUEL') {
+      const nextFuel = vehicles.find((v) => v._id === id)?.fuelType;
+      setDetails(emptyCategoryDetails('FUEL', nextFuel));
+      setAmount('');
+    }
+  };
 
   const onReceiptFile = async (file: File | null) => {
     if (!file) return;
@@ -94,6 +137,10 @@ export function ExpenseFormBody({
       ? `Driver: ${user.fullName}`
       : `Owner: ${user?.fullName ?? 'User'}`;
 
+  const sectionTitle = isElectric
+    ? 'Electric Charging — required fields (SRS 8.1)'
+    : `${expenseCategoryLabel(category)} — required fields (SRS ${meta.srs})`;
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -109,20 +156,25 @@ export function ExpenseFormBody({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">Expense Category *</label>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            Expense Category *
+          </label>
           <select
             value={category}
             onChange={(e) => {
               const c = normalizeExpenseCategory(e.target.value);
               setCategory(c);
-              setDetails(emptyCategoryDetails(c));
+              setDetails(emptyCategoryDetails(c, fuelType));
+              setAmount('');
               if (!getCategoryMeta(c).showOdometer) setOdometerKm('');
             }}
             className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
           >
             {EXPENSE_CATEGORY_ORDER.map((c) => (
               <option key={c} value={c}>
-                {expenseCategoryLabel(c)}
+                {c === 'FUEL' && isElectricFuelType(fuelType)
+                  ? 'Fuel / Charging'
+                  : expenseCategoryLabel(c)}
               </option>
             ))}
           </select>
@@ -133,17 +185,29 @@ export function ExpenseFormBody({
           <VehicleSelect
             vehicles={vehicles}
             value={vehicleId}
-            onChange={setVehicleId}
+            onChange={handleVehicleChange}
             loading={vehiclesLoading}
           />
+          {selectedVehicle?.fuelType ? (
+            <p className="mt-1.5 text-xs text-slate-500">
+              Fuel type:{' '}
+              <span className="font-semibold text-slate-700">
+                {selectedVehicle.fuelType}
+              </span>
+              {isElectric ? ' — electric charging form shown' : null}
+            </p>
+          ) : null}
         </div>
 
         {meta.showOdometer && (
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-xs font-semibold text-slate-600">Odometer Reading (km) *</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
+              Odometer Reading (km) *
+            </label>
             <input
               type="number"
               min={0}
+              step="any"
               required
               value={odometerKm}
               onChange={(e) => setOdometerKm(e.target.value)}
@@ -156,7 +220,7 @@ export function ExpenseFormBody({
         {!autoAmount && (
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-600">
-              {amountFieldLabel(category)} *
+              {amountFieldLabel(category, fuelType)} *
             </label>
             <input
               type="number"
@@ -182,28 +246,109 @@ export function ExpenseFormBody({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          {expenseCategoryLabel(category)} — required fields (SRS {meta.srs})
+      <div
+        className={`rounded-lg border p-3 ${
+          isElectric
+            ? 'border-emerald-100 bg-emerald-50/60'
+            : 'border-slate-100 bg-slate-50'
+        }`}
+      >
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {isElectric ? <Zap className="h-3.5 w-3.5 text-emerald-600" /> : null}
+          {sectionTitle}
         </p>
-        <ExpenseCategoryFields category={category} details={details} setDetails={setDetails} />
+        {isFuel && !vehicleId ? (
+          <p className="mb-3 text-xs text-amber-700">
+            Select a vehicle first. The form switches between petrol/diesel and
+            electric fields based on fuel type.
+          </p>
+        ) : null}
+        {isElectric ? (
+          <p className="mb-3 text-xs text-slate-600">
+            Enter <strong>Energy Needed</strong>, <strong>Electricity Rate</strong>, and{' '}
+            <strong>Charging Efficiency</strong>. Petrol/Diesel fields are hidden.
+            Total Cost updates automatically.
+          </p>
+        ) : isFuel ? (
+          <p className="mb-3 text-xs text-slate-500">
+            Enter <strong>Cost Per Litre</strong> and <strong>Total Litres</strong>. Total
+            Amount updates automatically (decimals supported).
+          </p>
+        ) : null}
+        <ExpenseCategoryFields
+          category={category}
+          details={details}
+          setDetails={setDetails}
+          fuelType={fuelType}
+        />
+        {isElectric && electricPreview ? (
+          <p className="mt-3 text-xs text-slate-600">
+            {electricPreview.energy != null &&
+            electricPreview.rate != null &&
+            electricPreview.efficiency != null &&
+            electricPreview.energy > 0 &&
+            electricPreview.rate > 0 &&
+            electricPreview.efficiency > 0 ? (
+              <>
+                Calculation:{' '}
+                <span className="font-mono font-semibold text-slate-800">
+                  {electricPreview.energy} kWh × ₹{electricPreview.rate} ×{' '}
+                  {electricPreview.efficiency} = ₹{electricPreview.total.toFixed(2)}
+                </span>
+              </>
+            ) : (
+              <>Total Cost = Energy × Electricity Rate × Efficiency</>
+            )}
+          </p>
+        ) : null}
+        {fuelPreview ? (
+          <p className="mt-3 text-xs text-slate-500">
+            {fuelPreview.cost != null &&
+            fuelPreview.litres != null &&
+            fuelPreview.cost > 0 &&
+            fuelPreview.litres > 0 ? (
+              <>
+                Calculation:{' '}
+                <span className="font-mono font-semibold text-slate-700">
+                  ₹{fuelPreview.cost} × {fuelPreview.litres} L = ₹
+                  {fuelPreview.total.toFixed(2)}
+                </span>
+              </>
+            ) : (
+              <>Total Amount = Cost Per Litre × Total Litres</>
+            )}
+          </p>
+        ) : null}
       </div>
 
       {autoAmount && (
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600">
-            {amountFieldLabel(category)} *
+            {amountFieldLabel(category, fuelType)} *
           </label>
           <input
-            type="number"
-            min={0}
-            step="0.01"
-            required
+            type="text"
+            inputMode="decimal"
             readOnly
+            required
             value={amount}
-            placeholder="Calculated from fields above"
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700"
+            placeholder={
+              isElectric
+                ? 'Auto: Energy × Electricity Rate × Efficiency'
+                : isFuel
+                  ? 'Auto: Cost Per Litre × Total Litres'
+                  : 'Calculated from fields above'
+            }
+            aria-readonly="true"
+            className="w-full cursor-default rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-800"
           />
+          <p className="mt-1.5 text-xs text-slate-400">
+            {isElectric
+              ? 'Read-only. Calculated live from Energy × Electricity Rate × Efficiency.'
+              : isFuel
+                ? 'Read-only. Calculated live as you type Cost Per Litre and Total Litres.'
+                : 'Read-only. Calculated automatically from the fields above.'}
+          </p>
         </div>
       )}
 

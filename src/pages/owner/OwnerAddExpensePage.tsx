@@ -13,9 +13,11 @@ import {
   type ExpenseCategoryCode,
 } from '../../config/expenseCategories';
 import { ROUTES } from '../../config/constants';
-import { expensesService, type CreateExpensePayload } from '../../services/expenses.service';
+import { createExpenseWithOfflineSupport } from '../../services/expense-offline.service';
+import type { CreateExpensePayload } from '../../services/expenses.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import { ExpenseSyncStatusBanner } from '../../components/expenses/ExpenseSyncStatusBanner';
 
 export function OwnerAddExpensePage() {
   const navigate = useNavigate();
@@ -39,6 +41,7 @@ export function OwnerAddExpensePage() {
         setVehicles(list);
         if (list.length === 1 && list[0]?._id) {
           setVehicleId(list[0]._id);
+          setDetails(emptyCategoryDetails('FUEL', list[0].fuelType));
         }
       })
       .catch((err: unknown) => {
@@ -49,12 +52,19 @@ export function OwnerAddExpensePage() {
   }, []);
 
   const finalAmount = useMemo(
-    () => computeExpenseAmount(category, details, amount),
-    [category, details, amount],
+    () =>
+      computeExpenseAmount(
+        category,
+        details,
+        amount,
+        vehicles.find((v) => v._id === vehicleId)?.fuelType,
+      ),
+    [category, details, amount, vehicles, vehicleId],
   );
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    const selectedFuelType = vehicles.find((v) => v._id === vehicleId)?.fuelType;
     const validationError = validateExpenseForm({
       category,
       vehicleId,
@@ -62,6 +72,7 @@ export function OwnerAddExpensePage() {
       amount: finalAmount,
       odometerKm,
       details,
+      fuelType: selectedFuelType,
     });
     if (validationError) {
       toast.error(validationError);
@@ -75,7 +86,7 @@ export function OwnerAddExpensePage() {
       expenseDate,
       receiptUrl: receiptUrl || undefined,
       odometerKm: odometerKm ? Number(odometerKm) : undefined,
-      categoryDetails: sanitizeCategoryDetails(category, details),
+      categoryDetails: sanitizeCategoryDetails(category, details, selectedFuelType),
       description:
         category === 'OTHER'
           ? details.notes?.trim()
@@ -84,8 +95,14 @@ export function OwnerAddExpensePage() {
 
     setLoading(true);
     try {
-      await expensesService.create(payload);
-      toast.success('Expense added successfully');
+      const result = await createExpenseWithOfflineSupport(payload);
+      if (result.synced) {
+        toast.success('Expense added successfully');
+      } else {
+        toast.info(
+          'Saved offline — it will sync automatically when you are back online.',
+        );
+      }
       navigate(ROUTES.OWNER_EXPENSES);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Failed to add expense'));
@@ -96,6 +113,7 @@ export function OwnerAddExpensePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
+      <ExpenseSyncStatusBanner />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Add Expense</h1>
@@ -139,7 +157,11 @@ export function OwnerAddExpensePage() {
           className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-fleet-500 py-3 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
         >
           <Save className="h-4 w-4" />
-          {loading ? 'Saving...' : 'Save Expense'}
+          {loading
+            ? 'Saving...'
+            : typeof navigator !== 'undefined' && !navigator.onLine
+              ? 'Save Offline Draft'
+              : 'Save Expense'}
         </button>
       </form>
     </div>

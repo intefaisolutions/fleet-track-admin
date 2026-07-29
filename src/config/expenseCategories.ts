@@ -72,23 +72,91 @@ export type CategoryMeta = {
   detailFields: CategoryFieldDef[];
 };
 
+/** Petrol / Diesel / CNG fuel expense fields */
+export const FUEL_ICE_DETAIL_FIELDS: CategoryFieldDef[] = [
+  {
+    key: 'pricePerLitre',
+    label: 'Cost Per Litre (₹)',
+    type: 'number',
+    required: true,
+    placeholder: '76.67',
+  },
+  {
+    key: 'litres',
+    label: 'Total Litres',
+    type: 'number',
+    required: true,
+    placeholder: '45.5',
+  },
+  {
+    key: 'fuelStationName',
+    label: 'Fuel Station Name',
+    type: 'text',
+    placeholder: 'Indian Oil, NH-48',
+  },
+  {
+    key: 'paymentMethod',
+    label: 'Payment Method',
+    type: 'select',
+    options: PAYMENT_METHOD_OPTIONS,
+  },
+];
+
+/** Electric vehicle charging expense fields */
+export const FUEL_ELECTRIC_DETAIL_FIELDS: CategoryFieldDef[] = [
+  {
+    key: 'energyNeeded',
+    label: 'Energy Needed (kWh)',
+    type: 'number',
+    required: true,
+    placeholder: '32.5',
+  },
+  {
+    key: 'electricityRate',
+    label: 'Electricity Rate (₹/kWh)',
+    type: 'number',
+    required: true,
+    placeholder: '8.50',
+  },
+  {
+    key: 'chargingEfficiency',
+    label: 'Charging Efficiency',
+    type: 'number',
+    required: true,
+    placeholder: '0.95',
+  },
+  {
+    key: 'chargingStationName',
+    label: 'Charging Station Name',
+    type: 'text',
+    placeholder: 'Tata Power EZ Charge',
+  },
+  {
+    key: 'paymentMethod',
+    label: 'Payment Method',
+    type: 'select',
+    options: PAYMENT_METHOD_OPTIONS,
+  },
+];
+
+export function isElectricFuelType(fuelType?: string | null): boolean {
+  return (fuelType ?? '').trim().toLowerCase() === 'electric';
+}
+
+export function getFuelDetailFields(fuelType?: string | null): CategoryFieldDef[] {
+  return isElectricFuelType(fuelType)
+    ? FUEL_ELECTRIC_DETAIL_FIELDS
+    : FUEL_ICE_DETAIL_FIELDS;
+}
+
 export const EXPENSE_CATEGORY_META: Record<ExpenseCategoryCode, CategoryMeta> = {
   FUEL: {
     srs: '8.1',
     amountRule: { mode: 'auto', formula: 'fuel' },
     showOdometer: true,
     showReceipt: true,
-    detailFields: [
-      { key: 'litres', label: 'Litres Filled', type: 'number', required: true, placeholder: '45.5' },
-      { key: 'pricePerLitre', label: 'Price per Litre (₹)', type: 'number', required: true, placeholder: '76.67' },
-      { key: 'fuelStationName', label: 'Fuel Station Name', type: 'text', placeholder: 'Indian Oil, NH-48' },
-      {
-        key: 'paymentMethod',
-        label: 'Payment Method',
-        type: 'select',
-        options: PAYMENT_METHOD_OPTIONS,
-      },
-    ],
+    // Default ICE fields; EV fields resolved via getFuelDetailFields(fuelType)
+    detailFields: FUEL_ICE_DETAIL_FIELDS,
   },
   SERVICE: {
     srs: '8.2',
@@ -248,6 +316,17 @@ export function normalizeExpenseCategory(code: string): ExpenseCategoryCode {
   return 'OTHER';
 }
 
+export function getCategoryDetailFields(
+  category: string,
+  fuelType?: string | null,
+): CategoryFieldDef[] {
+  const code = normalizeExpenseCategory(category);
+  if (code === 'FUEL') {
+    return getFuelDetailFields(fuelType);
+  }
+  return EXPENSE_CATEGORY_META[code].detailFields;
+}
+
 export function expenseCategoryLabel(code: string): string {
   return EXPENSE_CATEGORY_LABELS[normalizeExpenseCategory(code)];
 }
@@ -264,27 +343,115 @@ export function isAmountAutoCalculated(category: string): boolean {
   return getCategoryMeta(category).amountRule.mode === 'auto';
 }
 
-export function amountFieldLabel(category: string): string {
+export function amountFieldLabel(
+  category: string,
+  fuelType?: string | null,
+): string {
   const rule = getCategoryMeta(category).amountRule;
   if (rule.mode === 'auto') {
-    return rule.formula === 'fuel' ? 'Total Amount (₹) — auto' : 'Total Cost (₹) — auto';
+    if (rule.formula === 'fuel') {
+      return isElectricFuelType(fuelType)
+        ? 'Total Cost (₹)'
+        : 'Total Amount (₹)';
+    }
+    return 'Total Cost (₹) — auto';
   }
   return rule.label;
 }
 
 export type CategoryDetails = Record<string, string>;
 
-export function emptyCategoryDetails(category: ExpenseCategoryCode): CategoryDetails {
-  const fields = EXPENSE_CATEGORY_META[category].detailFields;
+/** True when saved details look like an EV charging expense */
+export function hasElectricExpenseDetails(
+  details?: CategoryDetails | null,
+): boolean {
+  if (!details) return false;
+  return Boolean(
+    details.energyNeeded?.trim?.() ||
+      details.electricityRate?.trim?.() ||
+      details.chargingEfficiency?.trim?.(),
+  );
+}
+
+/** Parse a decimal input; empty / invalid → null */
+export function parseDecimalInput(raw?: string): number | null {
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+/**
+ * Fuel (ICE): Total Amount = Cost Per Litre × Total Litres
+ */
+export function computeFuelTotalAmount(details: CategoryDetails): number {
+  const costPerLitre = parseDecimalInput(
+    details.pricePerLitre || details.ratePerLitre,
+  );
+  const totalLitres = parseDecimalInput(details.litres);
+  if (
+    costPerLitre == null ||
+    totalLitres == null ||
+    costPerLitre <= 0 ||
+    totalLitres <= 0
+  ) {
+    return 0;
+  }
+  return Math.round(costPerLitre * totalLitres * 100) / 100;
+}
+
+/**
+ * Electric: Total Cost = Energy × Electricity Rate × Efficiency
+ * Efficiency may be entered as a factor (0.95) or percent (95).
+ */
+export function computeElectricTotalAmount(details: CategoryDetails): number {
+  const energy = parseDecimalInput(details.energyNeeded);
+  const rate = parseDecimalInput(details.electricityRate);
+  let efficiency = parseDecimalInput(details.chargingEfficiency);
+  if (
+    energy == null ||
+    rate == null ||
+    efficiency == null ||
+    energy <= 0 ||
+    rate <= 0 ||
+    efficiency <= 0
+  ) {
+    return 0;
+  }
+  // Allow 95 meaning 95% → 0.95
+  if (efficiency > 1) {
+    efficiency = efficiency / 100;
+  }
+  return Math.round(energy * rate * efficiency * 100) / 100;
+}
+
+export function emptyCategoryDetails(
+  category: ExpenseCategoryCode,
+  fuelType?: string | null,
+): CategoryDetails {
+  const fields = getCategoryDetailFields(category, fuelType);
   return Object.fromEntries(fields.map((f) => [f.key, '']));
 }
 
 export function categoryDetailsFromRecord(
   category: string,
   raw?: Record<string, unknown> | null,
+  fuelType?: string | null,
 ): CategoryDetails {
   const code = normalizeExpenseCategory(category);
-  const base = emptyCategoryDetails(code);
+  const inferredElectric =
+    isElectricFuelType(fuelType) ||
+    (raw != null &&
+      (raw.energyNeeded != null ||
+        raw.electricityRate != null ||
+        raw.chargingEfficiency != null));
+  const resolvedFuelType = inferredElectric
+    ? 'Electric'
+    : fuelType ||
+      (typeof raw?.vehicleFuelType === 'string' ? raw.vehicleFuelType : undefined);
+  const base = emptyCategoryDetails(code, resolvedFuelType);
   if (!raw) return base;
 
   const aliases = DETAIL_ALIASES[code] ?? {};
@@ -294,10 +461,18 @@ export function categoryDetailsFromRecord(
     }
   }
 
-  for (const field of EXPENSE_CATEGORY_META[code].detailFields) {
-    const v = raw[field.key];
+  const fieldKeys =
+    code === 'FUEL'
+      ? [
+          ...FUEL_ICE_DETAIL_FIELDS.map((f) => f.key),
+          ...FUEL_ELECTRIC_DETAIL_FIELDS.map((f) => f.key),
+        ]
+      : EXPENSE_CATEGORY_META[code].detailFields.map((f) => f.key);
+
+  for (const key of fieldKeys) {
+    const v = raw[key];
     if (v != null && v !== '') {
-      base[field.key] = String(v);
+      base[key] = String(v);
     }
   }
   return base;
@@ -307,6 +482,7 @@ export function computeExpenseAmount(
   category: string,
   details: CategoryDetails,
   manualAmount?: string,
+  fuelType?: string | null,
 ): number {
   const code = normalizeExpenseCategory(category);
   const rule = EXPENSE_CATEGORY_META[code].amountRule;
@@ -314,10 +490,11 @@ export function computeExpenseAmount(
     return Number(manualAmount || 0);
   }
   if (rule.formula === 'fuel') {
-    const litres = Number(details.litres || 0);
-    const rate = Number(details.pricePerLitre || details.ratePerLitre || 0);
-    if (litres > 0 && rate > 0) return Math.round(litres * rate * 100) / 100;
-    return Number(manualAmount || 0);
+    const electric =
+      isElectricFuelType(fuelType) || hasElectricExpenseDetails(details);
+    return electric
+      ? computeElectricTotalAmount(details)
+      : computeFuelTotalAmount(details);
   }
   const labour = Number(details.labourCost || 0);
   const parts = Number(details.partsCost || 0);
@@ -328,10 +505,12 @@ export function computeExpenseAmount(
 export function sanitizeCategoryDetails(
   category: string,
   details: CategoryDetails,
+  fuelType?: string | null,
 ): Record<string, unknown> | undefined {
   const code = normalizeExpenseCategory(category);
+  const fields = getCategoryDetailFields(code, fuelType);
   const out: Record<string, unknown> = {};
-  for (const field of EXPENSE_CATEGORY_META[code].detailFields) {
+  for (const field of fields) {
     const raw = details[field.key]?.trim?.() ?? '';
     if (!raw) continue;
     if (field.type === 'number') {
@@ -340,6 +519,9 @@ export function sanitizeCategoryDetails(
     } else {
       out[field.key] = raw;
     }
+  }
+  if (code === 'FUEL' && fuelType) {
+    out.vehicleFuelType = fuelType;
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }
@@ -351,22 +533,98 @@ export function validateExpenseForm(input: {
   amount: number;
   odometerKm?: string;
   details: CategoryDetails;
+  fuelType?: string | null;
 }): string | null {
   const code = normalizeExpenseCategory(input.category);
   const meta = EXPENSE_CATEGORY_META[code];
+  const electric =
+    code === 'FUEL' &&
+    (isElectricFuelType(input.fuelType) ||
+      hasElectricExpenseDetails(input.details));
 
   if (!input.vehicleId) return 'Please select a vehicle';
   if (!input.expenseDate) return 'Please select a date';
-  if (!input.amount || input.amount <= 0) return 'Please enter a valid amount';
 
   if (meta.showOdometer && !input.odometerKm?.trim()) {
     return 'Odometer reading is required';
   }
 
-  for (const field of meta.detailFields) {
-    if (!field.required) continue;
-    const v = input.details[field.key]?.trim?.() ?? '';
-    if (!v) return `${field.label} is required`;
+  if (code === 'FUEL' && electric) {
+    const energyRaw = input.details.energyNeeded?.trim() ?? '';
+    const rateRaw = input.details.electricityRate?.trim() ?? '';
+    const effRaw = input.details.chargingEfficiency?.trim() ?? '';
+
+    if (!energyRaw) return 'Energy Needed is required';
+    const energy = parseDecimalInput(energyRaw);
+    if (energy == null) {
+      return 'Energy Needed must be a valid number (decimals allowed).';
+    }
+    if (energy <= 0) return 'Energy Needed must be greater than zero.';
+
+    if (!rateRaw) return 'Electricity Rate is required';
+    const rate = parseDecimalInput(rateRaw);
+    if (rate == null) {
+      return 'Electricity Rate must be a valid number (decimals allowed).';
+    }
+    if (rate <= 0) return 'Electricity Rate must be greater than zero.';
+
+    if (!effRaw) return 'Charging Efficiency is required';
+    const efficiency = parseDecimalInput(effRaw);
+    if (efficiency == null) {
+      return 'Charging Efficiency must be a valid number (e.g. 0.95 or 95).';
+    }
+    if (efficiency <= 0) {
+      return 'Charging Efficiency must be greater than zero.';
+    }
+
+    if (computeElectricTotalAmount(input.details) <= 0) {
+      return 'Total Cost could not be calculated. Check Energy, Rate, and Efficiency.';
+    }
+  } else if (code === 'FUEL') {
+    const costRaw = input.details.pricePerLitre?.trim() ?? '';
+    const litresRaw = input.details.litres?.trim() ?? '';
+
+    if (!costRaw) return 'Cost Per Litre is required';
+    const costPerLitre = parseDecimalInput(costRaw);
+    if (costPerLitre == null) {
+      return 'Cost Per Litre must be a valid number (decimals allowed).';
+    }
+    if (costPerLitre <= 0) {
+      return 'Cost Per Litre must be greater than zero.';
+    }
+
+    if (!litresRaw) return 'Total Litres is required';
+    const totalLitres = parseDecimalInput(litresRaw);
+    if (totalLitres == null) {
+      return 'Total Litres must be a valid number (decimals allowed).';
+    }
+    if (totalLitres <= 0) {
+      return 'Total Litres must be greater than zero.';
+    }
+
+    if (computeFuelTotalAmount(input.details) <= 0) {
+      return 'Total Amount could not be calculated. Check Cost Per Litre and Total Litres.';
+    }
+  } else {
+    for (const field of meta.detailFields) {
+      if (!field.required) continue;
+      const v = input.details[field.key]?.trim?.() ?? '';
+      if (!v) return `${field.label} is required`;
+      if (field.type === 'number') {
+        const n = parseDecimalInput(v);
+        if (n == null) return `${field.label} must be a valid number`;
+        if (n < 0) return `${field.label} cannot be negative`;
+      }
+    }
+  }
+
+  if (!input.amount || input.amount <= 0) {
+    if (code === 'FUEL' && electric) {
+      return 'Total Cost is calculated automatically from Energy × Electricity Rate × Efficiency.';
+    }
+    return code === 'FUEL'
+      ? 'Total Amount is calculated automatically from Cost Per Litre × Total Litres.'
+      : 'Please enter a valid amount';
   }
 
   return null;
@@ -378,8 +636,13 @@ export function formatCategoryDetailsSummary(
 ): string {
   const code = normalizeExpenseCategory(category);
   const mapped = categoryDetailsFromRecord(code, details);
+  const electric = hasElectricExpenseDetails(mapped);
+  const fields =
+    code === 'FUEL'
+      ? getFuelDetailFields(electric ? 'Electric' : undefined)
+      : EXPENSE_CATEGORY_META[code].detailFields;
   const parts: string[] = [];
-  for (const field of EXPENSE_CATEGORY_META[code].detailFields) {
+  for (const field of fields) {
     const v = mapped[field.key];
     if (v) parts.push(`${field.label}: ${v}`);
   }

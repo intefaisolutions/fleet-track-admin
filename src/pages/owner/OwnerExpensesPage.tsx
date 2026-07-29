@@ -30,9 +30,11 @@ import {
   type ExpenseCategoryCode,
 } from '../../config/expenseCategories';
 import { expensesService, type CreateExpensePayload, type ExpenseRecord } from '../../services/expenses.service';
+import { createExpenseWithOfflineSupport } from '../../services/expense-offline.service';
 import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
 import { ROUTES } from '../../config/constants';
 import { ModalPanel } from '../../components/ui/ModalPanel';
+import { ExpenseSyncStatusBanner } from '../../components/expenses/ExpenseSyncStatusBanner';
 import { getApiErrorMessage } from '../../utils/validation';
 
 const PAGE_SIZE = 10;
@@ -129,7 +131,13 @@ function ExpenseFormModal({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const finalAmount = computeExpenseAmount(category, details, amount);
+    const selectedFuelType = vehicles.find((v) => v._id === vehicleIdValue)?.fuelType;
+    const finalAmount = computeExpenseAmount(
+      category,
+      details,
+      amount,
+      selectedFuelType,
+    );
     const validationError = validateExpenseForm({
       category,
       vehicleId: vehicleIdValue,
@@ -137,6 +145,7 @@ function ExpenseFormModal({
       amount: finalAmount,
       odometerKm,
       details,
+      fuelType: selectedFuelType,
     });
     if (validationError) {
       toast.error(validationError);
@@ -154,7 +163,11 @@ function ExpenseFormModal({
       expenseDate: expenseDate || undefined,
       receiptUrl: receiptUrl || undefined,
       odometerKm: odometerKm ? Number(odometerKm) : undefined,
-      categoryDetails: sanitizeCategoryDetails(category, details),
+      categoryDetails: sanitizeCategoryDetails(
+        category,
+        details,
+        selectedFuelType,
+      ),
     });
   };
 
@@ -279,8 +292,14 @@ export function OwnerExpensesPage() {
         await expensesService.update(payload.id, payload);
         toast.success('Expense updated');
       } else {
-        await expensesService.create(payload);
-        toast.success('Expense added');
+        const result = await createExpenseWithOfflineSupport(payload);
+        if (result.synced) {
+          toast.success('Expense added');
+        } else {
+          toast.info(
+            'Saved offline — it will sync automatically when you are back online.',
+          );
+        }
       }
       load();
       setOpen(false);
@@ -323,6 +342,7 @@ export function OwnerExpensesPage() {
 
   return (
     <div className="space-y-6">
+      <ExpenseSyncStatusBanner />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Expense Management</h1>

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, FileText } from 'lucide-react';
+import { Search, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { MobileMenuButton } from './MobileMenuButton';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { ROUTES } from '../../config/constants';
 
 const SEARCHABLE_PAGES = [
@@ -101,14 +102,7 @@ export function CompanyTopBar({ companyName, onMenuClick }: CompanyTopBarProps) 
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-        </button>
+        <NotificationBell />
         <div className="ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-white">
           {user?.fullName?.charAt(0) ?? 'A'}
         </div>
