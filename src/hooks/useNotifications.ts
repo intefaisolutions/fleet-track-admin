@@ -65,7 +65,7 @@ export function useNotifications(pollMs = 60_000) {
         setItems((prev) => {
           if (prev.some((n) => n._id === p.id)) return prev;
           const next: NotificationRecord = {
-            _id: p.id,
+            _id: p.id as string,
             title: p.title ?? 'Notification',
             message: p.message ?? '',
             type: p.type ?? 'SYSTEM',
