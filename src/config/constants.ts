@@ -144,7 +144,8 @@ export function homeRouteForRole(
     case ROLES.VEHICLE_OWNER:
       return ROUTES.OWNER_DASHBOARD;
     case ROLES.DRIVER:
-      return ROUTES.DRIVER_DASHBOARD;
+      // Drivers use the FleetTrack APK — web login is blocked on Sign In.
+      return ROUTES.SIGN_IN;
     default:
       return ROUTES.SIGN_IN;
   }

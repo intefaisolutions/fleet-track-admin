@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
@@ -11,29 +11,60 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { ROUTES, homeRouteForRole } from '../../config/constants';
+import { ROUTES, ROLES, homeRouteForRole } from '../../config/constants';
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
 import { AuthPageFooter } from '../../components/auth/AuthPageFooter';
 import { AuthPageBrand } from '../../components/auth/AuthPageBrand';
 import { getApiErrorMessage } from '../../utils/validation';
+import { showDriverApkRequiredDialog } from '../../utils/driverWebAccess';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 
 export function SignInPage() {
-  const { login, loginWithGoogle, isAuthenticated, role, user, loading: authLoading } =
-    useAuth();
+  const {
+    login,
+    loginWithGoogle,
+    logout,
+    isAuthenticated,
+    role,
+    user,
+    loading: authLoading,
+  } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const blockingDriverRef = useRef(false);
+
+  const rejectDriverWebLogin = useCallback(async () => {
+    if (blockingDriverRef.current) return;
+    blockingDriverRef.current = true;
+    try {
+      await logout();
+      await showDriverApkRequiredDialog();
+    } finally {
+      blockingDriverRef.current = false;
+    }
+  }, [logout]);
 
   // Already signed in — follow role home (Company Admin → License Verification first)
   useEffect(() => {
     if (authLoading || !isAuthenticated || !role) return;
+    if (role === ROLES.DRIVER) {
+      void rejectDriverWebLogin();
+      return;
+    }
     navigate(homeRouteForRole(role, user?.permissions ?? []), { replace: true });
-  }, [authLoading, isAuthenticated, role, user?.permissions, navigate]);
+  }, [
+    authLoading,
+    isAuthenticated,
+    role,
+    user?.permissions,
+    navigate,
+    rejectDriverWebLogin,
+  ]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -43,6 +74,10 @@ export function SignInPage() {
         email,
         password,
       });
+      if (nextRole === ROLES.DRIVER) {
+        await rejectDriverWebLogin();
+        return;
+      }
       toast.success('Welcome back!');
       if (licenseNotice?.message) {
         toast.warn(licenseNotice.message, { autoClose: 12000 });
@@ -62,6 +97,10 @@ export function SignInPage() {
       try {
         const { role: nextRole, permissions, licenseNotice } =
           await loginWithGoogle(idToken);
+        if (nextRole === ROLES.DRIVER) {
+          await rejectDriverWebLogin();
+          return;
+        }
         toast.success('Signed in with Google');
         if (licenseNotice?.message) {
           toast.warn(licenseNotice.message, { autoClose: 12000 });
@@ -73,7 +112,7 @@ export function SignInPage() {
         setGoogleLoading(false);
       }
     },
-    [loginWithGoogle, navigate],
+    [loginWithGoogle, navigate, rejectDriverWebLogin],
   );
 
   return (
