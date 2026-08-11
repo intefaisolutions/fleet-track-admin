@@ -13,7 +13,9 @@ import {
   type VehicleRecord,
 } from '../../services/vehicles.service';
 import { ASSETS } from '../../config/assets';
+import { useAuth } from '../../context/AuthContext';
 import { getApiErrorMessage } from '../../utils/validation';
+import { downloadStyledExcel } from '../../utils/exportStyledExcel';
 
 const PAGE_SIZE = 10;
 
@@ -79,43 +81,42 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function exportCsv(rows: VehicleRecord[]) {
-  const header = [
-    'Registration No',
-    'Make',
-    'Model',
-    'Fuel',
-    'Owner',
-    'Driver',
-    'Status',
-    'Odometer',
-  ];
-  const lines = rows.map((v) =>
-    [
-      v.registrationNumber,
-      v.make,
-      v.modelName,
-      v.fuelType ?? '',
-      refName(v.ownerId, 'Unassigned'),
-      refName(v.assignedDriverId, 'Unassigned'),
-      v.status,
-      v.currentOdometerKm ?? '',
-    ]
-      .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-      .join(','),
-  );
-  const blob = new Blob([[header.join(','), ...lines].join('\n')], {
-    type: 'text/csv;charset=utf-8;',
+async function exportVehiclesExcel(
+  rows: VehicleRecord[],
+  companyName: string,
+  exportedBy?: string,
+) {
+  await downloadStyledExcel({
+    companyName,
+    title: 'Vehicles Export',
+    sheetName: 'Vehicles',
+    filename: `FleetTrack_Vehicles_${companyName.replace(/\s+/g, '_')}`,
+    exportedBy,
+    columns: [
+      { header: 'Registration No', key: 'reg', width: 16 },
+      { header: 'Make', key: 'make', width: 14 },
+      { header: 'Model', key: 'model', width: 14 },
+      { header: 'Fuel', key: 'fuel', width: 12 },
+      { header: 'Owner', key: 'owner', width: 22 },
+      { header: 'Driver', key: 'driver', width: 22 },
+      { header: 'Status', key: 'status', width: 14 },
+      { header: 'Odometer (km)', key: 'odometer', width: 14 },
+    ],
+    rows: rows.map((v) => ({
+      reg: v.registrationNumber,
+      make: v.make,
+      model: v.modelName,
+      fuel: v.fuelType ?? '',
+      owner: refName(v.ownerId, 'Unassigned'),
+      driver: refName(v.assignedDriverId, 'Unassigned'),
+      status: v.status,
+      odometer: v.currentOdometerKm ?? '',
+    })),
   });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'vehicles_export.csv';
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 export function CompanyVehiclesPage() {
+  const { user } = useAuth();
   const ctx = useOutletContext<{ companyName?: string } | undefined>();
   const companyName = ctx?.companyName ?? 'Your Company';
 
@@ -233,11 +234,15 @@ export function CompanyVehiclesPage() {
           </div>
           <button
             type="button"
-            onClick={() => exportCsv(filtered)}
+            onClick={() => {
+              void exportVehiclesExcel(filtered, companyName, user?.fullName).catch(
+                () => toast.error('Failed to export Excel'),
+              );
+            }}
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600 lg:mb-0.5"
           >
             <Download className="h-4 w-4" />
-            Export CSV
+            Export Excel
           </button>
         </div>
       </section>

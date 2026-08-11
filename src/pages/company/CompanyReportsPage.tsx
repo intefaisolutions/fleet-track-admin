@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Download, FileBarChart2 } from 'lucide-react';
 import { expensesService, type ExpenseRecord } from '../../services/expenses.service';
 import { buildCategoryStats } from '../../config/expenseCategories';
+import { useAuth } from '../../context/AuthContext';
 import { getApiErrorMessage } from '../../utils/validation';
 import { formatInr } from '../../utils/currency';
+import { downloadMultiSectionExcel } from '../../utils/exportStyledExcel';
 
 type GroupRow = { name: string; amount: number };
 
@@ -32,38 +35,6 @@ function ownerLabel(record: ExpenseRecord): string {
     return recorder.fullName;
   }
   return 'Unassigned';
-}
-
-function buildCsv(
-  month: string,
-  total: number,
-  vehicles: GroupRow[],
-  owners: GroupRow[],
-  categories: GroupRow[],
-) {
-  const rows: string[] = [];
-  rows.push(`"Company Report","${monthLabel(month)}"`);
-  rows.push(`"Total Expense","${total}"`);
-  rows.push('');
-
-  rows.push('"Vehicle-wise Report"');
-  rows.push('"Vehicle","Amount"');
-  vehicles.forEach((r) => rows.push(`"${r.name}","${r.amount}"`));
-  rows.push('');
-
-  rows.push('"Owner-wise Report"');
-  rows.push('"Owner","Amount"');
-  owners.forEach((r) => rows.push(`"${r.name}","${r.amount}"`));
-  rows.push('');
-
-  rows.push('"Category Report"');
-  rows.push('"Category","Count","Amount"');
-  categories.forEach((r) => {
-    const count = 'count' in r ? (r as { count?: number }).count ?? 0 : 0;
-    rows.push(`"${r.name}","${count}","${r.amount}"`);
-  });
-
-  return rows.join('\n');
 }
 
 function HorizontalBarChart({
@@ -111,6 +82,9 @@ function HorizontalBarChart({
 }
 
 export function CompanyReportsPage() {
+  const { user } = useAuth();
+  const ctx = useOutletContext<{ companyName?: string } | undefined>();
+  const companyName = ctx?.companyName ?? 'Your Company';
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(
@@ -187,21 +161,48 @@ export function CompanyReportsPage() {
     [categoryWise],
   );
 
-  const handleExportCsv = () => {
-    const content = buildCsv(
-      selectedMonth,
-      totalExpense,
-      vehicleWise,
-      ownerWise,
-      categoryWise,
-    );
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `company_report_${selectedMonth.replace('-', '_')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExportExcel = () => {
+    void downloadMultiSectionExcel({
+      companyName,
+      title: `Company Report — ${monthLabel(selectedMonth)}`,
+      filename: `FleetTrack_Report_${selectedMonth}_${companyName.replace(/\s+/g, '_')}`,
+      exportedBy: user?.fullName,
+      meta: [
+        { label: 'Period', value: monthLabel(selectedMonth) },
+        { label: 'Total Expense', value: formatInr(totalExpense) },
+      ],
+      sections: [
+        {
+          title: 'Vehicle-wise Report',
+          columns: [
+            { header: 'Vehicle', key: 'name', width: 22 },
+            { header: 'Amount', key: 'amount', width: 16, amount: true },
+          ],
+          rows: vehicleWise.map((r) => ({ name: r.name, amount: r.amount })),
+        },
+        {
+          title: 'Owner-wise Report',
+          columns: [
+            { header: 'Owner', key: 'name', width: 24 },
+            { header: 'Amount', key: 'amount', width: 16, amount: true },
+          ],
+          rows: ownerWise.map((r) => ({ name: r.name, amount: r.amount })),
+        },
+        {
+          title: 'Category Report',
+          columns: [
+            { header: 'Category', key: 'name', width: 22 },
+            { header: 'Count', key: 'count', width: 10 },
+            { header: 'Amount', key: 'amount', width: 16, amount: true },
+          ],
+          rows: categoryWise.map((r) => ({
+            name: r.name,
+            count: r.count ?? 0,
+            amount: r.amount,
+          })),
+        },
+      ],
+    }).catch(() => toast.error('Failed to export Excel'));
   };
 
   return (
@@ -222,11 +223,11 @@ export function CompanyReportsPage() {
           />
           <button
             type="button"
-            onClick={handleExportCsv}
+            onClick={handleExportExcel}
             className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fleet-600"
           >
             <Download className="h-4 w-4" />
-            Export CSV
+            Export Excel
           </button>
         </div>
       </section>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ASSETS } from '../../config/assets';
 import {
   companiesService,
@@ -11,6 +11,7 @@ import {
 import {
   AddSubAdminModal,
   permissionLabel,
+  type SubAdminEditTarget,
 } from '../../components/company/AddSubAdminModal';
 import { getApiErrorMessage } from '../../utils/validation';
 
@@ -88,6 +89,7 @@ export function CompanyAdminsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<SubAdminEditTarget | null>(null);
   const [removingEmail, setRemovingEmail] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -176,18 +178,17 @@ export function CompanyAdminsPage() {
               Admins (Sub-Admins)
             </h1>
             <p className="mt-1 max-w-xl text-sm text-slate-500">
-              Add and manage company sub-admins with limited permissions to help
-              in daily operations.
-            </p>
-            <p className="mt-2 text-xs font-medium text-slate-500">
-              Sub-admins cannot edit vehicles or expenses—those are view-only for your
-              company (owners and drivers manage them).
+              Invite sub-admins and set View / Create / Edit / Delete access on one
+              screen. A temporary password is emailed to them automatically.
             </p>
           </div>
         </div>
         <button
           type="button"
-          onClick={() => setModalOpen(true)}
+          onClick={() => {
+            setEditTarget(null);
+            setModalOpen(true);
+          }}
           className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600"
         >
           <Plus className="h-4 w-4" />
@@ -274,15 +275,34 @@ export function CompanyAdminsPage() {
                       <StatusCell status={admin.status} />
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(admin)}
-                        disabled={removingEmail === admin.email}
-                        className="inline-flex rounded-lg p-2 text-red-500 hover:bg-red-50 disabled:opacity-50"
-                        aria-label={`Remove ${admin.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditTarget({
+                              name: admin.name,
+                              email: admin.email,
+                              permissions: admin.permissions ?? [],
+                            });
+                            setModalOpen(true);
+                          }}
+                          className="inline-flex rounded-lg p-2 text-fleet-600 hover:bg-fleet-50"
+                          aria-label={`Edit permissions for ${admin.name}`}
+                          title="Edit permissions"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(admin)}
+                          disabled={removingEmail === admin.email}
+                          className="inline-flex rounded-lg p-2 text-red-500 hover:bg-red-50 disabled:opacity-50"
+                          aria-label={`Remove ${admin.name}`}
+                          title="Remove sub-admin"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -323,7 +343,11 @@ export function CompanyAdminsPage() {
 
       <AddSubAdminModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        editTarget={editTarget}
+        onClose={() => {
+          setModalOpen(false);
+          setEditTarget(null);
+        }}
         onSuccess={load}
       />
     </div>

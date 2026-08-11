@@ -20,6 +20,8 @@ import {
   type VehicleRecord,
 } from '../../services/vehicles.service';
 import { getApiErrorMessage } from '../../utils/validation';
+import { downloadStyledExcel } from '../../utils/exportStyledExcel';
+import { useAuth } from '../../context/AuthContext';
 
 const PAGE_SIZE = 10;
 
@@ -97,43 +99,43 @@ function formatAssignedVehicle(
   return `${vehicles[0].registrationNumber} +${vehicles.length - 1}`;
 }
 
-function exportCsv(
+async function exportDriversExcel(
   rows: DriverRecord[],
   vehiclesByDriver: Map<string, VehicleRecord[]>,
+  companyName: string,
+  exportedBy?: string,
 ) {
-  const header = [
-    'Full Name',
-    'Phone',
-    'Email',
-    'License',
-    'Status',
-    'Assigned Vehicle',
-  ];
-  const lines = rows.map((d) => {
-    const assigned = vehiclesByDriver.get(d._id) ?? [];
-    return [
-      d.fullName,
-      d.phone,
-      driverEmail(d),
-      d.licenseNumber ?? '',
-      d.status,
-      assigned.map((v) => v.registrationNumber).join('; ') || 'Unassigned',
-    ]
-      .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-      .join(',');
+  await downloadStyledExcel({
+    companyName,
+    title: 'Drivers Export',
+    sheetName: 'Drivers',
+    filename: `FleetTrack_Drivers_${companyName.replace(/\s+/g, '_')}`,
+    exportedBy,
+    columns: [
+      { header: 'Full Name', key: 'fullName', width: 28 },
+      { header: 'Phone', key: 'phone', width: 16 },
+      { header: 'Email', key: 'email', width: 28 },
+      { header: 'License', key: 'license', width: 16 },
+      { header: 'Status', key: 'status', width: 12 },
+      { header: 'Assigned Vehicle', key: 'vehicle', width: 32 },
+    ],
+    rows: rows.map((d) => {
+      const assigned = vehiclesByDriver.get(d._id) ?? [];
+      return {
+        fullName: d.fullName,
+        phone: d.phone,
+        email: driverEmail(d),
+        license: d.licenseNumber ?? '',
+        status: d.status,
+        vehicle:
+          assigned.map((v) => v.registrationNumber).join('; ') || 'Unassigned',
+      };
+    }),
   });
-  const blob = new Blob([[header.join(','), ...lines].join('\n')], {
-    type: 'text/csv;charset=utf-8;',
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'drivers_export.csv';
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 export function CompanyDriversPage() {
+  const { user } = useAuth();
   const ctx = useOutletContext<{ companyName?: string } | undefined>();
   const companyName = ctx?.companyName ?? 'Your Company';
 
@@ -301,11 +303,18 @@ export function CompanyDriversPage() {
           </div>
           <button
             type="button"
-            onClick={() => exportCsv(filtered, vehiclesByDriver)}
+            onClick={() => {
+              void exportDriversExcel(
+                filtered,
+                vehiclesByDriver,
+                companyName,
+                user?.fullName,
+              ).catch(() => toast.error('Failed to export Excel'));
+            }}
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600 lg:mb-0.5"
           >
             <Download className="h-4 w-4" />
-            Export CSV
+            Export Excel
           </button>
         </div>
       </section>

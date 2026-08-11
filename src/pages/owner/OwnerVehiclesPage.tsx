@@ -229,7 +229,7 @@ export function OwnerVehiclesPage() {
               onClick={() => navigate(ROUTES.OWNER_UPGRADE)}
               className="mt-2 inline-flex rounded-md bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700"
             >
-              Upgrade Plan
+              Ask Admin / View Plans
             </button>
           )}
         </div>

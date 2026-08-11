@@ -1,23 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
   Check,
   Crown,
+  Info,
   Loader2,
   Sparkles,
   Truck,
   Users,
   Headphones,
   Database,
-  ArrowRight,
 } from 'lucide-react';
-import { SubscriptionPaymentPanel } from '../../components/payments/SubscriptionPaymentPanel';
 import {
   platformService,
   parseSupportTypes,
   type SubscriptionPlanRecord,
 } from '../../services/platform.service';
-import { reportsService } from '../../services/reports.service';
+import {
+  reportsService,
+  type CompanyDashboardData,
+} from '../../services/reports.service';
 import { getApiErrorMessage } from '../../utils/validation';
 import { formatInr } from '../../utils/currency';
 
@@ -26,7 +28,6 @@ type BillingPeriod = 'MONTHLY' | 'YEARLY';
 function planTitle(plan: SubscriptionPlanRecord) {
   const raw = (plan.displayName || plan.planType || '').trim();
   if (!raw) return 'Plan';
-  // Normalize casual lowercase names like "bonus" / "xyz"
   if (raw === raw.toLowerCase() || raw === raw.toUpperCase()) {
     return raw
       .split(/[\s_-]+/)
@@ -58,9 +59,7 @@ function planFeatureList(plan: SubscriptionPlanRecord): string[] {
   const fromApi = (plan.features ?? []).map((f) => f.trim()).filter(Boolean);
   if (fromApi.length > 0) return fromApi.slice(0, 6);
 
-  const derived: string[] = [
-    `Up to ${plan.vehicleLimit} vehicles`,
-  ];
+  const derived: string[] = [`Up to ${plan.vehicleLimit} vehicles`];
   if (plan.maxDrivers != null) {
     derived.push(`Up to ${plan.maxDrivers} drivers`);
   }
@@ -86,26 +85,23 @@ function yearlySavingsPercent(plan: SubscriptionPlanRecord) {
   return Math.round(((monthlyYear - plan.yearlyPriceInr) / monthlyYear) * 100);
 }
 
+/** Vehicle Owners can browse plans only — upgrades are Company Admin exclusive. */
 export function OwnerUpgradePlanPage() {
   const [plans, setPlans] = useState<SubscriptionPlanRecord[]>([]);
-  const [paymentSettings, setPaymentSettings] = useState<Record<string, string>>({});
   const [used, setUsed] = useState(0);
   const [limit, setLimit] = useState(0);
   const [planLabel, setPlanLabel] = useState('Free Plan');
   const [currentPlanType, setCurrentPlanType] = useState('');
-  const [selectedPlanType, setSelectedPlanType] = useState('');
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('MONTHLY');
   const [loading, setLoading] = useState(true);
-  const payRef = useRef<HTMLElement>(null);
 
   const reload = useCallback(() => {
     setLoading(true);
     Promise.allSettled([
       platformService.getPlans(),
-      platformService.getPaymentSettings(),
       reportsService.getOwnerDashboard(),
     ])
-      .then(([plansRes, settingsRes, dashRes]) => {
+      .then(([plansRes, dashRes]) => {
         let list: SubscriptionPlanRecord[] = [];
         let dashPlanType = '';
         let dashPlanLabel = 'Free Plan';
@@ -116,41 +112,22 @@ export function OwnerUpgradePlanPage() {
           );
           setPlans(list);
         }
-        if (settingsRes.status === 'fulfilled') {
-          setPaymentSettings((settingsRes.value.data as Record<string, string>) ?? {});
-        }
         if (dashRes.status === 'fulfilled') {
-          const d = dashRes.value.data;
-          if (d) {
-            setUsed(d.totalVehicles ?? 0);
-            setLimit(d.myVehiclesLimit ?? 0);
-            dashPlanLabel = d.subscription?.planLabel ?? 'Free Plan';
-            dashPlanType = d.subscription?.planType ?? '';
-            setPlanLabel(dashPlanLabel);
-            setCurrentPlanType(dashPlanType);
-          }
+          const dash = dashRes.value.data as CompanyDashboardData | undefined;
+          setUsed(dash?.totalVehicles ?? 0);
+          setLimit(dash?.myVehiclesLimit ?? 0);
+          dashPlanType = dash?.subscription?.planType ?? '';
+          dashPlanLabel = dash?.subscription?.planLabel ?? 'Free Plan';
+          setCurrentPlanType(dashPlanType);
+          setPlanLabel(dashPlanLabel);
         }
 
-        if (list.length > 0) {
-          setSelectedPlanType((prev) => {
-            if (prev && list.some((p) => p.planType === prev)) return prev;
-            const current = list.find((p) =>
-              matchesCurrentPlan(p, dashPlanType, dashPlanLabel),
-            );
-            const sorted = [...list].sort(
-              (a, b) => a.monthlyPriceInr - b.monthlyPriceInr,
-            );
-            if (current) {
-              const idx = sorted.findIndex((p) => p.planType === current.planType);
-              const nextUp = sorted[idx + 1];
-              return (nextUp ?? current).planType;
-            }
-            return sorted[Math.min(1, sorted.length - 1)]?.planType ?? sorted[0].planType;
-          });
+        if (plansRes.status === 'rejected' && dashRes.status === 'rejected') {
+          toast.error('Failed to load plans');
         }
       })
       .catch((err: unknown) =>
-        toast.error(getApiErrorMessage(err, 'Failed to load upgrade options')),
+        toast.error(getApiErrorMessage(err, 'Failed to load plans')),
       )
       .finally(() => setLoading(false));
   }, []);
@@ -174,7 +151,6 @@ export function OwnerUpgradePlanPage() {
   const popularPlanType = useMemo(() => {
     const paid = sortedPlans.filter((p) => p.monthlyPriceInr > 0);
     if (paid.length === 0) return '';
-    // Prefer named Premium/Standard, else middle paid tier
     const named = paid.find((p) =>
       /premium|standard/i.test(p.planType + (p.displayName ?? '')),
     );
@@ -182,26 +158,10 @@ export function OwnerUpgradePlanPage() {
     return paid[Math.floor((paid.length - 1) / 2)]?.planType ?? '';
   }, [sortedPlans]);
 
-  const selectedPlan = useMemo(
-    () => plans.find((p) => p.planType === selectedPlanType) ?? null,
-    [plans, selectedPlanType],
-  );
-
-  const selectedIsCurrent =
-    !!selectedPlan &&
-    matchesCurrentPlan(selectedPlan, currentPlanType, planLabel);
-
   const atLimit = limit > 0 && used >= limit;
   const usagePct =
     limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const remaining = Math.max(0, (limit || 0) - used);
-
-  const selectPlan = (planType: string) => {
-    setSelectedPlanType(planType);
-    window.setTimeout(() => {
-      payRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
-  };
 
   if (loading) {
     return (
@@ -220,12 +180,11 @@ export function OwnerUpgradePlanPage() {
             Subscription
           </p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">
-            Upgrade Plan
+            View Plans
           </h1>
           <p className="mt-1 max-w-xl text-sm text-slate-500">
-            Choose a plan that fits your fleet. Billing starts on the day you pay —
-            monthly runs for 1 month from purchase, yearly for 1 year. Instant
-            activation with Razorpay, or verify via UPI / bank transfer.
+            Browse your company&apos;s current plan and available options. Plan
+            changes can only be made by your Company Admin.
           </p>
         </div>
 
@@ -258,7 +217,21 @@ export function OwnerUpgradePlanPage() {
         </div>
       </div>
 
-      {/* Current plan */}
+      <div
+        className="flex gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
+        role="status"
+      >
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
+        <div>
+          <p className="font-semibold">View only — upgrades are managed by Company Admin</p>
+          <p className="mt-0.5 text-sky-800/90">
+            You can review plans and limits here. To upgrade or change the
+            subscription, please contact your Company Admin. They will handle
+            payment and activation from the company portal.
+          </p>
+        </div>
+      </div>
+
       <section
         className={`overflow-hidden rounded-2xl border shadow-sm ${
           atLimit
@@ -284,7 +257,7 @@ export function OwnerUpgradePlanPage() {
               </p>
               <p className="mt-1 text-sm text-slate-600">
                 {atLimit
-                  ? 'Vehicle limit reached — upgrade to add more vehicles.'
+                  ? 'Vehicle limit reached — ask your Company Admin to upgrade the plan.'
                   : `You can still add ${remaining} more vehicle${remaining === 1 ? '' : 's'}.`}
               </p>
             </div>
@@ -311,25 +284,21 @@ export function OwnerUpgradePlanPage() {
         </div>
       </section>
 
-      {/* Plans */}
       {sortedPlans.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center text-slate-500">
           No subscription plans configured yet.
         </div>
       ) : (
         <section>
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Available plans</h2>
-              <p className="text-sm text-slate-500">
-                Select a plan below, then complete payment.
-              </p>
-            </div>
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-slate-900">Available plans</h2>
+            <p className="text-sm text-slate-500">
+              Compare features and pricing. Contact your Company Admin to switch.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {sortedPlans.map((plan) => {
-              const selected = selectedPlanType === plan.planType;
               const isCurrent = matchesCurrentPlan(plan, currentPlanType, planLabel);
               const isPopular = plan.planType === popularPlanType && !isCurrent;
               const price =
@@ -339,19 +308,14 @@ export function OwnerUpgradePlanPage() {
               const periodLabel = billingPeriod === 'YEARLY' ? '/ year' : '/ month';
               const savePct = yearlySavingsPercent(plan);
               const features = planFeatureList(plan);
-              const isUpgrade =
-                currentPlan != null &&
-                plan.monthlyPriceInr > currentPlan.monthlyPriceInr;
 
               return (
                 <article
                   key={plan.planType}
-                  className={`relative flex flex-col rounded-2xl border bg-white p-5 shadow-sm transition ${
-                    selected
-                      ? 'border-fleet-500 ring-2 ring-fleet-500/30 shadow-md'
-                      : isCurrent
-                        ? 'border-emerald-300'
-                        : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
+                  className={`relative flex flex-col rounded-2xl border bg-white p-5 shadow-sm ${
+                    isCurrent
+                      ? 'border-emerald-300 ring-1 ring-emerald-200'
+                      : 'border-slate-200'
                   }`}
                 >
                   {(isCurrent || isPopular) && (
@@ -371,17 +335,15 @@ export function OwnerUpgradePlanPage() {
                     </div>
                   )}
 
-                  <div className="mt-1 flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">
-                        {planTitle(plan)}
-                      </h3>
-                      {plan.description ? (
-                        <p className="mt-1 line-clamp-2 text-xs text-slate-500">
-                          {plan.description}
-                        </p>
-                      ) : null}
-                    </div>
+                  <div className="mt-1">
+                    <h3 className="text-lg font-bold text-slate-900">
+                      {planTitle(plan)}
+                    </h3>
+                    {plan.description ? (
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                        {plan.description}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="mt-4">
@@ -404,7 +366,8 @@ export function OwnerUpgradePlanPage() {
                       </p>
                     ) : billingPeriod === 'YEARLY' && plan.monthlyPriceInr > 0 ? (
                       <p className="mt-1 text-xs text-slate-500">
-                        ≈ {formatInr(Math.round(plan.yearlyPriceInr / 12))}/month billed yearly
+                        ≈ {formatInr(Math.round(plan.yearlyPriceInr / 12))}/month
+                        billed yearly
                         {savePct > 0 ? (
                           <span className="ml-1 font-semibold text-emerald-600">
                             · save {savePct}%
@@ -461,36 +424,15 @@ export function OwnerUpgradePlanPage() {
                     ))}
                   </ul>
 
-                  <button
-                    type="button"
-                    onClick={() => selectPlan(plan.planType)}
-                    disabled={isCurrent && selected}
-                    className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                  <div
+                    className={`mt-5 w-full rounded-xl px-4 py-2.5 text-center text-sm font-semibold ${
                       isCurrent
-                        ? 'cursor-default border border-emerald-200 bg-emerald-50 text-emerald-800'
-                        : selected
-                          ? 'bg-fleet-500 text-white hover:bg-fleet-600'
-                          : isUpgrade
-                            ? 'bg-slate-900 text-white hover:bg-slate-800'
-                            : 'border border-slate-200 bg-white text-slate-800 hover:border-fleet-300 hover:bg-fleet-50'
+                        ? 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : 'border border-slate-200 bg-slate-50 text-slate-600'
                     }`}
                   >
-                    {isCurrent ? (
-                      'Your current plan'
-                    ) : selected ? (
-                      <>
-                        Selected
-                        <Check className="h-4 w-4" strokeWidth={2.5} />
-                      </>
-                    ) : isUpgrade ? (
-                      <>
-                        Upgrade to {planTitle(plan)}
-                        <ArrowRight className="h-4 w-4" />
-                      </>
-                    ) : (
-                      'Select plan'
-                    )}
-                  </button>
+                    {isCurrent ? 'Your current plan' : 'View only'}
+                  </div>
                 </article>
               );
             })}
@@ -498,58 +440,9 @@ export function OwnerUpgradePlanPage() {
         </section>
       )}
 
-      {/* Payment */}
-      {selectedPlan && (
-        <section
-          ref={payRef}
-          className="scroll-mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
-        >
-          <div className="flex flex-col gap-1 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Pay & activate</h2>
-              <p className="mt-0.5 text-sm text-slate-500">
-                {selectedIsCurrent
-                  ? 'This is your current plan. Pick a higher plan above to upgrade.'
-                  : `Complete payment for ${planTitle(selectedPlan)} (${
-                      billingPeriod === 'YEARLY' ? 'yearly' : 'monthly'
-                    }).`}
-              </p>
-            </div>
-            {!selectedIsCurrent && (
-              <div className="mt-2 rounded-xl bg-slate-50 px-4 py-2 text-right sm:mt-0">
-                <p className="text-xs font-medium text-slate-500">Amount due</p>
-                <p className="text-xl font-bold text-slate-900">
-                  {formatInr(
-                    billingPeriod === 'YEARLY'
-                      ? selectedPlan.yearlyPriceInr
-                      : selectedPlan.monthlyPriceInr,
-                  )}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {selectedIsCurrent ? (
-            <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-              You are already on <strong>{planTitle(selectedPlan)}</strong>. Select
-              another plan to change your subscription.
-            </div>
-          ) : (
-            <div className="mt-4">
-              <SubscriptionPaymentPanel
-                selectedPlan={selectedPlan}
-                paymentSettings={paymentSettings}
-                billingPeriod={billingPeriod}
-                onSuccess={() => setTimeout(() => reload(), 800)}
-              />
-            </div>
-          )}
-        </section>
-      )}
-
       <p className="text-center text-xs text-slate-400">
-        Razorpay activates instantly after success. Manual UPI / bank transfers stay
-        pending until verified. Payments are non-refundable.
+        Need a different plan? Ask your Company Admin to upgrade or change the
+        subscription from the company portal.
       </p>
     </div>
   );

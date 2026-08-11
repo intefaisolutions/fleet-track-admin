@@ -253,8 +253,9 @@ export function PlanFormModal({
           </div>
           <p className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-[11px] leading-relaxed text-sky-900">
             Set both a <strong>monthly</strong> and a <strong>yearly</strong> price.
-            On the upgrade page, Company Admins and Vehicle Owners can choose either
-            billing period and will be charged the matching price.
+            On the company upgrade page, Company Admins can choose either billing
+            period and will be charged the matching price. Vehicle Owners can only
+            view plans.
           </p>
 
           <div>

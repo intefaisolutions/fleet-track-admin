@@ -66,7 +66,7 @@ export function OwnerDashboardPage() {
               className="inline-flex items-center gap-2 self-start rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-600"
             >
               <Sparkles className="h-4 w-4" />
-              Upgrade Plan
+              View Plans
             </Link>
           )}
         </div>

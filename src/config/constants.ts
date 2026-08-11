@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://10.215.106.230:3000/api/v1';
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
 
 export const STORAGE_KEYS = {
   ACCESS_TOKEN: 'fleetAccessToken',

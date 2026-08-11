@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   ChevronLeft,
@@ -8,6 +8,7 @@ import {
   Paperclip,
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
+import { useAuth } from '../../context/AuthContext';
 import {
   expensesService,
   type ExpenseRecord,
@@ -24,6 +25,7 @@ import {
 } from '../../config/expenseCategories';
 import { getApiErrorMessage } from '../../utils/validation';
 import { formatInr } from '../../utils/currency';
+import { downloadStyledExcel } from '../../utils/exportStyledExcel';
 
 const PAGE_SIZE = 10;
 
@@ -49,6 +51,24 @@ function formatDateTime(iso?: string) {
   });
 }
 
+/** Compact date for Excel — avoids wrap/overlap in narrow cells */
+function formatExportDate(iso?: string) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const date = d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const time = d.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${date} ${time}`;
+}
+
 function vehicleLabel(
   v?: ExpenseRecord['vehicleId'],
 ): { title: string; reg: string } {
@@ -67,33 +87,43 @@ function recorderName(r?: ExpenseRecord['recordedBy']): string {
   return r.role === 'COMPANY_ADMIN' ? 'Admin' : 'User';
 }
 
-function exportCsv(rows: ExpenseRecord[]) {
-  const header = ['Date', 'Vehicle', 'Category', 'Description', 'Amount', 'Recorded By'];
-  const lines = rows.map((r) => {
-    const v = vehicleLabel(r.vehicleId);
-    return [
-      formatDateTime(r.expenseDate ?? r.createdAt),
-      v.reg,
-      expenseCategoryLabel(r.category),
-      r.description ?? '',
-      r.amount,
-      recorderName(r.recordedBy),
-    ]
-      .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-      .join(',');
+async function exportExpensesExcel(
+  rows: ExpenseRecord[],
+  companyName: string,
+  exportedBy?: string,
+) {
+  await downloadStyledExcel({
+    companyName,
+    title: 'Company Expenses Export',
+    sheetName: 'Expenses',
+    filename: `FleetTrack_Expenses_${companyName.replace(/\s+/g, '_')}`,
+    exportedBy,
+    columns: [
+      { header: 'Date', key: 'date', width: 22, date: true },
+      { header: 'Vehicle', key: 'vehicle', width: 16 },
+      { header: 'Category', key: 'category', width: 20 },
+      { header: 'Description', key: 'description', width: 36, wrap: true },
+      { header: 'Amount (₹)', key: 'amount', width: 16, amount: true },
+      { header: 'Recorded By', key: 'recordedBy', width: 18 },
+    ],
+    rows: rows.map((r) => {
+      const v = vehicleLabel(r.vehicleId);
+      return {
+        date: formatExportDate(r.expenseDate ?? r.createdAt),
+        vehicle: v.reg,
+        category: expenseCategoryLabel(r.category),
+        description: r.description ?? '',
+        amount: r.amount,
+        recordedBy: recorderName(r.recordedBy),
+      };
+    }),
   });
-  const blob = new Blob([[header.join(','), ...lines].join('\n')], {
-    type: 'text/csv;charset=utf-8;',
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'company_expenses.csv';
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 export function CompanyExpensesPage() {
+  const { user } = useAuth();
+  const ctx = useOutletContext<{ companyName?: string } | undefined>();
+  const companyName = ctx?.companyName ?? 'Your Company';
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,11 +247,15 @@ export function CompanyExpensesPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => exportCsv(filtered)}
+            onClick={() => {
+              void exportExpensesExcel(filtered, companyName, user?.fullName).catch(
+                () => toast.error('Failed to export Excel'),
+              );
+            }}
             className="inline-flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-fleet-600"
           >
             <Download className="h-4 w-4" />
-            Export Report (CSV)
+            Export Excel
           </button>
         </div>
       </div>

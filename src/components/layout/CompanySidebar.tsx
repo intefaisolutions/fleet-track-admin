@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -12,7 +13,7 @@ import {
   LogOut,
   Wallet,
 } from 'lucide-react';
-import { ROUTES } from '../../config/constants';
+import { ROUTES, ROLES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 import { mobileSidebarAsideClass } from '../../hooks/useMobileSidebar';
 
@@ -20,41 +21,95 @@ type NavItem = {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
+  /** Permission required to see this item. null = primary company admin only. */
+  permission: string | null;
 };
 
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Overview',
     items: [
-      { to: ROUTES.COMPANY_DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-      { to: ROUTES.COMPANY_REPORTS, label: 'Reports', icon: BarChart3 },
+      {
+        to: ROUTES.COMPANY_DASHBOARD,
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        permission: 'analytics:read',
+      },
+      {
+        to: ROUTES.COMPANY_REPORTS,
+        label: 'Reports',
+        icon: BarChart3,
+        permission: 'reports:read',
+      },
     ],
   },
   {
     title: 'Fleet',
     items: [
-      { to: ROUTES.COMPANY_VEHICLES, label: 'Vehicles', icon: Truck },
-      { to: ROUTES.COMPANY_DRIVERS, label: 'Drivers', icon: UserRound },
-      { to: ROUTES.COMPANY_EXPENSES, label: 'Expenses', icon: Banknote },
+      {
+        to: ROUTES.COMPANY_VEHICLES,
+        label: 'Vehicles',
+        icon: Truck,
+        permission: 'vehicles:read',
+      },
+      {
+        to: ROUTES.COMPANY_DRIVERS,
+        label: 'Drivers',
+        icon: UserRound,
+        permission: 'drivers:read',
+      },
+      {
+        to: ROUTES.COMPANY_EXPENSES,
+        label: 'Expenses',
+        icon: Banknote,
+        permission: 'expenses:read',
+      },
     ],
   },
   {
     title: 'People',
     items: [
-      { to: ROUTES.COMPANY_USERS, label: 'Users', icon: Users },
-      { to: ROUTES.COMPANY_ADMINS, label: 'Admins', icon: Shield },
+      {
+        to: ROUTES.COMPANY_USERS,
+        label: 'Users',
+        icon: Users,
+        permission: 'users:read',
+      },
+      {
+        to: ROUTES.COMPANY_ADMINS,
+        label: 'Admins',
+        icon: Shield,
+        permission: null,
+      },
     ],
   },
   {
     title: 'Billing',
     items: [
-      { to: ROUTES.COMPANY_SUBSCRIPTION, label: 'Subscription', icon: CreditCard },
-      { to: ROUTES.COMPANY_WALLET, label: 'Wallet', icon: Wallet },
+      {
+        to: ROUTES.COMPANY_SUBSCRIPTION,
+        label: 'Subscription',
+        icon: CreditCard,
+        permission: 'subscriptions:read',
+      },
+      {
+        to: ROUTES.COMPANY_WALLET,
+        label: 'Wallet',
+        icon: Wallet,
+        permission: 'payments:read',
+      },
     ],
   },
   {
     title: 'Account',
-    items: [{ to: ROUTES.COMPANY_SETTINGS, label: 'Settings', icon: Settings }],
+    items: [
+      {
+        to: ROUTES.COMPANY_SETTINGS,
+        label: 'Settings',
+        icon: Settings,
+        permission: 'settings:read',
+      },
+    ],
   },
 ];
 
@@ -67,6 +122,30 @@ export function CompanySidebar({
 }) {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
+
+  const isRestrictedSubAdmin = useMemo(() => {
+    if (user?.role !== ROLES.COMPANY_ADMIN) return false;
+    // Primary company admin gets full ROLE_PERMISSIONS (large set).
+    // Sub-admins have an explicit smaller grant list stored on the user.
+    const perms = user.permissions ?? [];
+    if (perms.length === 0) return false;
+    // Heuristic: full company-admin role pack includes companies:read etc.;
+    // sub-admins only get the invite allow-list keys.
+    const fullRoleSignal = perms.includes('companies:read') || perms.includes('licenses:read');
+    return !fullRoleSignal;
+  }, [user?.role, user?.permissions]);
+
+  const visibleGroups = useMemo(() => {
+    if (!isRestrictedSubAdmin) return NAV_GROUPS;
+    const granted = new Set(user?.permissions ?? []);
+    return NAV_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (item.permission === null) return false; // Admins = primary only
+        return granted.has(item.permission);
+      }),
+    })).filter((g) => g.items.length > 0);
+  }, [isRestrictedSubAdmin, user?.permissions]);
 
   const handleLogout = async () => {
     await logout();
@@ -85,7 +164,6 @@ export function CompanySidebar({
     <aside
       className={`${mobileSidebarAsideClass(mobileOpen)} border-r border-slate-200/80 bg-gradient-to-b from-white via-white to-fleet-50/40`}
     >
-      {/* Brand */}
       <div className="border-b border-slate-100 px-5 py-5">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-fleet-500 to-fleet-700 text-white shadow-md shadow-fleet-500/25">
@@ -96,15 +174,14 @@ export function CompanySidebar({
               FleetTrack
             </p>
             <p className="truncate text-xs font-medium text-fleet-600">
-              Company Admin
+              {isRestrictedSubAdmin ? 'Sub-Admin' : 'Company Admin'}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Nav groups */}
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-        {NAV_GROUPS.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.title}>
             <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
               {group.title}
@@ -147,7 +224,6 @@ export function CompanySidebar({
         ))}
       </nav>
 
-      {/* User + logout */}
       <div className="mt-auto border-t border-slate-100 bg-white/70 px-3 py-3 backdrop-blur-sm">
         <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fleet-500 to-fleet-700 text-xs font-bold text-white">

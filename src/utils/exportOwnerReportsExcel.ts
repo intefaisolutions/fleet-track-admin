@@ -54,10 +54,17 @@ function isSelected(
 }
 
 function applyAmount(cell: ExcelJS.Cell, value: number) {
-  cell.value = value;
-  cell.numFmt = '₹#,##0.00';
-  cell.alignment = { horizontal: 'right', vertical: 'middle' };
-  cell.font = { ...(cell.font ?? {}), name: 'Calibri', size: 11 };
+  // Text with ₹ — number formats often render □ for ₹ on Windows Excel.
+  const n = Number(value);
+  const text = Number.isFinite(n)
+    ? `₹${n.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
+    : '₹0.00';
+  cell.value = text;
+  cell.alignment = { horizontal: 'right', vertical: 'middle', wrapText: false };
+  cell.font = { ...(cell.font ?? {}), name: 'Arial', size: 11 };
 }
 
 function styleSectionTitle(row: ExcelJS.Row, colCount: number) {

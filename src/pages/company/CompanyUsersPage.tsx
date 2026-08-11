@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   ChevronLeft,
@@ -24,6 +24,7 @@ import { authService } from '../../services/auth.service';
 import { AddUserModal } from '../../components/company/AddUserModal';
 import { ActionMenuDropdown } from '../../components/ui/ActionMenuDropdown';
 import { getApiErrorMessage } from '../../utils/validation';
+import { downloadStyledExcel } from '../../utils/exportStyledExcel';
 
 type Tab = 'all' | 'owners' | 'drivers';
 type CreateTab = 'owners' | 'drivers';
@@ -83,52 +84,99 @@ function driverUserId(driver: DriverRecord): string {
   return uid._id ?? '';
 }
 
-function exportCsv(
+async function exportUsersExcel(
   rows: UserRecord[],
   tab: Tab,
   vehicleCounts: Record<string, number>,
   driversByUserId: Record<string, DriverRecord>,
+  companyName: string,
+  exportedBy?: string,
 ) {
-  const header =
+  const title =
     tab === 'all'
-      ? ['Full Name', 'Email', 'Phone', 'Role', 'Vehicles', 'License', 'Status']
+      ? 'All Users Export'
       : tab === 'owners'
-        ? ['Full Name', 'Email', 'Phone', 'Vehicles', 'Status']
-        : ['Full Name', 'Email', 'Phone', 'License', 'Status'];
+        ? 'Vehicle Owners Export'
+        : 'Drivers (Users) Export';
+  const filenameBase =
+    tab === 'all'
+      ? 'All_Users'
+      : tab === 'owners'
+        ? 'Vehicle_Owners'
+        : 'Drivers';
 
-  const lines = rows.map((u) => {
-    const license = driversByUserId[u._id]?.licenseNumber ?? '';
-    const row =
-      tab === 'all'
+  const columns =
+    tab === 'all'
+      ? [
+          { header: 'Full Name', key: 'fullName', width: 24 },
+          { header: 'Email', key: 'email', width: 28 },
+          { header: 'Phone', key: 'phone', width: 16 },
+          { header: 'Role', key: 'role', width: 16 },
+          { header: 'Vehicles', key: 'vehicles', width: 12 },
+          { header: 'License', key: 'license', width: 16 },
+          { header: 'Status', key: 'status', width: 12 },
+        ]
+      : tab === 'owners'
         ? [
-            u.fullName,
-            u.email,
-            u.phone,
-            roleLabel(u.role),
-            u.role === ROLES.VEHICLE_OWNER ? vehicleCounts[u._id] ?? 0 : '',
-            u.role === ROLES.DRIVER ? license : '',
-            u.status,
+            { header: 'Full Name', key: 'fullName', width: 24 },
+            { header: 'Email', key: 'email', width: 28 },
+            { header: 'Phone', key: 'phone', width: 16 },
+            { header: 'Vehicles', key: 'vehicles', width: 12 },
+            { header: 'Status', key: 'status', width: 12 },
           ]
-        : tab === 'owners'
-          ? [u.fullName, u.email, u.phone, vehicleCounts[u._id] ?? 0, u.status]
-          : [u.fullName, u.email, u.phone, license, u.status];
-    return row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',');
-  });
+        : [
+            { header: 'Full Name', key: 'fullName', width: 24 },
+            { header: 'Email', key: 'email', width: 28 },
+            { header: 'Phone', key: 'phone', width: 16 },
+            { header: 'License', key: 'license', width: 16 },
+            { header: 'Status', key: 'status', width: 12 },
+          ];
 
-  const blob = new Blob([[header.join(','), ...lines].join('\n')], {
-    type: 'text/csv;charset=utf-8;',
+  await downloadStyledExcel({
+    companyName,
+    title,
+    sheetName: 'Users',
+    filename: `FleetTrack_${filenameBase}_${companyName.replace(/\s+/g, '_')}`,
+    exportedBy,
+    columns,
+    rows: rows.map((u) => {
+      const license = driversByUserId[u._id]?.licenseNumber ?? '';
+      if (tab === 'all') {
+        return {
+          fullName: u.fullName,
+          email: u.email,
+          phone: u.phone,
+          role: roleLabel(u.role),
+          vehicles:
+            u.role === ROLES.VEHICLE_OWNER ? vehicleCounts[u._id] ?? 0 : '',
+          license: u.role === ROLES.DRIVER ? license : '',
+          status: u.status,
+        };
+      }
+      if (tab === 'owners') {
+        return {
+          fullName: u.fullName,
+          email: u.email,
+          phone: u.phone,
+          vehicles: vehicleCounts[u._id] ?? 0,
+          status: u.status,
+        };
+      }
+      return {
+        fullName: u.fullName,
+        email: u.email,
+        phone: u.phone,
+        license,
+        status: u.status,
+      };
+    }),
   });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download =
-    tab === 'all' ? 'all_users.csv' : tab === 'owners' ? 'vehicle_owners.csv' : 'drivers.csv';
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 export function CompanyUsersPage() {
   const { user } = useAuth();
+  const ctx = useOutletContext<{ companyName?: string } | undefined>();
+  const companyName = ctx?.companyName ?? 'Your Company';
   const [tab, setTab] = useState<Tab>('all');
   const [modalTab, setModalTab] = useState<CreateTab>('owners');
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -505,9 +553,19 @@ export function CompanyUsersPage() {
             </button>
             <button
               type="button"
-              onClick={() => exportCsv(filtered, tab, vehicleCounts, driversByUserId)}
+              onClick={() => {
+                void exportUsersExcel(
+                  filtered,
+                  tab,
+                  vehicleCounts,
+                  driversByUserId,
+                  companyName,
+                  user?.fullName,
+                ).catch(() => toast.error('Failed to export Excel'));
+              }}
               className="rounded-lg border border-slate-200 bg-white p-2.5 text-slate-500 shadow-sm hover:bg-slate-50"
-              aria-label="Export CSV"
+              aria-label="Export Excel"
+              title="Export Excel"
             >
               <Download className="h-4 w-4" />
             </button>

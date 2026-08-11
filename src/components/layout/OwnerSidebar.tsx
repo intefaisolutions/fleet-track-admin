@@ -20,7 +20,7 @@ const links = [
   { to: ROUTES.OWNER_DRIVERS, label: 'Driver Management', icon: Users },
   { to: ROUTES.OWNER_EXPENSES, label: 'Expenses', icon: Receipt },
   { to: ROUTES.OWNER_REPORTS, label: 'Reports', icon: BarChart3 },
-  { to: ROUTES.OWNER_UPGRADE, label: 'Upgrade Plan', icon: CreditCard },
+  { to: ROUTES.OWNER_UPGRADE, label: 'View Plans', icon: CreditCard },
   { to: ROUTES.OWNER_SETTINGS, label: 'Settings', icon: Settings },
 ];
 

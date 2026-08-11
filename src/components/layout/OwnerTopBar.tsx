@@ -13,7 +13,7 @@ const SEARCHABLE_PAGES = [
   { name: 'Expenses', path: ROUTES.OWNER_EXPENSES, keywords: ['expenses', 'costs', 'money'] },
   { name: 'Reports', path: ROUTES.OWNER_REPORTS, keywords: ['reports', 'analytics', 'data'] },
   { name: 'Settings', path: ROUTES.OWNER_SETTINGS, keywords: ['settings', 'profile', 'account'] },
-  { name: 'Upgrade Plan', path: ROUTES.OWNER_UPGRADE, keywords: ['upgrade', 'plan', 'subscription'] },
+  { name: 'View Plans', path: ROUTES.OWNER_UPGRADE, keywords: ['upgrade', 'plan', 'subscription', 'view plans'] },
 ];
 
 interface OwnerTopBarProps {

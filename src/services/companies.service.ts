@@ -2,7 +2,6 @@ import { deleteData, getData, patchData, postData } from './api';
 import type { CreateCompanyPayload } from '../types/api';
 
 export interface RegisterCompanyPayload {
-  licenseKey: string;
   companyName: string;
   adminName: string;
   email: string;
@@ -114,6 +113,14 @@ export const companiesService = {
     getData<CompanySubAdminsPayload>('/companies/me/sub-admins'),
   addSubAdmin: (data: { name: string; email: string; permissions: string[] }) =>
     postData<CompanySubAdminsPayload>('/companies/me/sub-admins', data),
+  updateSubAdmin: (
+    email: string,
+    data: { name?: string; permissions: string[] },
+  ) =>
+    patchData<CompanySubAdminsPayload>(
+      `/companies/me/sub-admins/${encodeURIComponent(email)}`,
+      data,
+    ),
   removeSubAdmin: (email: string) =>
     deleteData<CompanySubAdminsPayload>(
       `/companies/me/sub-admins/${encodeURIComponent(email)}`,

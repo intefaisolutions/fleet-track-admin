@@ -25,6 +25,20 @@ function formatDate(value?: string) {
   });
 }
 
+/** Savings vs paying monthly × 12 when yearly price is lower. */
+function yearlySavingsPercent(plan: SubscriptionPlanRecord) {
+  const monthlyYear = plan.monthlyPriceInr * 12;
+  if (monthlyYear <= 0 || plan.yearlyPriceInr <= 0) return 0;
+  if (plan.yearlyPriceInr >= monthlyYear) return 0;
+  return Math.round(((monthlyYear - plan.yearlyPriceInr) / monthlyYear) * 100);
+}
+
+function yearlySavingsAmount(plan: SubscriptionPlanRecord) {
+  const monthlyYear = plan.monthlyPriceInr * 12;
+  if (monthlyYear <= 0 || plan.yearlyPriceInr <= 0) return 0;
+  return Math.max(0, Math.round((monthlyYear - plan.yearlyPriceInr) * 100) / 100);
+}
+
 type PaymentStatus = 'NOT_PAID' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 
 export function CompanySubscriptionPage() {
@@ -187,8 +201,8 @@ export function CompanySubscriptionPage() {
           <div>
             <h2 className="text-lg font-bold text-slate-900">Available Plans</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Choose monthly or yearly billing, then select a plan. Your subscription
-              starts on the purchase date.
+              Switch to Yearly to see discount vs 12 months. Subscription starts on
+              the purchase date.
             </p>
           </div>
           <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
@@ -213,6 +227,13 @@ export function CompanySubscriptionPage() {
               }`}
             >
               Yearly
+              <span
+                className={`ml-1.5 text-[10px] font-bold ${
+                  billingPeriod === 'YEARLY' ? 'text-emerald-300' : 'text-emerald-600'
+                }`}
+              >
+                Save
+              </span>
             </button>
           </div>
         </div>
@@ -226,6 +247,10 @@ export function CompanySubscriptionPage() {
                 billingPeriod === 'YEARLY'
                   ? plan.yearlyPriceInr
                   : plan.monthlyPriceInr;
+              const savePct = yearlySavingsPercent(plan);
+              const saveAmt = yearlySavingsAmount(plan);
+              const monthlyYearCost = plan.monthlyPriceInr * 12;
+
               return (
                 <button
                   key={plan.planType}
@@ -233,18 +258,65 @@ export function CompanySubscriptionPage() {
                   onClick={() => setSelectedPlanType(plan.planType)}
                   className={`rounded-xl border p-4 text-left transition ${
                     active
-                      ? 'border-fleet-500 bg-fleet-50'
+                      ? 'border-fleet-500 bg-fleet-50 ring-1 ring-fleet-500/20'
                       : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
-                  <p className="text-sm font-semibold text-slate-900">
-                    {plan.displayName ?? plan.planType}
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {plan.displayName ?? plan.planType}
+                    </p>
+                    {billingPeriod === 'YEARLY' && savePct > 0 ? (
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                        Save {savePct}%
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {billingPeriod === 'MONTHLY' ? (
+                    <p className="mt-2 text-xl font-bold text-slate-900">
+                      {formatInr(price)}
+                      <span className="text-sm font-medium text-slate-500">
+                        /month
+                      </span>
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mt-2 text-xl font-bold text-slate-900">
+                        {formatInr(price)}
+                        <span className="text-sm font-medium text-slate-500">
+                          /year
+                        </span>
+                      </p>
+                      {plan.monthlyPriceInr > 0 && monthlyYearCost > 0 ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {savePct > 0 ? (
+                            <>
+                              <span className="mr-1.5 text-slate-400 line-through">
+                                {formatInr(monthlyYearCost)}
+                              </span>
+                              vs 12 × monthly
+                              <span className="ml-1 font-semibold text-emerald-600">
+                                · save {formatInr(saveAmt)} ({savePct}%)
+                              </span>
+                            </>
+                          ) : (
+                            <>Same as 12 × monthly ({formatInr(monthlyYearCost)})</>
+                          )}
+                        </p>
+                      ) : null}
+                      {plan.yearlyPriceInr > 0 ? (
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          ≈ {formatInr(Math.round(plan.yearlyPriceInr / 12))}/month
+                          billed yearly
+                        </p>
+                      ) : null}
+                    </>
+                  )}
+
+                  <p className="mt-2 text-xs text-slate-500">
+                    {plan.vehicleLimit} vehicles
                   </p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {formatInr(price)}
-                    {billingPeriod === 'YEARLY' ? '/year' : '/month'}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">{plan.vehicleLimit} vehicles</p>
                 </button>
               );
             })
