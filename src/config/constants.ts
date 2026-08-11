@@ -42,6 +42,7 @@ export const ROUTES = {
   COMPANY_REPORTS: '/company/reports',
   COMPANY_DRIVERS: '/company/drivers',
   COMPANY_SETTINGS: '/company/settings',
+  COMPANY_PROFILE: '/company/profile',
   COMPANY_WALLET: '/company/wallet',
   // Vehicle Owner
   OWNER_DASHBOARD: '/owner/dashboard',
@@ -51,6 +52,7 @@ export const ROUTES = {
   OWNER_ADD_EXPENSE: '/owner/expenses/add',
   OWNER_REPORTS: '/owner/reports',
   OWNER_SETTINGS: '/owner/settings',
+  OWNER_PROFILE: '/owner/profile',
   OWNER_UPGRADE: '/owner/upgrade',
   // Driver
   DRIVER_DASHBOARD: '/driver/dashboard',

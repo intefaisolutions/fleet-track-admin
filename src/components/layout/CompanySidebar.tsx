@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
   Wallet,
+  UserCircle,
 } from 'lucide-react';
 import { ROUTES, ROLES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
@@ -21,7 +22,11 @@ type NavItem = {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
-  /** Permission required to see this item. null = primary company admin only. */
+  /**
+   * Permission required to see this item.
+   * null = primary company admin only.
+   * '*' = always visible (including restricted sub-admins).
+   */
   permission: string | null;
 };
 
@@ -104,6 +109,12 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: 'Account',
     items: [
       {
+        to: ROUTES.COMPANY_PROFILE,
+        label: 'My Profile',
+        icon: UserCircle,
+        permission: '*',
+      },
+      {
         to: ROUTES.COMPANY_SETTINGS,
         label: 'Settings',
         icon: Settings,
@@ -141,6 +152,7 @@ export function CompanySidebar({
     return NAV_GROUPS.map((group) => ({
       ...group,
       items: group.items.filter((item) => {
+        if (item.permission === '*') return true;
         if (item.permission === null) return false; // Admins = primary only
         return granted.has(item.permission);
       }),
@@ -225,17 +237,31 @@ export function CompanySidebar({
       </nav>
 
       <div className="mt-auto border-t border-slate-100 bg-white/70 px-3 py-3 backdrop-blur-sm">
-        <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fleet-500 to-fleet-700 text-xs font-bold text-white">
-            {initials}
-          </div>
+        <NavLink
+          to={ROUTES.COMPANY_PROFILE}
+          onClick={onNavigate}
+          className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 transition hover:bg-fleet-50"
+        >
+          {user?.profileImage ? (
+            <img
+              src={user.profileImage}
+              alt={user.fullName}
+              className="h-9 w-9 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fleet-500 to-fleet-700 text-xs font-bold text-white">
+              {initials}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-900">
               {user?.fullName ?? 'Company Admin'}
             </p>
-            <p className="truncate text-[11px] text-slate-500">{user?.email}</p>
+            <p className="truncate text-[11px] text-slate-500">
+              View profile
+            </p>
           </div>
-        </div>
+        </NavLink>
 
         <button
           type="button"

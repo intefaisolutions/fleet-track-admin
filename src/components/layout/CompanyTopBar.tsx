@@ -15,7 +15,8 @@ const SEARCHABLE_PAGES = [
   { name: 'Admins', path: ROUTES.COMPANY_ADMINS, keywords: ['admins', 'managers'] },
   { name: 'Reports', path: ROUTES.COMPANY_REPORTS, keywords: ['reports', 'analytics'] },
   { name: 'Drivers', path: ROUTES.COMPANY_DRIVERS, keywords: ['drivers', 'chauffeurs'] },
-  { name: 'Settings', path: ROUTES.COMPANY_SETTINGS, keywords: ['settings', 'profile'] },
+  { name: 'My Profile', path: ROUTES.COMPANY_PROFILE, keywords: ['profile', 'account', 'me'] },
+  { name: 'Settings', path: ROUTES.COMPANY_SETTINGS, keywords: ['settings', 'company'] },
   { name: 'Wallet', path: ROUTES.COMPANY_WALLET, keywords: ['wallet', 'balance'] },
 ];
 
@@ -103,9 +104,22 @@ export function CompanyTopBar({ companyName, onMenuClick }: CompanyTopBarProps) 
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
         <NotificationBell />
-        <div className="ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-fleet-500 to-fleet-700 text-sm font-semibold text-white shadow-sm shadow-fleet-500/20">
-          {user?.fullName?.charAt(0) ?? 'A'}
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.COMPANY_PROFILE)}
+          title="My Profile"
+          className="ml-2 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-fleet-500 to-fleet-700 text-sm font-semibold text-white shadow-sm shadow-fleet-500/20 transition hover:ring-2 hover:ring-fleet-500/30"
+        >
+          {user?.profileImage ? (
+            <img
+              src={user.profileImage}
+              alt={user.fullName ?? 'Profile'}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            (user?.fullName?.charAt(0) ?? 'A')
+          )}
+        </button>
       </div>
     </header>
   );

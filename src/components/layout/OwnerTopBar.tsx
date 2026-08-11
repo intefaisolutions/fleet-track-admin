@@ -12,7 +12,8 @@ const SEARCHABLE_PAGES = [
   { name: 'Driver Management', path: ROUTES.OWNER_DRIVERS, keywords: ['drivers', 'staff'] },
   { name: 'Expenses', path: ROUTES.OWNER_EXPENSES, keywords: ['expenses', 'costs', 'money'] },
   { name: 'Reports', path: ROUTES.OWNER_REPORTS, keywords: ['reports', 'analytics', 'data'] },
-  { name: 'Settings', path: ROUTES.OWNER_SETTINGS, keywords: ['settings', 'profile', 'account'] },
+  { name: 'My Profile', path: ROUTES.OWNER_PROFILE, keywords: ['profile', 'account', 'me'] },
+  { name: 'Settings', path: ROUTES.OWNER_SETTINGS, keywords: ['settings', 'password', 'company'] },
   { name: 'View Plans', path: ROUTES.OWNER_UPGRADE, keywords: ['upgrade', 'plan', 'subscription', 'view plans'] },
 ];
 
@@ -94,15 +95,30 @@ export function OwnerTopBar({ onMenuClick }: OwnerTopBarProps) {
 
       <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
         <NotificationBell />
-        <div className="hidden text-right sm:block">
-          <p className="text-sm font-semibold text-slate-900">
-            {user?.fullName ?? 'Fleet Manager'}
-          </p>
-          <p className="text-xs text-slate-500">Vehicle Owner</p>
-        </div>
-        <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-sm font-semibold text-slate-700">
-          {user?.fullName?.charAt(0) ?? 'F'}
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.OWNER_PROFILE)}
+          title="My Profile"
+          className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 transition hover:bg-slate-50 sm:pr-2"
+        >
+          <div className="hidden text-right sm:block">
+            <p className="text-sm font-semibold text-slate-900">
+              {user?.fullName ?? 'Fleet Manager'}
+            </p>
+            <p className="text-xs text-slate-500">View profile</p>
+          </div>
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-sm font-semibold text-slate-700">
+            {user?.profileImage ? (
+              <img
+                src={user.profileImage}
+                alt={user.fullName ?? 'Profile'}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              (user?.fullName?.charAt(0) ?? 'F')
+            )}
+          </div>
+        </button>
       </div>
     </header>
   );

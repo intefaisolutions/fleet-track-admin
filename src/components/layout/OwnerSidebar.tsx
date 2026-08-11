@@ -6,8 +6,8 @@ import {
   LayoutDashboard,
   LogOut,
   Receipt,
-  Settings,
   Truck,
+  UserCircle,
   Users,
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
@@ -21,7 +21,7 @@ const links = [
   { to: ROUTES.OWNER_EXPENSES, label: 'Expenses', icon: Receipt },
   { to: ROUTES.OWNER_REPORTS, label: 'Reports', icon: BarChart3 },
   { to: ROUTES.OWNER_UPGRADE, label: 'View Plans', icon: CreditCard },
-  { to: ROUTES.OWNER_SETTINGS, label: 'Settings', icon: Settings },
+  { to: ROUTES.OWNER_PROFILE, label: 'My Profile', icon: UserCircle },
 ];
 
 export function OwnerSidebar({
@@ -80,21 +80,40 @@ export function OwnerSidebar({
         ))}
       </nav>
 
-      <div className="border-t border-slate-100 px-4 py-4">
-        <p className="truncate text-xs font-semibold text-slate-700">
-          {user?.fullName ?? 'Owner'}
-        </p>
-        <p className="truncate text-xs text-slate-400">{user?.email}</p>
-      </div>
+      <div className="border-t border-slate-100 px-3 py-3">
+        <NavLink
+          to={ROUTES.OWNER_PROFILE}
+          onClick={onNavigate}
+          className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 transition hover:bg-fleet-50"
+        >
+          {user?.profileImage ? (
+            <img
+              src={user.profileImage}
+              alt={user.fullName}
+              className="h-9 w-9 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fleet-500 text-xs font-bold text-white">
+              {user?.fullName?.charAt(0)?.toUpperCase() ?? 'O'}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-slate-900">
+              {user?.fullName ?? 'Owner'}
+            </p>
+            <p className="truncate text-[11px] text-slate-500">View profile</p>
+          </div>
+        </NavLink>
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="mx-3 mb-4 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600"
-      >
-        <LogOut className="h-5 w-5" />
-        Log Out
-      </button>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600"
+        >
+          <LogOut className="h-5 w-5" />
+          Log Out
+        </button>
+      </div>
     </aside>
   );
 }

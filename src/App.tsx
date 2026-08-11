@@ -28,6 +28,7 @@ import { CompanyExpensesPage } from './pages/company/CompanyExpensesPage';
 import { CompanySubscriptionPage } from './pages/company/CompanySubscriptionPage';
 import { CompanyReportsPage } from './pages/company/CompanyReportsPage';
 import { CompanySettingsPage } from './pages/company/CompanySettingsPage';
+import { CompanyProfilePage } from './pages/company/CompanyProfilePage';
 import { CompanyAdminsPage } from './pages/company/CompanyAdminsPage';
 import { CompanyWalletPage } from './pages/company/CompanyWalletPage';
 import { CompanyLayout } from './components/layout/CompanyLayout';
@@ -93,6 +94,7 @@ function App() {
                 <Route path={ROUTES.COMPANY_ADMINS} element={<CompanyAdminsPage />} />
                 <Route path={ROUTES.COMPANY_REPORTS} element={<CompanyReportsPage />} />
                 <Route path={ROUTES.COMPANY_SETTINGS} element={<CompanySettingsPage />} />
+                <Route path={ROUTES.COMPANY_PROFILE} element={<CompanyProfilePage />} />
               </Route>
             </Route>
           </Route>
@@ -106,6 +108,7 @@ function App() {
               <Route path={ROUTES.OWNER_ADD_EXPENSE} element={<OwnerAddExpensePage />} />
               <Route path={ROUTES.OWNER_REPORTS} element={<OwnerReportsPage />} />
               <Route path={ROUTES.OWNER_SETTINGS} element={<OwnerSettingsPage />} />
+              <Route path={ROUTES.OWNER_PROFILE} element={<OwnerSettingsPage />} />
               <Route path={ROUTES.OWNER_UPGRADE} element={<OwnerUpgradePlanPage />} />
             </Route>
           </Route>
