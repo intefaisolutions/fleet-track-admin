@@ -6,7 +6,6 @@ import {
   Building2,
   Eye,
   EyeOff,
-  KeyRound,
   Lock,
   Mail,
   Phone,
@@ -15,10 +14,6 @@ import {
 } from 'lucide-react';
 import { ROUTES } from '../../config/constants';
 import { companiesService } from '../../services/companies.service';
-import {
-  licensesService,
-  type LicenseValidateResult,
-} from '../../services/licenses.service';
 import { AuthPageFooter } from '../../components/auth/AuthPageFooter';
 import { AuthPageBrand } from '../../components/auth/AuthPageBrand';
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
@@ -32,7 +27,6 @@ function FleetIllustration() {
     <div className="relative mx-auto w-full max-w-sm" aria-hidden>
       <div className="rounded-2xl bg-white/10 p-8 backdrop-blur-sm">
         <div className="relative mx-auto h-40 w-56">
-          {/* Building */}
           <div className="absolute bottom-0 left-1/2 h-28 w-36 -translate-x-1/2 rounded-t-lg bg-white/90 shadow-lg">
             <div className="grid grid-cols-3 gap-2 p-3 pt-4">
               {Array.from({ length: 9 }).map((_, i) => (
@@ -41,7 +35,6 @@ function FleetIllustration() {
             </div>
             <div className="absolute bottom-0 left-1/2 h-8 w-10 -translate-x-1/2 rounded-t-md bg-slate-700/80" />
           </div>
-          {/* Trucks */}
           <div className="absolute bottom-2 left-2 flex items-end gap-1">
             <div className="flex h-10 w-16 items-end rounded-md bg-white shadow-md">
               <Truck className="h-8 w-full text-fleet-600" strokeWidth={1.5} />
@@ -64,9 +57,6 @@ export function RegisterCompanyPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
-  const [verifying, setVerifying] = useState(false);
-  const [licenseVerified, setLicenseVerified] = useState(false);
-  const [licensePreview, setLicensePreview] = useState<LicenseValidateResult | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [acceptedLegal, setAcceptedLegal] = useState(false);
@@ -80,38 +70,34 @@ export function RegisterCompanyPage() {
     confirmPassword: '',
   });
   const [lockedEmail, setLockedEmail] = useState('');
-  const [suggestedCompanyName, setSuggestedCompanyName] = useState('');
 
   const inputClass =
     'w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20';
   const requiredAsterisk = <span className="ml-1 text-red-500">*</span>;
 
   useEffect(() => {
-    const key = searchParams.get('licenseKey')?.trim() ?? '';
     const email = searchParams.get('email')?.trim() ?? '';
     const company = searchParams.get('companyName')?.trim() ?? '';
     const phone = searchParams.get('phone')?.trim() ?? '';
 
-    if (!key && !email && !company && !phone) return;
+    if (!email && !company && !phone) return;
 
     setForm((prev) => ({
       ...prev,
-      licenseKey: key || prev.licenseKey,
       email: email || prev.email,
       companyName: company || prev.companyName,
       phone: phone || prev.phone,
     }));
     if (email) setLockedEmail(email);
-    if (company) setSuggestedCompanyName(company);
   }, [searchParams]);
 
-  const effectiveCompanyName = useMemo(
-    () => form.companyName.trim() || suggestedCompanyName.trim(),
-    [form.companyName, suggestedCompanyName],
-  );
-
   const fromInvitation = useMemo(
-    () => !!searchParams.get('licenseKey')?.trim(),
+    () =>
+      !!(
+        searchParams.get('email')?.trim() ||
+        searchParams.get('companyName')?.trim() ||
+        searchParams.get('licenseKey')?.trim()
+      ),
     [searchParams],
   );
 
@@ -125,7 +111,7 @@ export function RegisterCompanyPage() {
         const googleEmail = profile.email?.trim().toLowerCase() ?? '';
 
         if (lockedEmail && googleEmail && lockedEmail.toLowerCase() !== googleEmail) {
-          toast.error('Google email must match the license invitation email');
+          toast.error('Google email must match the invitation email');
           return;
         }
 
@@ -136,7 +122,7 @@ export function RegisterCompanyPage() {
           adminName: profile.name?.trim() || prev.adminName,
         }));
 
-        toast.success('Google account linked — verify license and complete registration');
+        toast.success('Google account linked — complete registration');
       } finally {
         setGoogleLoading(false);
       }
@@ -144,59 +130,9 @@ export function RegisterCompanyPage() {
     [lockedEmail],
   );
 
-  const handleVerifyLicense = async () => {
-    const key = form.licenseKey.trim();
-    if (!key) {
-      toast.error('Enter a license key first');
-      return;
-    }
-    setVerifying(true);
-    setLicenseVerified(false);
-    setLicensePreview(null);
-    try {
-      const res = await licensesService.validateKey(key);
-      const preview = res.data as LicenseValidateResult | undefined;
-      if (!preview?.valid) {
-        toast.error(preview?.message ?? 'Invalid license key');
-        return;
-      }
-      setLicensePreview(preview);
-      if (preview.intendedCompanyName) {
-        setSuggestedCompanyName(preview.intendedCompanyName);
-        setForm((prev) => ({
-          ...prev,
-          companyName: prev.companyName || preview.intendedCompanyName || '',
-        }));
-      }
-      if (preview.contactEmail) {
-        setLockedEmail(preview.contactEmail);
-        setForm((prev) => ({ ...prev, email: preview.contactEmail || prev.email }));
-      }
-      setLicenseVerified(true);
-      toast.success('License key verified');
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Could not verify license key'));
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  useEffect(() => {
-    const prefilledKey = searchParams.get('licenseKey')?.trim();
-    if (!prefilledKey) return;
-    if (licenseVerified || verifying) return;
-    if (form.licenseKey.trim() !== prefilledKey) return;
-    void handleVerifyLicense();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.licenseKey, licenseVerified, verifying, searchParams]);
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (loading) return; // Prevent double clicks
-    if (!licenseVerified) {
-      toast.error('Please verify your license key before registering');
-      return;
-    }
+    if (loading) return;
     if (!acceptedLegal) {
       toast.error('Please accept the Terms of Service and Privacy Policy');
       return;
@@ -211,15 +147,14 @@ export function RegisterCompanyPage() {
         return;
       }
     }
-    if (!effectiveCompanyName) {
-      toast.error('Company name missing in license. Please enter company name.');
+    if (!form.companyName.trim()) {
+      toast.error('Please enter your company name.');
       return;
     }
     setLoading(true);
     try {
       await companiesService.register({
-        licenseKey: form.licenseKey.trim(),
-        companyName: effectiveCompanyName,
+        companyName: form.companyName.trim(),
         adminName: form.adminName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
@@ -229,8 +164,8 @@ export function RegisterCompanyPage() {
       });
       toast.success(
         usingGoogle
-          ? 'Company registered! Sign in with Google on the login page.'
-          : 'Company registered! You can login now.',
+          ? 'Company registered! Sign in with Google, then activate your license key.'
+          : 'Company registered! Log in, then activate your license key.',
       );
       navigate(ROUTES.SIGN_IN);
     } catch (err: unknown) {
@@ -243,7 +178,6 @@ export function RegisterCompanyPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <div className="flex flex-1">
-        {/* Left panel */}
         <div
           className="relative hidden w-[42%] flex-col items-center justify-center px-10 lg:flex"
           style={{ backgroundColor: '#00AEEF' }}
@@ -258,7 +192,6 @@ export function RegisterCompanyPage() {
           </p>
         </div>
 
-        {/* Right panel — form */}
         <div className="flex flex-1 flex-col bg-white">
           <div className="flex flex-1 flex-col justify-center px-8 py-10 sm:px-14 lg:px-20">
             <div className="mx-auto w-full max-w-md">
@@ -275,8 +208,8 @@ export function RegisterCompanyPage() {
                   className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
                   role="status"
                 >
-                  Invitation link detected — license key and email are pre-filled.
-                  Click <strong>Verify</strong> if not already verified.
+                  Invitation details were pre-filled. After registering, log in and
+                  enter your license key on the activation screen.
                 </div>
               )}
 
@@ -297,96 +230,31 @@ export function RegisterCompanyPage() {
 
               {usingGoogle && (
                 <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                  Signed in with Google as <strong>{form.email}</strong>. Password is not
-                  required — verify your license and tap Register.
+                  Signed in with Google as <strong>{form.email}</strong>. Password is
+                  not required — tap Register to continue.
                 </p>
               )}
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-4">
                 <div>
                   <label
-                    htmlFor="licenseKey"
-                    className="mb-1.5 block text-sm font-medium text-slate-700"
-                  >
-                    License Key
-                    {requiredAsterisk}
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                      <input
-                        id="licenseKey"
-                        required
-                        value={form.licenseKey}
-                        onChange={(e) => {
-                          setForm({ ...form, licenseKey: e.target.value });
-                          setLicenseVerified(false);
-                          setLicensePreview(null);
-                        }}
-                        placeholder="FLT-XXXX-XXXX-XXXX"
-                        className={inputClass}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleVerifyLicense}
-                      disabled={verifying || !form.licenseKey.trim()}
-                      className="shrink-0 rounded-lg border border-[#00AEEF] px-4 py-3 text-sm font-semibold text-[#00AEEF] transition hover:bg-sky-50 disabled:opacity-50"
-                    >
-                      {verifying ? 'Checking...' : licenseVerified ? 'Verified ✓' : 'Verify'}
-                    </button>
-                  </div>
-                  {licensePreview?.valid && (
-                    <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                      <p className="font-semibold">
-                        Plan: {licensePreview.planLabel ?? licensePreview.plan}
-                      </p>
-                      <ul className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-emerald-800">
-                        {licensePreview.maxAdmins != null && (
-                          <li>Admins: {licensePreview.maxAdmins}</li>
-                        )}
-                        {licensePreview.maxOwners != null && (
-                          <li>Owners: {licensePreview.maxOwners}</li>
-                        )}
-                        {licensePreview.maxDrivers != null && (
-                          <li>Drivers: {licensePreview.maxDrivers}</li>
-                        )}
-                        {licensePreview.maxVehicles != null && (
-                          <li>Vehicles: {licensePreview.maxVehicles}</li>
-                        )}
-                      </ul>
-                      {licensePreview.validUntil && (
-                        <p className="mt-1.5 text-xs text-emerald-700">
-                          Valid until{' '}
-                          {new Date(licensePreview.validUntil).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label
                     htmlFor="companyName"
                     className="mb-1.5 block text-sm font-medium text-slate-700"
                   >
                     Company Name
+                    {requiredAsterisk}
                   </label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <input
                       id="companyName"
+                      required
                       value={form.companyName}
                       onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-                      placeholder={suggestedCompanyName || 'e.g. Global Logistics Inc.'}
+                      placeholder="e.g. Global Logistics Inc."
                       className={inputClass}
                     />
                   </div>
-                  {suggestedCompanyName && !form.companyName.trim() && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      Auto-filled from license: <strong>{suggestedCompanyName}</strong>
-                    </p>
-                  )}
                 </div>
 
                 <div>
@@ -458,85 +326,85 @@ export function RegisterCompanyPage() {
                   </div>
                   {lockedEmail && (
                     <p className="mt-1 text-xs text-slate-500">
-                      Email is locked from license invitation.
+                      Email is locked from the invitation link.
                     </p>
                   )}
                 </div>
 
                 {!usingGoogle && (
                   <>
-                <div>
-                  <label
-                    htmlFor="password"
-                    className="mb-1.5 block text-sm font-medium text-slate-700"
-                  >
-                    Password
-                    {requiredAsterisk}
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      required
-                      minLength={8}
-                      value={form.password}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      placeholder="Min 8 characters"
-                      className={`${inputClass} pr-11`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
+                    <div>
+                      <label
+                        htmlFor="password"
+                        className="mb-1.5 block text-sm font-medium text-slate-700"
+                      >
+                        Password
+                        {requiredAsterisk}
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                        <input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          required
+                          minLength={8}
+                          value={form.password}
+                          onChange={(e) => setForm({ ...form, password: e.target.value })}
+                          placeholder="Min 8 characters"
+                          className={`${inputClass} pr-11`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-5 w-5" />
+                          ) : (
+                            <Eye className="h-5 w-5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
-                <div>
-                  <label
-                    htmlFor="confirmPassword"
-                    className="mb-1.5 block text-sm font-medium text-slate-700"
-                  >
-                    Confirm Password
-                    {requiredAsterisk}
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      id="confirmPassword"
-                      type={showConfirm ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      required
-                      value={form.confirmPassword}
-                      onChange={(e) =>
-                        setForm({ ...form, confirmPassword: e.target.value })
-                      }
-                      placeholder="Re-enter password"
-                      className={`${inputClass} pr-11`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirm(!showConfirm)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      aria-label={showConfirm ? 'Hide password' : 'Show password'}
-                    >
-                      {showConfirm ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
+                    <div>
+                      <label
+                        htmlFor="confirmPassword"
+                        className="mb-1.5 block text-sm font-medium text-slate-700"
+                      >
+                        Confirm Password
+                        {requiredAsterisk}
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                        <input
+                          id="confirmPassword"
+                          type={showConfirm ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          required
+                          value={form.confirmPassword}
+                          onChange={(e) =>
+                            setForm({ ...form, confirmPassword: e.target.value })
+                          }
+                          placeholder="Re-enter password"
+                          className={`${inputClass} pr-11`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirm(!showConfirm)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                        >
+                          {showConfirm ? (
+                            <EyeOff className="h-5 w-5" />
+                          ) : (
+                            <Eye className="h-5 w-5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </>
                 )}
 
@@ -572,9 +440,15 @@ export function RegisterCompanyPage() {
                   </span>
                 </label>
 
+                <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  After registration you will log in and enter your license key to unlock
+                  the dashboard. Don&apos;t have a key? Contact the FleetTrack portal /
+                  support.
+                </p>
+
                 <button
                   type="submit"
-                  disabled={loading || googleLoading || !licenseVerified || !acceptedLegal}
+                  disabled={loading || googleLoading || !acceptedLegal}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
                   style={{ backgroundColor: '#00AEEF' }}
                 >
