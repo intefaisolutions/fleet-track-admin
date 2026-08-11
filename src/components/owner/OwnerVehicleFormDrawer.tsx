@@ -13,6 +13,7 @@ import {
   formatGroupedNumber,
   toNumber,
 } from '../../utils/currency';
+import { VEHICLE_FUEL_TYPE_OPTIONS } from '../../config/vehicleFuelTypes';
 
 const VEHICLE_TYPES = [
   { value: 'TRUCK', label: 'Truck' },
@@ -22,7 +23,7 @@ const VEHICLE_TYPES = [
   { value: 'OTHER', label: 'Other' },
 ] as const;
 
-const FUEL_TYPES = ['Petrol', 'Diesel', 'CNG', 'Electric'];
+const FUEL_TYPES = [...VEHICLE_FUEL_TYPE_OPTIONS];
 
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: currentYear - 1989 }, (_, i) => currentYear - i);

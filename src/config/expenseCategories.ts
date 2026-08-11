@@ -2,6 +2,10 @@
  * SRS Section 8 — expense categories 8.1–8.7 (+ Other).
  */
 import { formatGroupedNumber } from '../utils/currency';
+import {
+  getDualFuelFillOptions,
+  resolveExpenseFuelType,
+} from './vehicleFuelTypes';
 
 export const EXPENSE_CATEGORY_ORDER = [
   'FUEL',
@@ -178,6 +182,12 @@ export function isElectricFuelType(fuelType?: string | null): boolean {
 export function isCngFuelType(fuelType?: string | null): boolean {
   return (fuelType ?? '').trim().toLowerCase() === 'cng';
 }
+
+export {
+  getDualFuelFillOptions,
+  isDualFuelType,
+  resolveExpenseFuelType,
+} from './vehicleFuelTypes';
 
 /** Unit labels for petrol/diesel (L) vs CNG (kg) fuel forms */
 export function getFuelQuantityUnit(fuelType?: string | null): {
@@ -494,9 +504,16 @@ export function computeElectricTotalAmount(details: CategoryDetails): number {
 export function emptyCategoryDetails(
   category: ExpenseCategoryCode,
   fuelType?: string | null,
+  filledFuelType?: string | null,
 ): CategoryDetails {
-  const fields = getCategoryDetailFields(category, fuelType);
-  return Object.fromEntries(fields.map((f) => [f.key, '']));
+  const expenseFuel = resolveExpenseFuelType(fuelType, filledFuelType);
+  const fields = getCategoryDetailFields(category, expenseFuel);
+  const base = Object.fromEntries(fields.map((f) => [f.key, ''])) as CategoryDetails;
+  const dualOptions = getDualFuelFillOptions(fuelType);
+  if (category === 'FUEL' && dualOptions) {
+    base.filledFuelType = expenseFuel ?? dualOptions[0];
+  }
+  return base;
 }
 
 export function categoryDetailsFromRecord(
@@ -511,11 +528,31 @@ export function categoryDetailsFromRecord(
       (raw.energyNeeded != null ||
         raw.electricityRate != null ||
         raw.chargingEfficiency != null));
+  const vehicleFuel =
+    fuelType ||
+    (typeof raw?.vehicleFuelType === 'string' ? raw.vehicleFuelType : undefined);
+  const filledFromRaw =
+    typeof raw?.filledFuelType === 'string' ? raw.filledFuelType : undefined;
   const resolvedFuelType = inferredElectric
     ? 'Electric'
-    : fuelType ||
-      (typeof raw?.vehicleFuelType === 'string' ? raw.vehicleFuelType : undefined);
-  const base = emptyCategoryDetails(code, resolvedFuelType);
+    : resolveExpenseFuelType(vehicleFuel, filledFromRaw);
+  const base = emptyCategoryDetails(code, vehicleFuel);
+  if (code === 'FUEL' && filledFromRaw) {
+    base.filledFuelType = filledFromRaw;
+  } else if (code === 'FUEL' && resolvedFuelType && getDualFuelFillOptions(vehicleFuel)) {
+    base.filledFuelType = resolvedFuelType;
+  }
+  // Rebuild keys for the resolved fill type (dual-fuel may start as petrol then switch to CNG)
+  if (code === 'FUEL' && resolvedFuelType) {
+    const fieldKeys = getFuelDetailFields(resolvedFuelType).map((f) => f.key);
+    for (const key of Object.keys(base)) {
+      if (key === 'filledFuelType') continue;
+      if (!fieldKeys.includes(key)) delete base[key];
+    }
+    for (const key of fieldKeys) {
+      if (base[key] == null) base[key] = '';
+    }
+  }
   if (!raw) return base;
 
   const aliases = DETAIL_ALIASES[code] ?? {};
@@ -591,8 +628,10 @@ export function sanitizeCategoryDetails(
       out[field.key] = raw;
     }
   }
-  if (code === 'FUEL' && fuelType) {
-    out.vehicleFuelType = fuelType;
+  if (code === 'FUEL') {
+    if (fuelType) out.vehicleFuelType = fuelType;
+    const filled = details.filledFuelType?.trim();
+    if (filled) out.filledFuelType = filled;
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }
@@ -709,11 +748,31 @@ export function formatCategoryDetailsSummary(
   const code = normalizeExpenseCategory(category);
   const mapped = categoryDetailsFromRecord(code, details);
   const electric = hasElectricExpenseDetails(mapped);
+  const vehicleFuel =
+    typeof details?.vehicleFuelType === 'string'
+      ? details.vehicleFuelType
+      : undefined;
+  const filled =
+    typeof details?.filledFuelType === 'string'
+      ? details.filledFuelType
+      : undefined;
+  const expenseFuel = electric
+    ? 'Electric'
+    : resolveExpenseFuelType(vehicleFuel, filled);
   const fields =
     code === 'FUEL'
-      ? getFuelDetailFields(electric ? 'Electric' : undefined)
+      ? getFuelDetailFields(expenseFuel)
       : EXPENSE_CATEGORY_META[code].detailFields;
   const parts: string[] = [];
+  if (code === 'FUEL' && filled) {
+    parts.push(`Filled: ${filled}`);
+  } else if (
+    code === 'FUEL' &&
+    expenseFuel &&
+    getDualFuelFillOptions(vehicleFuel)
+  ) {
+    parts.push(`Filled: ${expenseFuel}`);
+  }
   for (const field of fields) {
     const v = mapped[field.key];
     if (v) parts.push(`${field.label}: ${v}`);

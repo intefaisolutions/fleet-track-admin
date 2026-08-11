@@ -6,7 +6,7 @@ function socketOrigin(): string {
     const u = new URL(API_BASE_URL);
     return `${u.protocol}//${u.host}`;
   } catch {
-    return 'http://localhost:3000';
+    return 'http://192.168.1.39:3000';
   }
 }
 

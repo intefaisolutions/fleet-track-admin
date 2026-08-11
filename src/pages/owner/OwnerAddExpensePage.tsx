@@ -7,6 +7,7 @@ import {
   EXPENSE_CATEGORY_COUNT,
   computeExpenseAmount,
   emptyCategoryDetails,
+  resolveExpenseFuelType,
   sanitizeCategoryDetails,
   validateExpenseForm,
   type CategoryDetails,
@@ -52,20 +53,23 @@ export function OwnerAddExpensePage() {
       .finally(() => setVehiclesLoading(false));
   }, []);
 
-  const finalAmount = useMemo(
-    () =>
-      computeExpenseAmount(
-        category,
-        details,
-        amount,
-        vehicles.find((v) => v._id === vehicleId)?.fuelType,
-      ),
-    [category, details, amount, vehicles, vehicleId],
-  );
+  const finalAmount = useMemo(() => {
+    const vehicleFuel = vehicles.find((v) => v._id === vehicleId)?.fuelType;
+    return computeExpenseAmount(
+      category,
+      details,
+      amount,
+      resolveExpenseFuelType(vehicleFuel, details.filledFuelType),
+    );
+  }, [category, details, amount, vehicles, vehicleId]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const selectedFuelType = vehicles.find((v) => v._id === vehicleId)?.fuelType;
+    const vehicleFuel = vehicles.find((v) => v._id === vehicleId)?.fuelType;
+    const expenseFuel = resolveExpenseFuelType(
+      vehicleFuel,
+      details.filledFuelType,
+    );
     const validationError = validateExpenseForm({
       category,
       vehicleId,
@@ -73,7 +77,7 @@ export function OwnerAddExpensePage() {
       amount: finalAmount,
       odometerKm,
       details,
-      fuelType: selectedFuelType,
+      fuelType: expenseFuel,
     });
     if (validationError) {
       toast.error(validationError);
@@ -87,7 +91,7 @@ export function OwnerAddExpensePage() {
       expenseDate,
       receiptUrl: receiptUrl || undefined,
       odometerKm: odometerKm ? toNumber(odometerKm) : undefined,
-      categoryDetails: sanitizeCategoryDetails(category, details, selectedFuelType),
+      categoryDetails: sanitizeCategoryDetails(category, details, vehicleFuel),
       description:
         category === 'OTHER'
           ? details.notes?.trim()

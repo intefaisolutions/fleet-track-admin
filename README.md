@@ -17,7 +17,7 @@ Create `.env`:
 VITE_API_BASE_URL=https://fleettrackservice.in/api/v1
 
 # Local
-# VITE_API_BASE_URL=http://localhost:3000/api/v1
+# VITE_API_BASE_URL=http://192.168.1.39:3000/api/v1
 ```
 
 ```bash

@@ -13,12 +13,14 @@ import {
   emptyCategoryDetails,
   expenseCategoryLabel,
   getCategoryMeta,
+  getDualFuelFillOptions,
   getFuelQuantityUnit,
   isAmountAutoCalculated,
   isCngFuelType,
   isElectricFuelType,
   normalizeExpenseCategory,
   parseDecimalInput,
+  resolveExpenseFuelType,
   type CategoryDetails,
   type ExpenseCategoryCode,
 } from '../../config/expenseCategories';
@@ -76,7 +78,15 @@ export function ExpenseFormBody({
     () => vehicles.find((v) => v._id === vehicleId) ?? null,
     [vehicles, vehicleId],
   );
-  const fuelType = selectedVehicle?.fuelType ?? null;
+  const vehicleFuelType = selectedVehicle?.fuelType ?? null;
+  const dualFillOptions = useMemo(
+    () => getDualFuelFillOptions(vehicleFuelType),
+    [vehicleFuelType],
+  );
+  const fuelType = resolveExpenseFuelType(
+    vehicleFuelType,
+    details.filledFuelType,
+  );
   const isElectric = isFuel && isElectricFuelType(fuelType);
   const isCng = isFuel && isCngFuelType(fuelType);
   const fuelUnit = getFuelQuantityUnit(fuelType);
@@ -117,6 +127,11 @@ export function ExpenseFormBody({
       setDetails(emptyCategoryDetails('FUEL', nextFuel));
       setAmount('');
     }
+  };
+
+  const handleFillFuelChange = (filled: string) => {
+    setDetails(emptyCategoryDetails('FUEL', vehicleFuelType, filled));
+    setAmount('');
   };
 
   const onReceiptFile = async (file: File | null) => {
@@ -169,7 +184,13 @@ export function ExpenseFormBody({
             onChange={(e) => {
               const c = normalizeExpenseCategory(e.target.value);
               setCategory(c);
-              setDetails(emptyCategoryDetails(c, fuelType));
+              setDetails(
+                emptyCategoryDetails(
+                  c,
+                  vehicleFuelType,
+                  details.filledFuelType,
+                ),
+              );
               setAmount('');
               if (!getCategoryMeta(c).showOdometer) setOdometerKm('');
             }}
@@ -205,6 +226,39 @@ export function ExpenseFormBody({
                   ? ' — CNG measured in kg'
                   : null}
             </p>
+          ) : null}
+          {isFuel && dualFillOptions ? (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+              <label className="mb-2 block text-xs font-semibold text-slate-700">
+                Filled with *{' '}
+                <span className="font-normal text-slate-500">
+                  (this vehicle uses both fuels)
+                </span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {dualFillOptions.map((opt) => {
+                  const selected = (fuelType ?? dualFillOptions[0]) === opt;
+                  const unitHint = isCngFuelType(opt) ? 'kg' : 'litres';
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => handleFillFuelChange(opt)}
+                      className={`rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+                        selected
+                          ? 'border-fleet-500 bg-white text-fleet-700 shadow-sm ring-2 ring-fleet-500/20'
+                          : 'border-slate-200 bg-white/70 text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      {opt}
+                      <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                        Enter qty in {unitHint}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ) : null}
         </div>
 

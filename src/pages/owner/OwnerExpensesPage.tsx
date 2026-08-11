@@ -24,6 +24,7 @@ import {
   expenseCategoryStyle,
   formatCategoryDetailsSummary,
   normalizeExpenseCategory,
+  resolveExpenseFuelType,
   sanitizeCategoryDetails,
   validateExpenseForm,
   type CategoryDetails,
@@ -136,12 +137,16 @@ function ExpenseFormModal({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const selectedFuelType = vehicles.find((v) => v._id === vehicleIdValue)?.fuelType;
+    const vehicleFuel = vehicles.find((v) => v._id === vehicleIdValue)?.fuelType;
+    const expenseFuel = resolveExpenseFuelType(
+      vehicleFuel,
+      details.filledFuelType,
+    );
     const finalAmount = computeExpenseAmount(
       category,
       details,
       amount,
-      selectedFuelType,
+      expenseFuel,
     );
     const validationError = validateExpenseForm({
       category,
@@ -150,7 +155,7 @@ function ExpenseFormModal({
       amount: finalAmount,
       odometerKm,
       details,
-      fuelType: selectedFuelType,
+      fuelType: expenseFuel,
     });
     if (validationError) {
       toast.error(validationError);
@@ -168,11 +173,7 @@ function ExpenseFormModal({
       expenseDate: expenseDate || undefined,
       receiptUrl: receiptUrl || undefined,
       odometerKm: odometerKm ? toNumber(odometerKm) : undefined,
-      categoryDetails: sanitizeCategoryDetails(
-        category,
-        details,
-        selectedFuelType,
-      ),
+      categoryDetails: sanitizeCategoryDetails(category, details, vehicleFuel),
     });
   };
 
