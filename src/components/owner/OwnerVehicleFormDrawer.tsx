@@ -91,11 +91,13 @@ export function OwnerVehicleFormDrawer({
   const [form, setForm] = useState(emptyForm);
   const [drivers, setDrivers] = useState<DriverRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setFormError('');
     driversService
       .list()
       .then((res) => setDrivers(res.data ?? []))
@@ -132,7 +134,10 @@ export function OwnerVehicleFormDrawer({
 
   const buildPayload = (): Partial<CreateVehiclePayload> => {
     return {
-      registrationNumber: form.registrationNumber.trim(),
+      registrationNumber: form.registrationNumber
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, ' '),
       modelName: form.modelName.trim(),
       make: form.make.trim() || undefined,
       type: form.type,
@@ -151,6 +156,8 @@ export function OwnerVehicleFormDrawer({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    setFormError('');
     setLoading(true);
     try {
       const payload = buildPayload();
@@ -166,7 +173,12 @@ export function OwnerVehicleFormDrawer({
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, isEdit ? 'Update failed' : 'Failed to add vehicle'));
+      const message = getApiErrorMessage(
+        err,
+        isEdit ? 'Update failed' : 'Failed to add vehicle',
+      );
+      setFormError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -203,6 +215,14 @@ export function OwnerVehicleFormDrawer({
 
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+            {formError ? (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
+              >
+                {formError}
+              </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slate-600">
@@ -213,7 +233,10 @@ export function OwnerVehicleFormDrawer({
                   placeholder="HR 26 AB 1234"
                   value={form.registrationNumber}
                   onChange={(e) =>
-                    setForm({ ...form, registrationNumber: e.target.value.toUpperCase() })
+                    setForm({
+                      ...form,
+                      registrationNumber: e.target.value.toUpperCase(),
+                    })
                   }
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm uppercase outline-none focus:border-fleet-500"
                 />

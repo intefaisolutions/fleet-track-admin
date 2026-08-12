@@ -173,7 +173,7 @@ export function RegisterCompanyPage() {
     }
     setLoading(true);
     try {
-      await companiesService.register({
+      const res = await companiesService.register({
         licenseKey,
         companyName: form.companyName.trim(),
         adminName: form.adminName.trim(),
@@ -184,13 +184,26 @@ export function RegisterCompanyPage() {
           : { password: form.password }),
       });
       toast.success(
-        usingGoogle
-          ? 'Company registered! Sign in with Google, then activate your license key.'
-          : 'Company registered! Log in, then activate your license key.',
+        res.message ||
+          (usingGoogle
+            ? 'Company registered! Sign in with Google, then activate your license key.'
+            : 'Company registered! Log in, then activate your license key.'),
       );
       navigate(ROUTES.SIGN_IN);
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Registration failed'));
+      const message = getApiErrorMessage(err, 'Registration failed');
+      const lower = message.toLowerCase();
+      if (
+        lower.includes('already exists') ||
+        lower.includes('already registered') ||
+        lower.includes('email already')
+      ) {
+        toast.error(
+          `${message} If you already registered, please log in instead.`,
+        );
+      } else {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }

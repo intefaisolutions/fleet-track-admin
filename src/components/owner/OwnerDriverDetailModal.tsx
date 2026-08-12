@@ -3,9 +3,9 @@ import type { DriverRecord } from '../../services/drivers.service';
 import type { VehicleRecord } from '../../services/vehicles.service';
 
 function driverEmail(d: DriverRecord): string {
-  if (d.email) return d.email;
+  if (d.email?.trim()) return d.email.trim();
   const u = d.userId;
-  if (u && typeof u === 'object' && u.email) return u.email;
+  if (u && typeof u === 'object' && u.email?.trim()) return u.email.trim();
   return '—';
 }
 

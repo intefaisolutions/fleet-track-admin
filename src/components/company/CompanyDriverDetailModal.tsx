@@ -10,10 +10,10 @@ import type { DriverRecord } from '../../services/drivers.service';
 import type { VehicleRecord } from '../../services/vehicles.service';
 
 function driverEmail(d: DriverRecord): string {
-  if (d.email) return d.email;
+  if (d.email?.trim()) return d.email.trim();
   const u = d.userId;
-  if (u && typeof u === 'object' && u.email) return u.email;
-  return '—';
+  if (u && typeof u === 'object' && u.email?.trim()) return u.email.trim();
+  return '';
 }
 
 function assignedDriverId(
@@ -119,8 +119,8 @@ export function CompanyDriverDetailModal({
             <Mail className="h-4 w-4 text-fleet-500" />
             <div>
               <p className="text-xs text-slate-500">Email</p>
-              <p className="font-semibold text-slate-900">
-                {driverEmail(driver)}
+              <p className="font-semibold text-slate-900 break-all">
+                {driverEmail(driver) || '—'}
               </p>
             </div>
           </li>
