@@ -6,6 +6,7 @@ import {
   Building2,
   Eye,
   EyeOff,
+  KeyRound,
   Lock,
   Mail,
   Phone,
@@ -21,6 +22,12 @@ import { getApiErrorMessage } from '../../utils/validation';
 import { decodeGoogleJwt } from '../../utils/googleJwt';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
+const LICENSE_KEY_PATTERN =
+  /^FLT-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i;
+
+function normalizeLicenseKey(value: string): string {
+  return value.trim().toUpperCase().replace(/\s+/g, '');
+}
 
 function FleetIllustration() {
   return (
@@ -79,14 +86,18 @@ export function RegisterCompanyPage() {
     const email = searchParams.get('email')?.trim() ?? '';
     const company = searchParams.get('companyName')?.trim() ?? '';
     const phone = searchParams.get('phone')?.trim() ?? '';
+    const licenseKey = normalizeLicenseKey(
+      searchParams.get('licenseKey')?.trim() ?? '',
+    );
 
-    if (!email && !company && !phone) return;
+    if (!email && !company && !phone && !licenseKey) return;
 
     setForm((prev) => ({
       ...prev,
       email: email || prev.email,
       companyName: company || prev.companyName,
       phone: phone || prev.phone,
+      licenseKey: licenseKey || prev.licenseKey,
     }));
     if (email) setLockedEmail(email);
   }, [searchParams]);
@@ -151,9 +162,19 @@ export function RegisterCompanyPage() {
       toast.error('Please enter your company name.');
       return;
     }
+    const licenseKey = normalizeLicenseKey(form.licenseKey);
+    if (!licenseKey) {
+      toast.error('License key is required.');
+      return;
+    }
+    if (licenseKey.length < 10 || !LICENSE_KEY_PATTERN.test(licenseKey)) {
+      toast.error('Invalid license key. Expected FLT-XXXX-YYYY-ZZZZ-WWWW.');
+      return;
+    }
     setLoading(true);
     try {
       await companiesService.register({
+        licenseKey,
         companyName: form.companyName.trim(),
         adminName: form.adminName.trim(),
         email: form.email.trim(),
@@ -208,8 +229,8 @@ export function RegisterCompanyPage() {
                   className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
                   role="status"
                 >
-                  Invitation details were pre-filled. After registering, log in and
-                  enter your license key on the activation screen.
+                  Invitation details were pre-filled, including your license key.
+                  Complete registration, then log in to activate the license.
                 </div>
               )}
 
@@ -236,6 +257,37 @@ export function RegisterCompanyPage() {
               )}
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+                <div>
+                  <label
+                    htmlFor="licenseKey"
+                    className="mb-1.5 block text-sm font-medium text-slate-700"
+                  >
+                    License Key
+                    {requiredAsterisk}
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="licenseKey"
+                      required
+                      value={form.licenseKey}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          licenseKey: e.target.value.toUpperCase(),
+                        })
+                      }
+                      placeholder="FLT-XXXX-YYYY-ZZZZ-WWWW"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className={`${inputClass} font-mono tracking-wide`}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Enter the key from your invitation email / FleetTrack portal.
+                  </p>
+                </div>
+
                 <div>
                   <label
                     htmlFor="companyName"
@@ -441,9 +493,8 @@ export function RegisterCompanyPage() {
                 </label>
 
                 <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                  After registration you will log in and enter your license key to unlock
-                  the dashboard. Don&apos;t have a key? Contact the FleetTrack portal /
-                  support.
+                  After registration, log in and activate the same license key to unlock
+                  the dashboard. Don&apos;t have a key? Contact FleetTrack support.
                 </p>
 
                 <button
