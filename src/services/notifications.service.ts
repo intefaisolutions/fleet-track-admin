@@ -8,6 +8,7 @@ export type NotificationType =
   | 'VEHICLE_LIMIT'
   | 'DRIVER_ASSIGNMENT'
   | 'REPAIR_REQUEST'
+  | 'SERVICE_ALERT'
   | 'SYSTEM';
 
 export interface NotificationRecord {
