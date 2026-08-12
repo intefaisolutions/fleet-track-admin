@@ -2,6 +2,7 @@ import { deleteData, getData, patchData, postData } from './api';
 import type { CreateCompanyPayload } from '../types/api';
 
 export interface RegisterCompanyPayload {
+  licenseKey: string;
   companyName: string;
   adminName: string;
   email: string;
