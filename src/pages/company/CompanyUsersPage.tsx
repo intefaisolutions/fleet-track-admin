@@ -23,7 +23,7 @@ import { vehiclesService } from '../../services/vehicles.service';
 import { authService } from '../../services/auth.service';
 import { AddUserModal } from '../../components/company/AddUserModal';
 import { ActionMenuDropdown } from '../../components/ui/ActionMenuDropdown';
-import { getApiErrorMessage } from '../../utils/validation';
+import { getApiErrorMessage, normalizeLicenseNumber, validateDrivingLicense, validateEmail, validatePhone } from '../../utils/validation';
 import { downloadStyledExcel } from '../../utils/exportStyledExcel';
 
 type Tab = 'all' | 'owners' | 'drivers';
@@ -318,9 +318,22 @@ export function CompanyUsersPage() {
   const saveEdit = async () => {
     if (!editingUser) return;
     const isDriver = editingUser.role === ROLES.DRIVER;
-    if (isDriver && !editForm.licenseNumber.trim()) {
-      toast.error('License number is required for drivers');
+    const emailErr = validateEmail(editForm.email);
+    if (emailErr) {
+      toast.error(emailErr);
       return;
+    }
+    const phoneErr = validatePhone(editForm.phone, true);
+    if (phoneErr) {
+      toast.error(phoneErr);
+      return;
+    }
+    if (isDriver) {
+      const licenseErr = validateDrivingLicense(editForm.licenseNumber, true);
+      if (licenseErr) {
+        toast.error(licenseErr);
+        return;
+      }
     }
     setSavingEdit(true);
     try {
@@ -333,7 +346,7 @@ export function CompanyUsersPage() {
         await driversService.update(editingDriverId, {
           fullName: editForm.fullName.trim(),
           phone: editForm.phone.trim(),
-          licenseNumber: editForm.licenseNumber.trim(),
+          licenseNumber: normalizeLicenseNumber(editForm.licenseNumber),
         });
       }
       toast.success('User updated successfully');

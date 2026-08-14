@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { formatInr } from './currency';
+import { formatInrForExcel } from './currency';
 
 const BRAND = '00AEEF';
 const BRAND_DARK = '0078B3';
@@ -13,7 +13,7 @@ export type ExcelColumn = {
   header: string;
   key: string;
   width?: number;
-  /** Format cell as Indian rupee amount (₹ shown as text — reliable in Excel) */
+  /** Format cell as Indian rupee amount (Rs. — Excel-safe on Windows) */
   amount?: boolean;
   /** Date/time column — no wrap, wider cell */
   date?: boolean;
@@ -41,6 +41,11 @@ function thinBorder(): Partial<ExcelJS.Borders> {
     color: { argb: `FF${BORDER}` },
   };
   return { top: edge, left: edge, bottom: edge, right: edge };
+}
+
+/** ₹ often shows as □ / ?? in Excel on Windows — use ASCII-friendly "Rs." */
+function excelSafeText(value: string): string {
+  return value.replace(/\u20B9/g, 'Rs.');
 }
 
 function autoWidth(header: string, values: string[], min = 12, max = 42) {
@@ -166,7 +171,7 @@ export async function downloadStyledExcel(
   for (const m of metaLines) {
     ws.mergeCells(r, 1, r, colCount);
     const cell = ws.getCell(r, 1);
-    cell.value = `${m.label}: ${m.value}`;
+    cell.value = excelSafeText(`${m.label}: ${m.value}`);
     cell.font = { name: 'Calibri', size: 10, color: { argb: `FF${MUTED}` } };
     cell.alignment = { vertical: 'middle', indent: 1 };
     r += 1;
@@ -211,12 +216,12 @@ export async function downloadStyledExcel(
         (!isDate && !col.amount && /desc/i.test(col.key + col.header));
 
       if (col.amount && raw !== '' && raw != null && !Number.isNaN(Number(raw))) {
-        // Text with ₹ — Excel number formats often show □ for ₹ on Windows.
-        cell.value = formatInr(Number(raw), { fractionDigits: 2 });
+        // Rs. instead of ₹ — Excel on Windows often cannot render U+20B9.
+        cell.value = formatInrForExcel(Number(raw), { fractionDigits: 2 });
         cell.alignment = { horizontal: 'right', vertical: 'middle', wrapText: false };
-        cell.font = { name: 'Arial', size: 11, color: { argb: 'FF0F172A' } };
+        cell.font = { name: 'Calibri', size: 11, color: { argb: 'FF0F172A' } };
       } else {
-        cell.value = raw == null ? '' : String(raw);
+        cell.value = raw == null ? '' : excelSafeText(String(raw));
         cell.alignment = {
           vertical: 'middle',
           horizontal: 'left',
@@ -292,10 +297,22 @@ export async function downloadMultiSectionExcel(
   const ws = wb.addWorksheet('Report', {
     views: [{ showGridLines: false }],
   });
-  ws.columns = Array.from({ length: maxCols }, (_, i) => ({
-    key: `c${i}`,
-    width: i === 0 ? 28 : 18,
-  }));
+
+  const colWidths = Array.from({ length: maxCols }, (_, i) => {
+    let width = 14;
+    for (const section of sections) {
+      const col = section.columns[i];
+      if (!col) continue;
+      if (col.width) {
+        width = Math.max(width, col.width);
+      } else {
+        width = Math.max(width, Math.min((col.header?.length ?? 10) + 4, 40));
+      }
+      if (col.amount) width = Math.max(width, 16);
+    }
+    return { key: `c${i}`, width };
+  });
+  ws.columns = colWidths;
 
   let r = 1;
   ws.mergeCells(r, 1, r, maxCols);
@@ -349,7 +366,7 @@ export async function downloadMultiSectionExcel(
   ]) {
     ws.mergeCells(r, 1, r, maxCols);
     const cell = ws.getCell(r, 1);
-    cell.value = `${m.label}: ${m.value}`;
+    cell.value = excelSafeText(`${m.label}: ${m.value}`);
     cell.font = { name: 'Calibri', size: 10, color: { argb: `FF${MUTED}` } };
     cell.alignment = { indent: 1 };
     r += 1;
@@ -400,11 +417,11 @@ export async function downloadMultiSectionExcel(
         const cell = dataRow.getCell(i + 1);
         const raw = row[col.key];
         if (col.amount && raw != null && raw !== '' && !Number.isNaN(Number(raw))) {
-          cell.value = formatInr(Number(raw), { fractionDigits: 2 });
+          cell.value = formatInrForExcel(Number(raw), { fractionDigits: 2 });
           cell.alignment = { horizontal: 'right', vertical: 'middle', wrapText: false };
-          cell.font = { name: 'Arial', size: 11 };
+          cell.font = { name: 'Calibri', size: 11 };
         } else {
-          cell.value = raw == null ? '' : String(raw);
+          cell.value = raw == null ? '' : excelSafeText(String(raw));
           cell.font = { name: 'Calibri', size: 11 };
           cell.alignment = { vertical: 'middle', wrapText: false };
         }

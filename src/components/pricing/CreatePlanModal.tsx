@@ -309,7 +309,7 @@ export function PlanFormModal({
               <div key={key}>
                 <label className="mb-1 block text-xs font-medium text-slate-600">
                   {key === 'maxAdmins'
-                    ? 'Admins'
+                    ? 'Sub-Admins'
                     : key === 'maxOwners'
                       ? 'Owners'
                       : 'Drivers'}
@@ -325,6 +325,9 @@ export function PlanFormModal({
               </div>
             ))}
           </div>
+          <p className="mt-1.5 text-[11px] text-slate-400">
+            Sub-Admins limit does not include the primary Company Admin.
+          </p>
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">

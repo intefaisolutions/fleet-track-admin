@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 import {
   Building2,
   KeyRound,
   Lock,
   Upload,
-  UserRound,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/auth.service';
@@ -13,8 +12,6 @@ import {
   companiesService,
   type CompanyDetail,
 } from '../../services/companies.service';
-import { driversService, type DriverRecord } from '../../services/drivers.service';
-import { vehiclesService, type VehicleRecord } from '../../services/vehicles.service';
 import { subscriptionsService } from '../../services/subscriptions.service';
 import { copyToClipboard } from '../../utils/clipboard';
 import { getApiErrorMessage } from '../../utils/validation';
@@ -39,8 +36,6 @@ export function CompanySettingsPage() {
     country: '',
     logoUrl: '',
   });
-  const [drivers, setDrivers] = useState<DriverRecord[]>([]);
-  const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [passwords, setPasswords] = useState({
     oldPassword: '',
     newPassword: '',
@@ -54,17 +49,13 @@ export function CompanySettingsPage() {
   const load = useCallback(async () => {
     if (!user?.companyId) return;
     try {
-      const [companyRes, subRes, driversRes, vehiclesRes] = await Promise.all([
+      const [companyRes, subRes] = await Promise.all([
         companiesService.getById(user.companyId),
         subscriptionsService.list(),
-        driversService.list(),
-        vehiclesService.list(),
       ]);
       const c = companyRes.data ?? null;
       const subs = subRes.data ?? [];
       setCompany(c);
-      setDrivers(driversRes.data ?? []);
-      setVehicles(vehiclesRes.data ?? []);
       if (c) {
         setCompanyForm({
           name: c.name ?? '',
@@ -84,8 +75,6 @@ export function CompanySettingsPage() {
         setPeriodEnd(subs[0].currentPeriodEnd);
       }
     } catch (err: unknown) {
-      setDrivers([]);
-      setVehicles([]);
       toast.error(getApiErrorMessage(err, 'Failed to load settings'));
     }
   }, [user]);
@@ -138,25 +127,6 @@ export function CompanySettingsPage() {
     }
   };
 
-  const driverUserId = (ref: (typeof drivers)[number]['userId']): string | undefined => {
-    if (!ref) return undefined;
-    if (typeof ref === 'string') return ref;
-    return ref._id;
-  };
-
-  const driverVehicleMap = useMemo(() => {
-    const map = new Map<string, string>();
-    vehicles.forEach((v) => {
-      const assigned = v.assignedDriverId;
-      if (assigned && typeof assigned === 'object') {
-        const keyById = assigned._id;
-        if (keyById) map.set(keyById, v.registrationNumber);
-        if (assigned.fullName) map.set(assigned.fullName.toLowerCase(), v.registrationNumber);
-      }
-    });
-    return map;
-  }, [vehicles]);
-
   const onLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -176,7 +146,7 @@ export function CompanySettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Manage company profile, admin account settings, license details, and drivers.
+          Manage company profile, admin account settings, and license details.
         </p>
       </div>
 
@@ -346,51 +316,6 @@ export function CompanySettingsPage() {
               </button>
             </div>
           </form>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-              <UserRound className="h-5 w-5 text-fleet-600" />
-              View Drivers Page
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              List of all drivers with assigned vehicles.
-            </p>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
-                    <th className="py-2">Driver Name</th>
-                    <th className="py-2">Phone</th>
-                    <th className="py-2">Assigned Vehicle</th>
-                    <th className="py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {drivers.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-6 text-center text-slate-400">
-                        No drivers found.
-                      </td>
-                    </tr>
-                  ) : (
-                    drivers.map((d) => {
-                      const uid = driverUserId(d.userId);
-                      const vehicleById = uid ? driverVehicleMap.get(uid) : null;
-                      const vehicleByName = driverVehicleMap.get(d.fullName.toLowerCase());
-                      return (
-                        <tr key={d._id} className="border-b border-slate-50 last:border-0">
-                          <td className="py-3 font-medium text-slate-900">{d.fullName}</td>
-                          <td className="py-3 text-slate-700">{d.phone}</td>
-                          <td className="py-3 text-slate-700">{vehicleById || vehicleByName || '—'}</td>
-                          <td className="py-3 text-slate-700">{d.status}</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
 
         {/* Right — license details */}

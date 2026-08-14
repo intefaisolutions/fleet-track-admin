@@ -108,12 +108,12 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Account',
     items: [
-      {
-        to: ROUTES.COMPANY_PROFILE,
-        label: 'My Profile',
-        icon: UserCircle,
-        permission: '*',
-      },
+      // {
+      //   to: ROUTES.COMPANY_PROFILE,
+      //   label: 'My Profile',
+      //   icon: UserCircle,
+      //   permission: '*',
+      // },
       {
         to: ROUTES.COMPANY_SETTINGS,
         label: 'Settings',

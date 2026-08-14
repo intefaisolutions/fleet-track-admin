@@ -16,6 +16,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { platformService, type SuperAdminDashboardData, type SuperAdminPaymentRow } from '../../services/platform.service';
 import { getApiErrorMessage } from '../../utils/validation';
 import { formatInr, formatInrShort } from '../../utils/currency';
+import { downloadStyledExcel } from '../../utils/exportStyledExcel';
 
 type DashboardData = SuperAdminDashboardData & {
   revenueThisMonth?: number;
@@ -52,6 +53,14 @@ function formatDate(iso?: string) {
   });
 }
 
+function paymentStatusLabel(status: string) {
+  const s = (status ?? '').toUpperCase();
+  if (s === 'VERIFIED' || s === 'PAID' || s === 'SUCCESS') return 'Paid';
+  if (s === 'PENDING') return 'Pending';
+  if (s === 'REJECTED' || s === 'FAILED') return 'Failed';
+  return status || '—';
+}
+
 function PaymentStatusBadge({ status }: { status: string }) {
   const s = status.toUpperCase();
   const styles =
@@ -73,28 +82,38 @@ function PaymentStatusBadge({ status }: { status: string }) {
   );
 }
 
-function exportPaymentsCsv(rows: PaymentRow[]) {
-  const header = ['Transaction ID', 'Company', 'Date', 'Amount', 'Status'];
-  const lines = rows.map((r) =>
-    [
-      r.transactionId,
-      companyName(r),
-      formatDate(r.createdAt),
-      r.amount,
-      r.status,
-    ]
-      .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-      .join(','),
-  );
-  const blob = new Blob([[header.join(','), ...lines].join('\n')], {
-    type: 'text/csv;charset=utf-8;',
+async function exportPaymentsExcel(rows: PaymentRow[], exportedBy?: string) {
+  const stamp = new Date().toISOString().slice(0, 10);
+  await downloadStyledExcel({
+    companyName: 'FleetTrack Platform',
+    title: 'Recent Payments',
+    sheetName: 'Payments',
+    filename: `FleetTrack_Recent_Payments_${stamp}`,
+    exportedBy,
+    meta: [
+      { label: 'Total records', value: String(rows.length) },
+      {
+        label: 'Total amount',
+        value: formatInr(rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)),
+      },
+    ],
+    columns: [
+      { header: 'Transaction ID', key: 'transactionId', width: 28 },
+      { header: 'Company Name', key: 'company', width: 26 },
+      { header: 'Payment Date', key: 'date', width: 16, date: true },
+      { header: 'Amount', key: 'amount', width: 16, amount: true },
+      { header: 'Plan', key: 'plan', width: 14 },
+      { header: 'Payment Status', key: 'status', width: 16 },
+    ],
+    rows: rows.map((r) => ({
+      transactionId: r.transactionId || '—',
+      company: companyName(r),
+      date: formatDate(r.verifiedAt || r.createdAt),
+      amount: r.amount ?? 0,
+      plan: r.planType || '—',
+      status: paymentStatusLabel(r.status),
+    })),
   });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'recent_payments.csv';
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 export function DashboardPage() {
@@ -102,6 +121,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [chartMode, setChartMode] = useState<'monthly' | 'daily'>('monthly');
 
   const canLoadDashboard =
@@ -331,11 +351,18 @@ export function DashboardPage() {
           <h2 className="text-lg font-bold text-slate-900">Recent Payments</h2>
           <button
             type="button"
-            onClick={() => exportPaymentsCsv(recentPayments)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            disabled={loading || exporting || recentPayments.length === 0}
+            onClick={() => {
+              setExporting(true);
+              void exportPaymentsExcel(recentPayments, user?.fullName)
+                .then(() => toast.success('Payments report downloaded'))
+                .catch(() => toast.error('Failed to export Excel'))
+                .finally(() => setExporting(false));
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Download className="h-4 w-4" />
-            Export CSV
+            {exporting ? 'Exporting…' : 'Export Excel'}
           </button>
         </div>
         <div className="overflow-x-auto">

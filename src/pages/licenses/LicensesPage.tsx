@@ -17,6 +17,7 @@ import {
   Info,
   MoreHorizontal,
   Plus,
+  Search,
   Sparkles,
   TrendingUp,
   X,
@@ -303,7 +304,7 @@ function CreateLicensePanel({
               <div className="grid grid-cols-3 gap-3">
                 {(
                   [
-                    ['maxAdmins', 'Admins'],
+                    ['maxAdmins', 'Sub-Admins'],
                     ['maxOwners', 'Owners'],
                     ['maxDrivers', 'Drivers'],
                   ] as const
@@ -324,6 +325,9 @@ function CreateLicensePanel({
                   </div>
                 ))}
               </div>
+              <p className="mt-1.5 text-[11px] text-slate-400">
+                Sub-Admins seats exclude the primary Company Admin.
+              </p>
             </div>
 
             <div>
@@ -390,6 +394,7 @@ export function LicensesPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [planFilter, setPlanFilter] = useState('');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [panelOpen, setPanelOpen] = useState(false);
   const [generatedLicense, setGeneratedLicense] = useState<GeneratedLicense | null>(null);
@@ -414,9 +419,15 @@ export function LicensesPage() {
   }, [load]);
 
   const filtered = useMemo(() => {
-    if (!planFilter) return licenses;
-    return licenses.filter((l) => l.planType === planFilter);
-  }, [licenses, planFilter]);
+    const q = search.trim().toLowerCase();
+    return licenses.filter((l) => {
+      if (planFilter && l.planType !== planFilter) return false;
+      if (!q) return true;
+      const key = (l.licenseKey ?? '').toLowerCase();
+      const company = (l.intendedCompanyName ?? '').toLowerCase();
+      return key.includes(q) || company.includes(q);
+    });
+  }, [licenses, planFilter, search]);
 
   const activeCount = useMemo(
     () => licenses.filter((l) => l.status === 'ACTIVE' || l.status === 'UNUSED').length,
@@ -428,7 +439,7 @@ export function LicensesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, planFilter]);
+  }, [statusFilter, planFilter, search]);
 
   useEffect(() => {
     if (!menuId) return;
@@ -590,6 +601,16 @@ export function LicensesPage() {
       {/* Filters + metric */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
         <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[16rem] flex-1 sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search license key or company..."
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none focus:border-fleet-500 focus:ring-1 focus:ring-fleet-500/30"
+            />
+          </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}

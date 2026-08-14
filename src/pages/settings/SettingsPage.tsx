@@ -162,11 +162,14 @@ function AddSupportAdminModal({
           <div>
             <input
               type="tel"
+              inputMode="numeric"
               required
-              placeholder="Phone number (+91...)"
+              maxLength={10}
+              placeholder="10-digit phone number"
               value={form.phone}
               onChange={(e) => {
-                setForm({ ...form, phone: e.target.value });
+                const phone = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setForm({ ...form, phone });
                 setErrors((prev) => ({ ...prev, phone: '' }));
               }}
               className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 ${

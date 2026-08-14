@@ -364,7 +364,7 @@ export function CompanyDetailPage() {
               <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="rounded-lg bg-slate-50 px-2 py-3">
                   <p className="font-bold text-slate-900">{stats?.adminCount ?? 0}</p>
-                  <p className="text-slate-500">Admins</p>
+                  <p className="text-slate-500">Sub-Admins</p>
                 </div>
                 <div className="rounded-lg bg-slate-50 px-2 py-3">
                   <p className="font-bold text-slate-900">{stats?.ownerCount ?? 0}</p>
@@ -637,7 +637,8 @@ export function CompanyDetailPage() {
                 {(data.users ?? []).length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-3 py-8 text-center text-slate-400">
-                      No users found.
+                      No users found. Vehicle Owners and Drivers will appear here.
+                    Company Admin is not listed as a fleet user.
                     </td>
                   </tr>
                 ) : (

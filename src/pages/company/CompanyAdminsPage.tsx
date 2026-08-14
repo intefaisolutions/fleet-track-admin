@@ -114,6 +114,11 @@ export function CompanyAdminsPage() {
     pending: 0,
     rolesDefined: 0,
   };
+  const maxAdmins = data?.maxAdmins;
+  const seatsLabel =
+    typeof maxAdmins === 'number'
+      ? `${admins.length} / ${maxAdmins} sub-admin seats`
+      : `${admins.length} sub-admin${admins.length === 1 ? '' : 's'}`;
 
   const totalPages = Math.max(1, Math.ceil(admins.length / PAGE_SIZE));
   const pageAdmins = useMemo(() => {
@@ -124,6 +129,9 @@ export function CompanyAdminsPage() {
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
+
+  const atSeatLimit =
+    typeof maxAdmins === 'number' && admins.length >= maxAdmins;
 
   const handleRemove = async (admin: CompanySubAdmin) => {
     const result = await Swal.fire({
@@ -178,8 +186,8 @@ export function CompanyAdminsPage() {
               Admins (Sub-Admins)
             </h1>
             <p className="mt-1 max-w-xl text-sm text-slate-500">
-              Invite sub-admins and set View / Create / Edit / Delete access on one
-              screen. A temporary password is emailed to them automatically.
+              Invite sub-admins and set View / Create / Edit / Delete access. Primary
+              Company Admin is not counted in the plan seat limit ({seatsLabel}).
             </p>
           </div>
         </div>
@@ -189,7 +197,13 @@ export function CompanyAdminsPage() {
             setEditTarget(null);
             setModalOpen(true);
           }}
-          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600"
+          disabled={atSeatLimit}
+          title={
+            atSeatLimit
+              ? `Sub-admin limit reached (${seatsLabel})`
+              : 'Invite a sub-admin'
+          }
+          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-fleet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Plus className="h-4 w-4" />
           Add Sub-Admin
@@ -197,7 +211,7 @@ export function CompanyAdminsPage() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Admins" value={stats.total} valueClass="text-slate-900" />
+        <StatCard label="Total Sub-Admins" value={stats.total} valueClass="text-slate-900" />
         <StatCard label="Active Now" value={stats.active} valueClass="text-emerald-600" />
         <StatCard
           label="Pending Invites"
@@ -213,7 +227,7 @@ export function CompanyAdminsPage() {
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 bg-slate-50/40 px-5 py-3 text-sm text-slate-600">
-          View All Admins: {admins.length} admin{admins.length === 1 ? '' : 's'} managing company
+          {seatsLabel} managing company (primary Company Admin excluded)
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">

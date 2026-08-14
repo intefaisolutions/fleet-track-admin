@@ -35,8 +35,12 @@ export const authService = {
 
   profile: () => getData<AuthUser>('/auth/profile'),
 
-  updateProfile: (data: { fullName?: string; phone?: string; profileImage?: string }) =>
-    patchData<AuthUser>('/auth/profile', data),
+  updateProfile: (data: {
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    profileImage?: string;
+  }) => patchData<AuthUser>('/auth/profile', data),
 
   changePassword: (oldPassword: string, newPassword: string) =>
     postData('/auth/change-password', { oldPassword, newPassword }),

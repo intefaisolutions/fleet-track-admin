@@ -11,6 +11,7 @@ import {
   UserCircle,
   Wallet,
   Landmark,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   ROLES,
@@ -76,6 +77,12 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
         to: ROUTES.PAYMENT_SETTINGS,
         label: 'Payment Config',
         icon: Landmark,
+        permission: 'payments:write',
+      },
+      {
+        to: ROUTES.PENDING_PAYMENTS,
+        label: 'Payment Requests',
+        icon: ClipboardCheck,
         permission: 'payments:write',
       },
       {

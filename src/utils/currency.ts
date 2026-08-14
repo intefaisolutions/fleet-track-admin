@@ -89,6 +89,23 @@ export function formatInr(
   })}`;
 }
 
+/**
+ * Excel-safe INR text. The ₹ glyph (U+20B9) often shows as □ / ?? in Excel
+ * on Windows depending on font/encoding — use "Rs." for exports.
+ */
+export function formatInrForExcel(
+  amount: number,
+  options?: { fractionDigits?: number },
+): string {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return 'Rs. 0';
+  const digits = options?.fractionDigits ?? 2;
+  return `Rs. ${n.toLocaleString('en-IN', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
+}
+
 /** Compact KPI style (L / k) — still Indian-aware for full amounts under 1k. */
 export function formatInrShort(amount: number): string {
   const n = Number(amount);

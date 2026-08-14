@@ -6,8 +6,10 @@ import {
   platformService,
   type RevenueOverviewData,
 } from '../../services/platform.service';
+import { useAuth } from '../../context/AuthContext';
 import { getApiErrorMessage } from '../../utils/validation';
-import { formatInr, formatInrShort } from '../../utils/currency';
+import { formatInr, formatInrForExcel, formatInrShort } from '../../utils/currency';
+import { downloadMultiSectionExcel } from '../../utils/exportStyledExcel';
 
 const MONTHS = [
   'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
@@ -34,40 +36,128 @@ function buildMonthOptions() {
   return options;
 }
 
-function exportRevenueCsv(data: RevenueOverviewData) {
-  const header = ['Company', 'Plan', 'Amount (INR)', 'Status'];
-  const lines = data.revenueByCompany.map((row) =>
-    [row.name, row.plan, row.amount, row.status]
-      .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-      .join(','),
-  );
+function periodLabel(month: number, year: number) {
+  return new Date(year, month - 1, 1).toLocaleDateString('en-IN', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function paymentStatusLabel(status: string) {
+  const s = (status ?? '').toUpperCase();
+  if (s === 'PAID' || s === 'VERIFIED' || s === 'SUCCESS') return 'Paid';
+  if (s === 'PENDING') return 'Pending';
+  if (s === 'REJECTED' || s === 'FAILED') return 'Rejected';
+  return status || '—';
+}
+
+async function exportRevenueExcel(
+  data: RevenueOverviewData,
+  exportedBy?: string,
+) {
+  const period = periodLabel(data.selectedMonth, data.selectedYear);
+  const monthSlug = period.replace(/\s+/g, '_');
   const report = data.paymentStatusReport;
-  const summary = [
-    '',
-    `"Monthly Revenue","${data.monthlyRevenue}"`,
-    `"Yearly Revenue","${data.yearlyRevenue}"`,
-    `"Pending Payments (amount)","${data.pendingPayments}"`,
-    `"Paid companies (month)","${report?.paidCount ?? 0}"`,
-    `"Pending companies (month)","${report?.pendingCount ?? 0}"`,
-    '',
-    '"Revenue by Plan","Amount","Companies"',
-    ...(data.revenueByPlan ?? []).map((r) =>
-      [`"${r.planType}"`, r.amount, r.companyCount].join(','),
-    ),
-  ];
-  const blob = new Blob(
-    [[header.join(','), ...lines, ...summary].join('\n')],
-    { type: 'text/csv;charset=utf-8;' },
-  );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const monthSlug = new Date(data.selectedYear, data.selectedMonth - 1, 1)
-    .toLocaleDateString('en-US', { month: 'long' })
-    .toLowerCase();
-  a.download = `revenue_${monthSlug}_${data.selectedYear}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+
+  await downloadMultiSectionExcel({
+    companyName: 'FleetTrack Platform',
+    title: 'Revenue Overview Report',
+    filename: `FleetTrack_Revenue_${monthSlug}`,
+    exportedBy,
+    meta: [
+      { label: 'Report period', value: period },
+      {
+        label: 'Monthly revenue',
+        value: formatInrForExcel(data.monthlyRevenue, { fractionDigits: 0 }),
+      },
+      {
+        label: 'Yearly revenue',
+        value: formatInrForExcel(data.yearlyRevenue, { fractionDigits: 0 }),
+      },
+      {
+        label: 'Pending payments (amount)',
+        value: formatInrForExcel(data.pendingPayments, { fractionDigits: 0 }),
+      },
+    ],
+    sections: [
+      {
+        title: '1. Company Payments (selected month)',
+        columns: [
+          { header: 'Company Name', key: 'company', width: 28 },
+          { header: 'Subscription Plan', key: 'plan', width: 18 },
+          { header: 'Amount Paid', key: 'amount', width: 16, amount: true },
+          { header: 'Payment Status', key: 'status', width: 16 },
+        ],
+        rows: (data.revenueByCompany ?? []).map((row) => ({
+          company: row.name || '—',
+          plan: row.plan || '—',
+          amount: row.amount ?? 0,
+          status: paymentStatusLabel(row.status),
+        })),
+      },
+      {
+        title: '2. Month Summary',
+        columns: [
+          { header: 'Metric', key: 'metric', width: 32 },
+          { header: 'Value', key: 'value', width: 22 },
+        ],
+        rows: [
+          {
+            metric: 'Monthly Revenue',
+            value: formatInrForExcel(data.monthlyRevenue, { fractionDigits: 0 }),
+          },
+          {
+            metric: 'Yearly Revenue',
+            value: formatInrForExcel(data.yearlyRevenue, { fractionDigits: 0 }),
+          },
+          {
+            metric: 'Pending Payments Amount',
+            value: formatInrForExcel(data.pendingPayments, { fractionDigits: 0 }),
+          },
+          {
+            metric: 'Companies Paid (this month)',
+            value: report?.paidCount ?? 0,
+          },
+          {
+            metric: 'Companies Pending (this month)',
+            value: report?.pendingCount ?? 0,
+          },
+          {
+            metric: 'Overdue Pending Invoices',
+            value: data.overduePendingCount ?? 0,
+          },
+          {
+            metric: 'Total Active Subscriptions',
+            value: data.totalSubscriptions ?? 0,
+          },
+        ],
+      },
+      {
+        title: '3. Revenue by Plan',
+        columns: [
+          { header: 'Plan Name', key: 'plan', width: 20 },
+          { header: 'Revenue Amount', key: 'amount', width: 18, amount: true },
+          { header: 'Companies', key: 'companies', width: 12 },
+        ],
+        rows: (data.revenueByPlan ?? []).map((r) => ({
+          plan: r.planType || '—',
+          amount: r.amount ?? 0,
+          companies: r.companyCount ?? 0,
+        })),
+      },
+      {
+        title: '4. Plan Distribution (subscriptions)',
+        columns: [
+          { header: 'Plan Name', key: 'plan', width: 20 },
+          { header: 'Active Companies', key: 'count', width: 18 },
+        ],
+        rows: (data.planDistribution ?? []).map((p) => ({
+          plan: p.planType || '—',
+          count: p.count ?? 0,
+        })),
+      },
+    ],
+  });
 }
 
 function planConicGradient(distribution: { planType: string; count: number }[]) {
@@ -86,6 +176,7 @@ function planConicGradient(distribution: { planType: string; count: number }[]) 
 }
 
 export function RevenueOverviewPage() {
+  const { user } = useAuth();
   const now = new Date();
   const monthOptions = useMemo(() => buildMonthOptions(), []);
   const [selected, setSelected] = useState(
@@ -93,6 +184,7 @@ export function RevenueOverviewPage() {
   );
   const [data, setData] = useState<RevenueOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const selectedParts = useMemo(() => {
     const [y, m] = selected.split('-').map(Number);
@@ -167,12 +259,19 @@ export function RevenueOverviewPage() {
           </select>
           <button
             type="button"
-            disabled={!data || loading}
-            onClick={() => data && exportRevenueCsv(data)}
+            disabled={!data || loading || exporting}
+            onClick={() => {
+              if (!data) return;
+              setExporting(true);
+              void exportRevenueExcel(data, user?.fullName)
+                .then(() => toast.success('Revenue report downloaded'))
+                .catch(() => toast.error('Failed to export Excel'))
+                .finally(() => setExporting(false));
+            }}
             className="flex items-center gap-2 rounded-lg bg-fleet-500 px-4 py-2 text-sm font-medium text-white hover:bg-fleet-600 disabled:opacity-60"
           >
             <Download className="h-4 w-4" />
-            Export CSV
+            {exporting ? 'Exporting…' : 'Export Excel'}
           </button>
         </div>
       </div>

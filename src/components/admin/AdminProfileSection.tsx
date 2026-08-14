@@ -4,10 +4,12 @@ import { Pencil, UserCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/auth.service';
 import { uploadImage } from '../../services/storage.service';
-import { getApiErrorMessage } from '../../utils/validation';
+import { ROLES } from '../../config/constants';
+import { getApiErrorMessage, validateEmail, validatePhone } from '../../utils/validation';
 
 export function AdminProfileSection() {
   const { user, setUser } = useAuth();
+  const canChangeEmail = user?.role === ROLES.SUPER_ADMIN;
   const [profile, setProfile] = useState({
     fullName: '',
     email: '',
@@ -54,11 +56,24 @@ export function AdminProfileSection() {
 
   const handleSaveProfile = async (e: FormEvent) => {
     e.preventDefault();
+    if (canChangeEmail) {
+      const emailErr = validateEmail(profile.email);
+      if (emailErr) {
+        toast.error(emailErr);
+        return;
+      }
+    }
+    const phoneErr = validatePhone(profile.phone, true);
+    if (phoneErr) {
+      toast.error(phoneErr);
+      return;
+    }
     setSaving(true);
     try {
       const res = await authService.updateProfile({
         fullName: profile.fullName.trim(),
         phone: profile.phone.trim(),
+        ...(canChangeEmail ? { email: profile.email.trim().toLowerCase() } : {}),
       });
       if (res.data && user) {
         setUser({ ...user, ...res.data });
@@ -133,10 +148,24 @@ export function AdminProfileSection() {
             </label>
             <input
               type="email"
-              readOnly
+              required={canChangeEmail}
+              readOnly={!canChangeEmail}
               value={profile.email}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500"
+              onChange={(e) => {
+                if (!canChangeEmail) return;
+                setProfile({ ...profile, email: e.target.value });
+              }}
+              className={
+                canChangeEmail
+                  ? 'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20'
+                  : 'w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500'
+              }
             />
+            {canChangeEmail ? (
+              <p className="mt-1 text-xs text-slate-500">
+                After changing email, use the new address to sign in.
+              </p>
+            ) : null}
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -144,8 +173,15 @@ export function AdminProfileSection() {
             </label>
             <input
               type="tel"
+              inputMode="numeric"
+              maxLength={10}
               value={profile.phone}
-              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+              onChange={(e) =>
+                setProfile({
+                  ...profile,
+                  phone: e.target.value.replace(/\D/g, '').slice(0, 10),
+                })
+              }
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
           </div>

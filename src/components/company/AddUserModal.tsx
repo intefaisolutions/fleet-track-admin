@@ -5,7 +5,13 @@ import { ROLES } from '../../config/constants';
 import { usersService } from '../../services/users.service';
 import { driversService } from '../../services/drivers.service';
 import { ModalPanel } from '../ui/ModalPanel';
-import { getApiErrorMessage } from '../../utils/validation';
+import {
+  getApiErrorMessage,
+  normalizeLicenseNumber,
+  validateDrivingLicense,
+  validateEmail,
+  validatePhone,
+} from '../../utils/validation';
 
 type Tab = 'owners' | 'drivers';
 
@@ -35,6 +41,11 @@ const initialDriver = {
   licenseNumber: '',
 };
 
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="mt-1 text-xs text-red-600">{message}</p>;
+}
+
 export function AddUserModal({
   open,
   tab,
@@ -47,6 +58,7 @@ export function AddUserModal({
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   if (!open) return null;
 
@@ -55,6 +67,7 @@ export function AddUserModal({
     setDriverForm(initialDriver);
     setShowPassword(false);
     setShowConfirm(false);
+    setErrors({});
     onClose();
   };
 
@@ -75,19 +88,35 @@ export function AddUserModal({
       return;
     }
 
+    const email = tab === 'owners' ? ownerForm.email : driverForm.email;
+    const phone = tab === 'owners' ? ownerForm.phone : driverForm.phone;
     const password =
       tab === 'owners' ? ownerForm.password : driverForm.password;
     const confirmPassword =
       tab === 'owners' ? ownerForm.confirmPassword : driverForm.confirmPassword;
 
+    const nextErrors: Record<string, string> = {};
+    const emailErr = validateEmail(email);
+    if (emailErr) nextErrors.email = emailErr;
+    const phoneErr = validatePhone(phone, true);
+    if (phoneErr) nextErrors.phone = phoneErr;
+    if (tab === 'drivers') {
+      const licenseErr = validateDrivingLicense(driverForm.licenseNumber, true);
+      if (licenseErr) nextErrors.licenseNumber = licenseErr;
+    }
     if (password.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
+      nextErrors.password = 'Password must be at least 8 characters';
     }
     if (password !== confirmPassword) {
-      toast.error('Passwords do not match');
+      nextErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      toast.error(Object.values(nextErrors)[0]);
       return;
     }
+    setErrors({});
 
     setLoading(true);
     try {
@@ -110,7 +139,7 @@ export function AddUserModal({
           email: driverForm.email.trim(),
           phone: driverForm.phone.trim(),
           password: driverForm.password,
-          licenseNumber: driverForm.licenseNumber.trim(),
+          licenseNumber: normalizeLicenseNumber(driverForm.licenseNumber),
         });
         toast.success('Driver created');
         notifyWelcomeEmail(res.meta?.welcomeEmailSent);
@@ -127,6 +156,12 @@ export function AddUserModal({
   const form = tab === 'owners' ? ownerForm : driverForm;
   const passwordValue = form.password;
   const confirmValue = form.confirmPassword;
+  const inputClass = (field?: string) =>
+    `w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 ${
+      field && errors[field]
+        ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20'
+        : 'border-slate-200 focus:border-fleet-500 focus:ring-fleet-500/20'
+    }`;
 
   return (
     <>
@@ -145,7 +180,10 @@ export function AddUserModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="max-h-[min(75dvh,calc(100vh-10rem))] space-y-4 overflow-y-auto px-4 py-5 md:px-6">
+        <form
+          onSubmit={handleSubmit}
+          className="max-h-[min(75dvh,calc(100vh-10rem))] space-y-4 overflow-y-auto px-4 py-5 md:px-6"
+        >
           <div>
             <label className="mb-1 flex text-sm font-medium text-slate-700">
               Full Name
@@ -160,7 +198,7 @@ export function AddUserModal({
                 else setDriverForm((p) => ({ ...p, fullName: value }));
               }}
               placeholder="Rajesh Sharma"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+              className={inputClass()}
             />
           </div>
           <div>
@@ -176,10 +214,12 @@ export function AddUserModal({
                 const value = e.target.value;
                 if (tab === 'owners') setOwnerForm((p) => ({ ...p, email: value }));
                 else setDriverForm((p) => ({ ...p, email: value }));
+                setErrors((prev) => ({ ...prev, email: '' }));
               }}
               placeholder="rajesh@abctransport.com"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+              className={inputClass('email')}
             />
+            <FieldError message={errors.email} />
           </div>
           <div>
             <label className="mb-1 flex text-sm font-medium text-slate-700">
@@ -189,19 +229,19 @@ export function AddUserModal({
             <input
               type="tel"
               required
-              minLength={10}
+              inputMode="numeric"
               maxLength={10}
-              pattern="[0-9]{10}"
-              title="Please enter exactly 10 digits"
               value={form.phone}
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                 if (tab === 'owners') setOwnerForm((p) => ({ ...p, phone: val }));
                 else setDriverForm((p) => ({ ...p, phone: val }));
+                setErrors((prev) => ({ ...prev, phone: '' }));
               }}
               placeholder="9876543210"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+              className={inputClass('phone')}
             />
+            <FieldError message={errors.phone} />
           </div>
           {tab === 'owners' && (
             <div>
@@ -229,11 +269,17 @@ export function AddUserModal({
               <input
                 required
                 value={driverForm.licenseNumber}
-                onChange={(e) =>
-                  setDriverForm({ ...driverForm, licenseNumber: e.target.value })
-                }
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+                onChange={(e) => {
+                  const value = e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9\s-]/g, '');
+                  setDriverForm((p) => ({ ...p, licenseNumber: value }));
+                  setErrors((prev) => ({ ...prev, licenseNumber: '' }));
+                }}
+                placeholder="DL1420110012345"
+                className={inputClass('licenseNumber')}
               />
+              <FieldError message={errors.licenseNumber} />
             </div>
           )}
           <div>
@@ -251,9 +297,10 @@ export function AddUserModal({
                   const value = e.target.value;
                   if (tab === 'owners') setOwnerForm((p) => ({ ...p, password: value }));
                   else setDriverForm((p) => ({ ...p, password: value }));
+                  setErrors((prev) => ({ ...prev, password: '', confirmPassword: '' }));
                 }}
                 placeholder="Set new password"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 pr-11 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+                className={`${inputClass('password')} pr-11`}
               />
               <button
                 type="button"
@@ -268,6 +315,7 @@ export function AddUserModal({
                 )}
               </button>
             </div>
+            <FieldError message={errors.password} />
           </div>
           <div>
             <label className="mb-1 flex text-sm font-medium text-slate-700">
@@ -287,9 +335,10 @@ export function AddUserModal({
                   } else {
                     setDriverForm((p) => ({ ...p, confirmPassword: value }));
                   }
+                  setErrors((prev) => ({ ...prev, confirmPassword: '' }));
                 }}
                 placeholder="Must match password"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 pr-11 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
+                className={`${inputClass('confirmPassword')} pr-11`}
               />
               <button
                 type="button"
@@ -304,6 +353,7 @@ export function AddUserModal({
                 )}
               </button>
             </div>
+            <FieldError message={errors.confirmPassword} />
           </div>
           <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end sm:gap-3">
             <button

@@ -92,6 +92,8 @@ export interface CompanySubAdminsStats {
 export interface CompanySubAdminsPayload {
   admins: CompanySubAdmin[];
   stats: CompanySubAdminsStats;
+  /** Sub-admin seats only — primary Company Admin is not counted */
+  maxAdmins?: number;
 }
 
 export const companiesService = {
