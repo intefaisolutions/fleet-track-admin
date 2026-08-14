@@ -17,6 +17,8 @@ export interface AuthUser {
   isEmailVerified: boolean;
   companyId?: string;
   permissions?: string[];
+  /** True when this COMPANY_ADMIN is an invited sub-admin with limited grants */
+  isSubAdmin?: boolean;
   /** Company Admin only — must complete license activation before dashboard */
   requiresLicenseActivation?: boolean;
   lastLogin?: string | Date | null;

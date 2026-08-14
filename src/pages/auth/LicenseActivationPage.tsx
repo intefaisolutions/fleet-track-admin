@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { AuthPageBrand } from '../../components/auth/AuthPageBrand';
 import { AuthPageFooter } from '../../components/auth/AuthPageFooter';
-import { ROUTES } from '../../config/constants';
+import { firstCompanyAdminRoute, ROUTES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 import {
   companiesService,
@@ -174,7 +174,12 @@ export function LicenseActivationPage() {
   }
 
   if (status && !status.requiresActivation) {
-    return <Navigate to={ROUTES.COMPANY_DASHBOARD} replace />;
+    return (
+      <Navigate
+        to={firstCompanyAdminRoute(user?.permissions ?? [])}
+        replace
+      />
+    );
   }
 
   const companyName = status?.companyName ?? 'Your company';
@@ -199,7 +204,7 @@ export function LicenseActivationPage() {
           'Your license key has been verified successfully. Welcome to FleetTrack!',
       );
       markLicenseActivated();
-      navigate(ROUTES.COMPANY_DASHBOARD, { replace: true });
+      navigate(firstCompanyAdminRoute(user?.permissions ?? []), { replace: true });
     } catch (err: unknown) {
       const message = getApiErrorMessage(
         err,

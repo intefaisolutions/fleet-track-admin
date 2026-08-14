@@ -100,6 +100,40 @@ export function firstSupportAdminRoute(permissions: string[] = []): string {
   return first?.route ?? ROUTES.PROFILE;
 }
 
+/** Sidebar-aligned routes for company sub-admins (first match = default home). */
+export const COMPANY_SUB_ADMIN_ROUTE_PERMISSIONS: Array<{
+  route: string;
+  permission: string;
+}> = [
+  { route: ROUTES.COMPANY_DASHBOARD, permission: 'analytics:read' },
+  { route: ROUTES.COMPANY_REPORTS, permission: 'reports:read' },
+  { route: ROUTES.COMPANY_VEHICLES, permission: 'vehicles:read' },
+  { route: ROUTES.COMPANY_DRIVERS, permission: 'drivers:read' },
+  { route: ROUTES.COMPANY_EXPENSES, permission: 'expenses:read' },
+  { route: ROUTES.COMPANY_USERS, permission: 'users:read' },
+  { route: ROUTES.COMPANY_SUBSCRIPTION, permission: 'subscriptions:read' },
+  { route: ROUTES.COMPANY_WALLET, permission: 'payments:read' },
+  { route: ROUTES.COMPANY_SETTINGS, permission: 'settings:read' },
+];
+
+export function isRestrictedCompanySubAdmin(permissions: string[] = []): boolean {
+  if (permissions.length === 0) return false;
+  return !(
+    permissions.includes('companies:read') ||
+    permissions.includes('licenses:read')
+  );
+}
+
+export function firstCompanyAdminRoute(permissions: string[] = []): string {
+  if (!isRestrictedCompanySubAdmin(permissions)) {
+    return ROUTES.COMPANY_DASHBOARD;
+  }
+  const first = COMPANY_SUB_ADMIN_ROUTE_PERMISSIONS.find((entry) =>
+    permissions.includes(entry.permission),
+  );
+  return first?.route ?? ROUTES.COMPANY_PROFILE;
+}
+
 export function adminRoleLabel(role: string | null | undefined): string {
   switch (role) {
     case ROLES.SUPER_ADMIN:
@@ -143,7 +177,7 @@ export function homeRouteForRole(
     case ROLES.SUPPORT_ADMIN:
       return firstSupportAdminRoute(permissions);
     case ROLES.COMPANY_ADMIN:
-      // Always land on License Verification; page redirects verified users to Dashboard.
+      // Always land on License Verification; page redirects verified users to first allowed page.
       return ROUTES.COMPANY_LICENSE_ACTIVATION;
     case ROLES.VEHICLE_OWNER:
       return ROUTES.OWNER_DASHBOARD;

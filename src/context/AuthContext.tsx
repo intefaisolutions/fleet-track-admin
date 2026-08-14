@@ -29,6 +29,7 @@ function mapAuthUser(raw: AuthUser & { _id?: string }): AuthUser {
     isEmailVerified: raw.isEmailVerified,
     companyId: raw.companyId ? String(raw.companyId) : undefined,
     permissions: raw.permissions ?? [],
+    isSubAdmin: !!raw.isSubAdmin,
     requiresLicenseActivation: !!raw.requiresLicenseActivation,
     lastLogin: raw.lastLogin ?? null,
     lastActivity: raw.lastActivity ?? null,

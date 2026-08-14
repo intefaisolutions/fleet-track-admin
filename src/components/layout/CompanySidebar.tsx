@@ -107,12 +107,6 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Account',
     items: [
-      // {
-      //   to: ROUTES.COMPANY_PROFILE,
-      //   label: 'My Profile',
-      //   icon: UserCircle,
-      //   permission: '*',
-      // },
       {
         to: ROUTES.COMPANY_SETTINGS,
         label: 'Settings',
@@ -135,15 +129,13 @@ export function CompanySidebar({
 
   const isRestrictedSubAdmin = useMemo(() => {
     if (user?.role !== ROLES.COMPANY_ADMIN) return false;
-    // Primary company admin gets full ROLE_PERMISSIONS (large set).
-    // Sub-admins have an explicit smaller grant list stored on the user.
+    if (user.isSubAdmin) return true;
     const perms = user.permissions ?? [];
     if (perms.length === 0) return false;
-    // Heuristic: full company-admin role pack includes companies:read etc.;
-    // sub-admins only get the invite allow-list keys.
-    const fullRoleSignal = perms.includes('companies:read') || perms.includes('licenses:read');
+    const fullRoleSignal =
+      perms.includes('companies:read') || perms.includes('licenses:read');
     return !fullRoleSignal;
-  }, [user?.role, user?.permissions]);
+  }, [user?.role, user?.permissions, user?.isSubAdmin]);
 
   const visibleGroups = useMemo(() => {
     if (!isRestrictedSubAdmin) return NAV_GROUPS;

@@ -1,5 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import {
+  COMPANY_SUB_ADMIN_ROUTE_PERMISSIONS,
+  firstCompanyAdminRoute,
+  isRestrictedCompanySubAdmin,
+  ROUTES,
+} from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 import { useMobileSidebar } from '../../hooks/useMobileSidebar';
 import { companiesService } from '../../services/companies.service';
@@ -9,6 +15,7 @@ import { MobileSidebarOverlay } from './MobileSidebarOverlay';
 
 export function CompanyLayout() {
   const { user } = useAuth();
+  const location = useLocation();
   const [companyName, setCompanyName] = useState<string>();
   const { open, close, toggle } = useMobileSidebar();
 
@@ -22,6 +29,24 @@ export function CompanyLayout() {
       })
       .catch(() => {});
   }, [user?.companyId]);
+
+  const permissions = user?.permissions ?? [];
+  const restricted = user?.isSubAdmin || isRestrictedCompanySubAdmin(permissions);
+
+  const blockedRoute = useMemo(() => {
+    if (!restricted) return false;
+    if (location.pathname === ROUTES.COMPANY_PROFILE) return false;
+    if (location.pathname === ROUTES.COMPANY_ADMINS) return true;
+    const entry = COMPANY_SUB_ADMIN_ROUTE_PERMISSIONS.find(
+      (e) => e.route === location.pathname,
+    );
+    if (!entry) return false;
+    return !permissions.includes(entry.permission);
+  }, [restricted, location.pathname, permissions]);
+
+  if (blockedRoute) {
+    return <Navigate to={firstCompanyAdminRoute(permissions)} replace />;
+  }
 
   return (
     <div className="h-[100dvh] overflow-hidden bg-surface">

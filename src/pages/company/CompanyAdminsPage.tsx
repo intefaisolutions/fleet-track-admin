@@ -10,7 +10,7 @@ import {
 } from '../../services/companies.service';
 import {
   AddSubAdminModal,
-  permissionLabel,
+  summarizePermissionAreas,
   type SubAdminEditTarget,
 } from '../../components/company/AddSubAdminModal';
 import { getApiErrorMessage } from '../../utils/validation';
@@ -275,15 +275,45 @@ export function CompanyAdminsPage() {
                     <td className="px-5 py-4 text-slate-600">{admin.email}</td>
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-1.5">
-                        {admin.permissions.map((p) => (
-                          <span
-                            key={p}
-                            className="rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-800"
-                          >
-                            {permissionLabel(p)}
-                          </span>
-                        ))}
+                        {(() => {
+                          const areas = summarizePermissionAreas(
+                            admin.permissions ?? [],
+                          );
+                          if (areas.length === 0) {
+                            return (
+                              <span className="text-xs text-slate-400">
+                                No access
+                              </span>
+                            );
+                          }
+                          const shown = areas.slice(0, 4);
+                          const rest = areas.length - shown.length;
+                          return (
+                            <>
+                              {shown.map((label) => (
+                                <span
+                                  key={label}
+                                  className="rounded-md bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-800"
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                              {rest > 0 ? (
+                                <span
+                                  className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                                  title={areas.join(', ')}
+                                >
+                                  +{rest} more
+                                </span>
+                              ) : null}
+                            </>
+                          );
+                        })()}
                       </div>
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        {(admin.permissions ?? []).length} action
+                        {(admin.permissions ?? []).length === 1 ? '' : 's'}
+                      </p>
                     </td>
                     <td className="px-5 py-4">
                       <StatusCell status={admin.status} />

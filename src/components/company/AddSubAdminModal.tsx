@@ -152,6 +152,14 @@ export function permissionLabel(key: string) {
   return key;
 }
 
+/** Compact labels for the admins table (areas with any grant). */
+export function summarizePermissionAreas(permissions: string[]): string[] {
+  const granted = new Set(permissions);
+  return SUB_ADMIN_PERMISSION_AREAS.filter((area) =>
+    Object.values(area.keys).some((k) => k && granted.has(k)),
+  ).map((area) => area.sidebar);
+}
+
 /** Map sidebar route → permission needed to see the nav item. */
 export const COMPANY_SIDEBAR_PERMISSION: Record<string, string> = {
   dashboard: 'analytics:read',
@@ -200,6 +208,12 @@ export function AddSubAdminModal({
   }, [open, editTarget]);
 
   const selectedCount = selected.size;
+  const enabledAreaCount = useMemo(() => {
+    const granted = selected;
+    return SUB_ADMIN_PERMISSION_AREAS.filter((area) =>
+      Object.values(area.keys).some((k) => k && granted.has(k)),
+    ).length;
+  }, [selected]);
 
   const allToggleableKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -215,6 +229,28 @@ export function AddSubAdminModal({
   if (!open) return null;
 
   const isChecked = (key: string | undefined) => !!key && selected.has(key);
+
+  const areaKeys = (area: PermissionArea) =>
+    ACTION_COLUMNS.map((c) => area.keys[c.id]).filter(
+      (k): k is string => !!k,
+    );
+
+  const isAreaEnabled = (area: PermissionArea) =>
+    areaKeys(area).some((k) => selected.has(k));
+
+  const setAreaEnabled = (area: PermissionArea, on: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const keys = areaKeys(area);
+      if (on) {
+        if (area.keys.view) next.add(area.keys.view);
+        else keys.forEach((k) => next.add(k));
+      } else {
+        keys.forEach((k) => next.delete(k));
+      }
+      return next;
+    });
+  };
 
   const toggleKey = (key: string | undefined) => {
     if (!key) return;
@@ -282,14 +318,14 @@ export function AddSubAdminModal({
         onClick={onClose}
         aria-label="Close"
       />
-      <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+      <div className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900">
               {isEdit ? 'Edit Sub-Admin Permissions' : 'Create Sub-Admin'}
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Permissions match Company Admin sidebar areas (except Admins).
+              Choose which sidebar areas this person can access.
             </p>
           </div>
           <button
@@ -353,16 +389,16 @@ export function AddSubAdminModal({
             ) : null}
 
             <div>
-              <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">
                     Set permissions
                   </p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    One table for all sidebar areas.
-                    {selectedCount > 0
-                      ? ` ${selectedCount} selected.`
-                      : ''}
+                    Turn on an area, then pick View / Create / Edit / Delete.
+                    {enabledAreaCount > 0
+                      ? ` ${enabledAreaCount} area${enabledAreaCount === 1 ? '' : 's'}, ${selectedCount} action${selectedCount === 1 ? '' : 's'}.`
+                      : ' Nothing selected yet.'}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -383,62 +419,91 @@ export function AddSubAdminModal({
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full min-w-[560px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      <th className="px-4 py-3">Sidebar area</th>
-                      {ACTION_COLUMNS.map((col) => (
-                        <th key={col.id} className="px-2 py-3 text-center">
-                          {col.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {SUB_ADMIN_PERMISSION_AREAS.map((area) => (
-                      <tr
-                        key={area.id}
-                        className="border-b border-slate-50 last:border-0"
-                      >
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-slate-900">
+              <div className="space-y-2">
+                {SUB_ADMIN_PERMISSION_AREAS.map((area) => {
+                  const enabled = isAreaEnabled(area);
+                  const actionCols = ACTION_COLUMNS.filter((col) => area.keys[col.id]);
+                  return (
+                    <div
+                      key={area.id}
+                      className={`rounded-xl border px-4 py-3 transition ${
+                        enabled
+                          ? 'border-fleet-200 bg-fleet-50/40'
+                          : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900">
                             {area.sidebar}
                           </p>
                           <p className="text-xs text-slate-500">
                             {area.description}
                           </p>
-                        </td>
-                        {ACTION_COLUMNS.map((col) => {
-                          const key = area.keys[col.id];
-                          const available = !!key;
-                          const checked = isChecked(key);
-                          return (
-                            <td key={col.id} className="px-2 py-3 text-center">
-                              {available ? (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleKey(key)}
-                                  aria-pressed={checked}
-                                  aria-label={`${col.label} ${area.label}`}
-                                  className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
-                                    checked
-                                      ? 'border-fleet-500 bg-fleet-500 text-white'
-                                      : 'border-slate-200 bg-white text-transparent hover:border-fleet-300'
-                                  }`}
-                                >
-                                  <Check className="h-4 w-4" strokeWidth={2.5} />
-                                </button>
-                              ) : (
-                                <span className="text-xs text-slate-300">—</span>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={enabled}
+                          onClick={() => setAreaEnabled(area, !enabled)}
+                          className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+                            enabled ? 'bg-fleet-500' : 'bg-slate-200'
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition ${
+                              enabled ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                          <span className="sr-only">
+                            {enabled ? 'Disable' : 'Enable'} {area.sidebar}
+                          </span>
+                        </button>
+                      </div>
+
+                      {enabled ? (
+                        <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200/80 pt-3">
+                          {actionCols.map((col) => {
+                            const key = area.keys[col.id];
+                            const checked = isChecked(key);
+                            const label =
+                              col.id === 'create'
+                                ? 'Create / Edit'
+                                : col.id === 'edit' && area.keys.create === key
+                                  ? 'Create / Edit'
+                                  : col.label;
+                            // Skip duplicate Edit chip when same key as Create
+                            if (
+                              col.id === 'edit' &&
+                              area.keys.create &&
+                              area.keys.create === key
+                            ) {
+                              return null;
+                            }
+                            return (
+                              <button
+                                key={col.id}
+                                type="button"
+                                onClick={() => toggleKey(key)}
+                                aria-pressed={checked}
+                                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                  checked
+                                    ? 'border-fleet-500 bg-fleet-500 text-white'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-fleet-300'
+                                }`}
+                              >
+                                {checked ? (
+                                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                ) : null}
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
