@@ -1,6 +1,6 @@
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'react-toastify';
-import { API_BASE_URL, STORAGE_KEYS, ROUTES, ROLES } from '../config/constants';
+import { API_BASE_URL, STORAGE_KEYS, ROUTES } from '../config/constants';
 import type { ApiResponse } from '../types/api';
 
 const api = axios.create({
@@ -117,10 +117,6 @@ api.interceptors.response.use(
         }
 
         toast.error("Access denied. You don't have permission for this action.");
-        const role = localStorage.getItem(STORAGE_KEYS.ROLE);
-        if (role === ROLES.SUPPORT_ADMIN && !window.location.pathname.startsWith(ROUTES.PROFILE)) {
-          window.location.assign(ROUTES.PROFILE);
-        }
       }
     }
     return Promise.reject(error);

@@ -14,10 +14,6 @@ import {
   vehiclesService,
   type VehicleRecord,
 } from '../../services/vehicles.service';
-import {
-  subscriptionsService,
-  type SubscriptionRecord,
-} from '../../services/subscriptions.service';
 import { ROUTES } from '../../config/constants';
 import { OwnerVehicleFormDrawer } from '../../components/owner/OwnerVehicleFormDrawer';
 import { OwnerVehicleDetailModal } from '../../components/owner/OwnerVehicleDetailModal';
@@ -82,7 +78,8 @@ export function OwnerVehiclesPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
-  const [subscription, setSubscription] = useState<SubscriptionRecord | null>(null);
+  const [companyUsed, setCompanyUsed] = useState(0);
+  const [companyLimit, setCompanyLimit] = useState(5);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editVehicle, setEditVehicle] = useState<VehicleRecord | null>(null);
@@ -91,26 +88,21 @@ export function OwnerVehiclesPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.allSettled([vehiclesService.list(), subscriptionsService.list()])
-      .then(([vehRes, subRes]) => {
+    Promise.allSettled([vehiclesService.list(), vehiclesService.getUsage()])
+      .then(([vehRes, usageRes]) => {
         if (vehRes.status === 'fulfilled') {
           setVehicles(vehRes.value.data ?? []);
         } else {
           setVehicles([]);
           toast.error(getApiErrorMessage(vehRes.reason, 'Failed to load vehicles'));
         }
-        if (subRes.status === 'fulfilled') {
-          const subs = subRes.value.data ?? [];
-          setSubscription(
-            subs.find((s) => s.status === 'ACTIVE') ?? subs[0] ?? null,
-          );
-        } else {
-          setSubscription(null);
+        if (usageRes.status === 'fulfilled' && usageRes.value.data) {
+          setCompanyUsed(usageRes.value.data.used ?? 0);
+          setCompanyLimit(usageRes.value.data.limit ?? 5);
         }
       })
       .catch((err: unknown) => {
         setVehicles([]);
-        setSubscription(null);
         toast.error(getApiErrorMessage(err, 'Failed to load vehicles'));
       })
       .finally(() => setLoading(false));
@@ -120,8 +112,8 @@ export function OwnerVehiclesPage() {
     load();
   }, [load]);
 
-  const limit = subscription?.vehicleLimit ?? 5;
-  const used = vehicles.length;
+  const limit = companyLimit;
+  const used = companyUsed;
   const remaining = Math.max(0, limit - used);
   const atLimit = remaining <= 0;
 
@@ -139,7 +131,9 @@ export function OwnerVehiclesPage() {
 
   const openAdd = () => {
     if (atLimit) {
-      toast.warning(`Vehicle limit reached (${used}/${limit}). Upgrade your plan to add more.`);
+      toast.warning(
+        `Company vehicle limit reached (${used}/${limit}). Ask your Company Admin to upgrade the plan.`,
+      );
       return;
     }
     setEditVehicle(null);
@@ -178,7 +172,8 @@ export function OwnerVehiclesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My Vehicles</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Add, edit, view, and delete your registered vehicles. Limit depends on your plan.
+            Add, edit, view, and delete your vehicles. The plan limit is shared across the whole
+            company (all owners).
           </p>
         </div>
         <button
@@ -215,13 +210,14 @@ export function OwnerVehiclesPage() {
         <Info className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="text-sm">
           <p className="font-semibold">
-            {used}/{limit} vehicles used
+            Company plan: {used}/{limit} vehicles used
             {remaining > 0
-              ? ` – you can add ${remaining} more`
-              : ' – limit reached'}
+              ? ` – ${remaining} slot${remaining === 1 ? '' : 's'} left for the company`
+              : ' – company limit reached'}
           </p>
           <p className="mt-0.5 text-xs opacity-80">
-            {subscription?.planType ?? 'Plan'} subscription
+            You have {vehicles.length} vehicle{vehicles.length === 1 ? '' : 's'} in your account.
+            Limit is shared with other owners.
           </p>
           {atLimit && (
             <button

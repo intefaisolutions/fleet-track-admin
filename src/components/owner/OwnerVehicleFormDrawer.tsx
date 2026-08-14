@@ -166,7 +166,12 @@ export function OwnerVehicleFormDrawer({
       purchaseCost: form.purchaseCost.trim()
         ? toNumber(form.purchaseCost)
         : undefined,
-      assignedDriverId: form.assignedDriverId || undefined,
+      // null clears assignment on edit; omit on create when empty
+      assignedDriverId: form.assignedDriverId
+        ? form.assignedDriverId
+        : isEdit
+          ? null
+          : undefined,
       imageUrl: form.imageUrl || undefined,
       status: form.status as CreateVehiclePayload['status'],
     };

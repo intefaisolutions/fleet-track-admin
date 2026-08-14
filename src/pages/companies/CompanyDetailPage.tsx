@@ -109,6 +109,40 @@ export function CompanyDetailPage() {
     );
   }, [data?.expenses, stats?.expenseTotal]);
 
+  const tabCounts = useMemo(() => {
+    if (!data) {
+      return {
+        vehicles: 0,
+        drivers: 0,
+        expenses: 0,
+        payments: 0,
+        users: 0,
+      };
+    }
+    return {
+      vehicles: stats?.vehicleCount ?? data.vehicles?.length ?? 0,
+      drivers: stats?.driverCount ?? data.drivers?.length ?? 0,
+      expenses: stats?.expenseCount ?? data.expenses?.length ?? 0,
+      payments: data.payments?.length ?? 0,
+      users: data.users?.length ?? 0,
+    };
+  }, [data, stats]);
+
+  const tabsWithCounts = useMemo(
+    () =>
+      TABS.map((t) => {
+        if (t.id === 'overview') return t;
+        if (t.id === 'vehicles') return { ...t, label: `Vehicles (${tabCounts.vehicles})` };
+        if (t.id === 'drivers') return { ...t, label: `Drivers (${tabCounts.drivers})` };
+        if (t.id === 'expenses') return { ...t, label: `Expenses (${tabCounts.expenses})` };
+        if (t.id === 'billing')
+          return { ...t, label: `Plan & Payments (${tabCounts.payments})` };
+        if (t.id === 'users') return { ...t, label: `Users (${tabCounts.users})` };
+        return t;
+      }),
+    [tabCounts],
+  );
+
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
@@ -215,7 +249,7 @@ export function CompanyDetailPage() {
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-1 border-b border-slate-200">
-        {TABS.map((t) => (
+        {tabsWithCounts.map((t) => (
           <button
             key={t.id}
             type="button"

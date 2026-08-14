@@ -114,7 +114,7 @@ export function OwnerUpgradePlanPage() {
         }
         if (dashRes.status === 'fulfilled') {
           const dash = dashRes.value.data as CompanyDashboardData | undefined;
-          setUsed(dash?.totalVehicles ?? 0);
+          setUsed(dash?.companyVehicleCount ?? dash?.totalVehicles ?? 0);
           setLimit(dash?.myVehiclesLimit ?? 0);
           dashPlanType = dash?.subscription?.planType ?? '';
           dashPlanLabel = dash?.subscription?.planLabel ?? 'Free Plan';

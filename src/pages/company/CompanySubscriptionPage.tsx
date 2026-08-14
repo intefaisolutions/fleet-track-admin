@@ -587,7 +587,7 @@ export function CompanySubscriptionPage() {
             ? selectedChangeKind === 'current'
               ? `“${planTitle(selectedPlan.planType, plans)}” is already your current plan. Pick a higher plan to upgrade or a lower plan to downgrade.`
               : selectedChangeKind === 'upgrade'
-                ? `Upgrade to ${planTitle(selectedPlan.planType, plans)} (${billingPeriod === 'YEARLY' ? 'Yearly' : 'Monthly'}). Pay with Razorpay or submit manual proof.`
+                ? `Upgrade to ${planTitle(selectedPlan.planType, plans)} (${billingPeriod === 'YEARLY' ? 'Yearly' : 'Monthly'}). Optionally use wallet, then pay any remaining amount.`
                 : `Downgrade to ${planTitle(selectedPlan.planType, plans)} — confirm below. No Razorpay; unused value goes to your wallet.`
             : 'Select a plan above, then pay.'}
         </p>

@@ -35,6 +35,8 @@ export interface CompanyDashboardData {
   recentActivities: CompanyDashboardActivity[];
   topOwners: CompanyDashboardOwner[];
   myVehiclesLimit?: number;
+  /** Company-wide vehicle count (for shared plan limit). */
+  companyVehicleCount?: number;
   mostExpensiveVehicle?: {
     registrationNumber: string;
     label: string;

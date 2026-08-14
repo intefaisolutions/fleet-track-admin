@@ -49,7 +49,7 @@ const PERMISSION_OPTIONS = [
   { value: 'dashboard:read', label: 'View Dashboard' },
   { value: 'licenses:read', label: 'View Licenses' },
   { value: 'companies:read', label: 'View Companies' },
-  { value: 'payments:read', label: 'View Revenue & Payments' },
+  { value: 'payments:read', label: 'View Revenue, Payments & Wallets' },
   { value: 'settings:read', label: 'View Plans & Settings' },
   { value: 'payments:write', label: 'Manage Payments' },
   { value: 'companies:write', label: 'Manage Companies' },

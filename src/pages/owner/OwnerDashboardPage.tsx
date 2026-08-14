@@ -41,9 +41,10 @@ export function OwnerDashboardPage() {
     [data?.recentOwnerExpenses],
   );
 
-  const used = data?.totalVehicles ?? 0;
+  const myVehicles = data?.totalVehicles ?? 0;
+  const companyUsed = data?.companyVehicleCount ?? data?.totalVehicles ?? 0;
   const limit = data?.myVehiclesLimit ?? 0;
-  const atLimit = limit > 0 && used >= limit;
+  const atLimit = limit > 0 && companyUsed >= limit;
 
   return (
     <div className="space-y-6">
@@ -76,10 +77,10 @@ export function OwnerDashboardPage() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <OwnerMetricCard
           label="My Vehicles"
-          value={loading ? '—' : String(used)}
+          value={loading ? '—' : String(myVehicles)}
           hint={
             limit
-              ? `${data?.subscription.planLabel ?? 'Plan'}: ${used}/${limit} used`
+              ? `Yours: ${myVehicles} · Company plan: ${companyUsed}/${limit}`
               : 'Registered in your account'
           }
           icon={<Car className="h-5 w-5" />}
@@ -87,7 +88,7 @@ export function OwnerDashboardPage() {
           badge={
             atLimit ? (
               <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                Limit reached
+                Company limit reached
               </span>
             ) : undefined
           }

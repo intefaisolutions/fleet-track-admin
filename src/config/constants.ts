@@ -84,6 +84,7 @@ export const SUPPORT_ADMIN_ROUTE_PERMISSIONS: Array<{
   { route: ROUTES.PAYMENT_SETTINGS, permission: 'payments:write' },
   { route: ROUTES.PENDING_PAYMENTS, permission: 'payments:write' },
   { route: ROUTES.REVENUE, permission: 'payments:read' },
+  { route: ROUTES.ADMIN_WALLETS, permission: 'payments:read' },
   { route: ROUTES.SETTINGS, permission: 'settings:read' },
 ];
 

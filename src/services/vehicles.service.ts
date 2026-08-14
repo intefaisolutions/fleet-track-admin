@@ -38,6 +38,10 @@ export interface CreateVehiclePayload {
 
 export const vehiclesService = {
   list: () => getData<VehicleRecord[]>('/vehicles'),
+  getUsage: () =>
+    getData<{ used: number; limit: number; remaining: number; atLimit: boolean }>(
+      '/vehicles/usage',
+    ),
   getById: (id: string) => getData<VehicleRecord>(`/vehicles/${id}`),
   create: (data: CreateVehiclePayload) => postData<VehicleRecord>('/vehicles', data),
   update: (id: string, data: Partial<CreateVehiclePayload>) =>

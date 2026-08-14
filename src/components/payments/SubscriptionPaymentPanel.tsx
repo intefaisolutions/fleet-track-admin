@@ -11,9 +11,15 @@ import {
   Smartphone,
   Trash2,
   Upload,
+  Wallet,
 } from 'lucide-react';
 import { paymentsService } from '../../services/payments.service';
 import type { SubscriptionPlanRecord } from '../../services/platform.service';
+import {
+  subscriptionsService,
+  type PlanChangePreview,
+} from '../../services/subscriptions.service';
+import { walletsService } from '../../services/wallets.service';
 import { uploadImage } from '../../services/storage.service';
 import {
   getApiErrorMessage,
@@ -86,6 +92,10 @@ export function SubscriptionPaymentPanel({
   const [proofFileName, setProofFileName] = useState('');
   const [uploadingProof, setUploadingProof] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [useWallet, setUseWallet] = useState(true);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [preview, setPreview] = useState<PlanChangePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     transactionId?: string;
     paidAt?: string;
@@ -102,13 +112,94 @@ export function SubscriptionPaymentPanel({
     if (proofInputRef.current) proofInputRef.current.value = '';
   }, [method]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await walletsService.getBalance();
+        if (!cancelled) {
+          const bal = res.data?.walletBalance ?? 0;
+          setWalletBalance(bal);
+          setUseWallet(bal > 0);
+        }
+      } catch {
+        if (!cancelled) setWalletBalance(0);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const listPrice =
     billingPeriod === 'YEARLY'
       ? selectedPlan?.yearlyPriceInr ?? 0
       : selectedPlan?.monthlyPriceInr ?? 0;
 
   const isDowngrade = changeKind === 'downgrade';
-  const needsRazorpay = !isDowngrade && listPrice > 0;
+
+  useEffect(() => {
+    if (!selectedPlan?._id || isDowngrade) {
+      setPreview(null);
+      return;
+    }
+    let cancelled = false;
+    setPreviewLoading(true);
+    void (async () => {
+      try {
+        const res = await subscriptionsService.previewChange({
+          newPlanId: selectedPlan._id!,
+          billingPeriod,
+          useWallet,
+        });
+        if (!cancelled) setPreview(res.data ?? null);
+      } catch {
+        if (!cancelled) {
+          const applied = useWallet ? Math.min(walletBalance, listPrice) : 0;
+          setPreview({
+            newPrice: listPrice,
+            walletBalanceBefore: walletBalance,
+            useWallet,
+            walletUsed: applied,
+            amountToPay: Math.max(0, Math.round((listPrice - applied) * 100) / 100),
+            paymentRequired: listPrice - applied > 0,
+          });
+        }
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedPlan?._id,
+    billingPeriod,
+    useWallet,
+    isDowngrade,
+    walletBalance,
+    listPrice,
+  ]);
+
+  const walletApplied = useWallet
+    ? preview?.walletUsed ?? Math.min(walletBalance, listPrice)
+    : 0;
+  const amountDue = useMemo(() => {
+    if (typeof preview?.amountToPay === 'number') return preview.amountToPay;
+    return Math.max(0, Math.round((listPrice - walletApplied) * 100) / 100);
+  }, [preview?.amountToPay, listPrice, walletApplied]);
+
+  /** Attribute applied credits: wallet balance first, then unused current-plan value */
+  const fromWalletBalance = useWallet
+    ? Math.min(walletBalance, walletApplied)
+    : 0;
+  const fromUnusedPlanCredit = useWallet
+    ? Math.max(0, Math.round((walletApplied - fromWalletBalance) * 100) / 100)
+    : 0;
+  const unusedPlanCreditAvailable = preview?.creditGenerated ?? 0;
+
+  const fullyCoveredByWallet = !isDowngrade && listPrice > 0 && amountDue < 1;
+  const needsExternalPayment = !isDowngrade && listPrice > 0 && amountDue >= 1;
 
   const upiId =
     paymentSettings.upiId?.trim() ||
@@ -119,9 +210,9 @@ export function SubscriptionPaymentPanel({
   const accountName = paymentSettings.accountHolderName?.trim() || '';
 
   const upiLink = useMemo(() => {
-    if (!upiId || !listPrice) return '';
-    return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('FleetTrack')}&am=${listPrice}&cu=INR&tn=${encodeURIComponent(selectedPlan?.displayName ?? selectedPlan?.planType ?? 'Plan')}`;
-  }, [upiId, listPrice, selectedPlan]);
+    if (!upiId || amountDue < 1) return '';
+    return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('FleetTrack')}&am=${amountDue}&cu=INR&tn=${encodeURIComponent(selectedPlan?.displayName ?? selectedPlan?.planType ?? 'Plan')}`;
+  }, [upiId, amountDue, selectedPlan]);
 
   useEffect(() => {
     if (isDowngrade) setMethod('RAZORPAY');
@@ -137,13 +228,16 @@ export function SubscriptionPaymentPanel({
       const res = await paymentsService.createRazorpayOrder({
         planType: selectedPlan.planType,
         billingPeriod,
+        useWallet,
       });
       const orderData = res.data as { orderId?: string };
       if (orderData?.orderId === 'WALLET_PAID') {
         toast.success(
           isDowngrade
             ? `Downgraded to ${selectedPlan.displayName ?? selectedPlan.planType}`
-            : 'Plan updated using wallet credits',
+            : useWallet
+              ? 'Plan upgraded using wallet balance'
+              : 'Plan updated successfully',
         );
         onSuccess?.();
         return;
@@ -161,7 +255,7 @@ export function SubscriptionPaymentPanel({
       toast.error('Please select a plan first');
       return;
     }
-    if (listPrice <= 0) {
+    if (listPrice <= 0 || fullyCoveredByWallet) {
       return confirmWithoutRazorpay();
     }
 
@@ -170,6 +264,7 @@ export function SubscriptionPaymentPanel({
       const res = await paymentsService.createRazorpayOrder({
         planType: selectedPlan.planType,
         billingPeriod,
+        useWallet,
       });
       const orderData = res.data as {
         orderId?: string;
@@ -212,7 +307,11 @@ export function SubscriptionPaymentPanel({
           amount: orderData.amount,
           currency: orderData.currency || 'INR',
           name: 'FleetTrack',
-          description: `Upgrade to ${selectedPlan.displayName ?? selectedPlan.planType}`,
+          description: `Upgrade to ${selectedPlan.displayName ?? selectedPlan.planType}${
+            useWallet && walletApplied > 0
+              ? ` (pay ${formatInr(amountDue)} after wallet)`
+              : ''
+          }`,
           order_id: orderData.orderId,
           handler: async (response: {
             razorpay_payment_id: string;
@@ -224,6 +323,7 @@ export function SubscriptionPaymentPanel({
                 ...response,
                 planType: selectedPlan.planType,
                 billingPeriod,
+                useWallet,
               });
               toast.success('Payment successful! Subscription activated.');
               onSuccess?.();
@@ -309,15 +409,16 @@ export function SubscriptionPaymentPanel({
       await paymentsService.submit({
         planType: selectedPlan.planType,
         billingPeriod,
-        amount: listPrice,
+        amount: amountDue,
         transactionId: transactionId.trim().toUpperCase().replace(/\s+/g, ''),
         paymentMethod: method,
         paidAt: new Date(paidAt).toISOString(),
         proofUrl: proofUrl.trim(),
+        useWallet,
         notes:
           method === 'UPI'
-            ? `Manual UPI payment to ${upiId}`
-            : `Bank transfer to ${bankAccount}${ifsc ? ` / ${ifsc}` : ''}`,
+            ? `Manual UPI payment to ${upiId}${useWallet && walletApplied > 0 ? ` · wallet ${formatInr(walletApplied)}` : ''}`
+            : `Bank transfer to ${bankAccount}${ifsc ? ` / ${ifsc}` : ''}${useWallet && walletApplied > 0 ? ` · wallet ${formatInr(walletApplied)}` : ''}`,
       });
       toast.success(
         'Payment request created — Pending Verification. Premium activates only after Super Admin approves.',
@@ -481,7 +582,9 @@ export function SubscriptionPaymentPanel({
     </div>
   );
   const handlePay = () => {
-    if (isDowngrade || !needsRazorpay) return confirmWithoutRazorpay();
+    if (isDowngrade || listPrice <= 0 || fullyCoveredByWallet) {
+      return confirmWithoutRazorpay();
+    }
     if (method === 'RAZORPAY') return payWithRazorpay();
     return submitManual();
   };
@@ -508,12 +611,103 @@ export function SubscriptionPaymentPanel({
         </div>
       ) : null}
 
-      {selectedPlan && needsRazorpay ? (
+      {selectedPlan && !isDowngrade && listPrice > 0 ? (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <Wallet className="mt-0.5 h-5 w-5 text-fleet-600" />
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Payment credits</p>
+                <p className="text-xs text-slate-500">
+                  Current wallet (same as Wallet page):{' '}
+                  <span className="font-semibold text-slate-800">{formatInr(walletBalance)}</span>
+                </p>
+              </div>
+            </div>
+            {walletBalance > 0 || unusedPlanCreditAvailable > 0 ? (
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={useWallet}
+                  onChange={(e) => setUseWallet(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-fleet-600 focus:ring-fleet-500"
+                />
+                Use credits
+              </label>
+            ) : null}
+          </div>
+
+          <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-3 text-sm">
+            <div className="flex justify-between gap-3 text-slate-600">
+              <span>Plan price</span>
+              <span className="font-medium text-slate-900">{formatInr(listPrice)}</span>
+            </div>
+            {useWallet ? (
+              <>
+                <div className="mt-1.5 flex justify-between gap-3 text-slate-600">
+                  <span>From wallet balance</span>
+                  <span className="font-medium text-emerald-700">
+                    {previewLoading ? '…' : `− ${formatInr(fromWalletBalance)}`}
+                  </span>
+                </div>
+                {unusedPlanCreditAvailable > 0 || fromUnusedPlanCredit > 0 ? (
+                  <div className="mt-1.5 flex justify-between gap-3 text-slate-600">
+                    <span>
+                      Unused current-plan credit
+                      <span className="block text-[11px] font-normal text-slate-400">
+                        Remaining value of your current plan — not yet shown on Wallet page
+                      </span>
+                    </span>
+                    <span className="font-medium text-emerald-700">
+                      {previewLoading ? '…' : `− ${formatInr(fromUnusedPlanCredit)}`}
+                    </span>
+                  </div>
+                ) : null}
+                <div className="mt-1.5 flex justify-between gap-3 text-slate-500">
+                  <span>Total credits applied</span>
+                  <span className="font-medium">
+                    {previewLoading ? '…' : `− ${formatInr(walletApplied)}`}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="mt-1.5 flex justify-between gap-3 text-slate-600">
+                <span>Credits applied</span>
+                <span className="font-medium text-slate-500">− {formatInr(0)}</span>
+              </div>
+            )}
+            <div className="mt-2 flex justify-between gap-3 border-t border-slate-200 pt-2 font-semibold text-slate-900">
+              <span>Amount to pay</span>
+              <span className={amountDue < 1 ? 'text-emerald-700' : 'text-fleet-700'}>
+                {previewLoading ? '…' : formatInr(amountDue)}
+              </span>
+            </div>
+            {!useWallet && (walletBalance > 0 || unusedPlanCreditAvailable > 0) ? (
+              <p className="mt-2 text-xs text-amber-700">
+                Credits not used — you will pay the full plan price. Unused current-plan
+                value still goes to wallet after the change.
+              </p>
+            ) : null}
+            {fullyCoveredByWallet ? (
+              <p className="mt-2 text-xs text-emerald-700">
+                Credits cover this plan fully. No Razorpay / UPI / Bank payment needed.
+              </p>
+            ) : null}
+            {needsExternalPayment && useWallet && walletApplied > 0 ? (
+              <p className="mt-2 text-xs text-slate-500">
+                Pay remaining {formatInr(amountDue)} via Razorpay, UPI, or Bank Transfer.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {selectedPlan && needsExternalPayment ? (
         <>
           <div>
             <p className="text-sm font-semibold text-slate-800">Choose payment method</p>
             <p className="mt-1 text-xs text-slate-500">
-              Razorpay / UPI / Bank are for upgrades when payment is required.
+              Pay the remaining amount after wallet (if used).
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {METHODS.map((m) => {
@@ -544,15 +738,23 @@ export function SubscriptionPaymentPanel({
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
             Amount due:{' '}
             <span className="font-semibold">
-              {formatInr(listPrice)} ({selectedPlan.displayName ?? selectedPlan.planType} ·{' '}
+              {formatInr(amountDue)} ({selectedPlan.displayName ?? selectedPlan.planType} ·{' '}
               {billingPeriod === 'YEARLY' ? 'Yearly' : 'Monthly'})
             </span>
+            {useWallet && walletApplied > 0 ? (
+              <span className="mt-1 block text-xs text-slate-500">
+                Plan {formatInr(listPrice)} − credits {formatInr(walletApplied)}
+                {fromUnusedPlanCredit > 0
+                  ? ` (wallet ${formatInr(fromWalletBalance)} + unused plan ${formatInr(fromUnusedPlanCredit)})`
+                  : ''}
+              </span>
+            ) : null}
           </div>
 
           {method === 'RAZORPAY' && (
             <p className="text-sm text-slate-500">
-              You will open Razorpay Checkout for this upgrade. Failed or cancelled payments
-              do not change your plan.
+              You will open Razorpay Checkout for {formatInr(amountDue)}. Failed or cancelled
+              payments do not change your plan.
             </p>
           )}
 
@@ -570,7 +772,7 @@ export function SubscriptionPaymentPanel({
                 </div>
               </div>
               <div className="text-sm text-slate-700">
-                Amount: <span className="font-semibold">{formatInr(listPrice)}</span>
+                Amount: <span className="font-semibold">{formatInr(amountDue)}</span>
               </div>
               {upiLink ? (
                 <a
@@ -652,7 +854,7 @@ export function SubscriptionPaymentPanel({
                 </div>
               </div>
               <div className="text-sm text-slate-700">
-                Amount: <span className="font-semibold">{formatInr(listPrice)}</span>
+                Amount: <span className="font-semibold">{formatInr(amountDue)}</span>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">
@@ -720,8 +922,8 @@ export function SubscriptionPaymentPanel({
       >
         {submitting ? (
           <Loader2 className="h-4 w-4 animate-spin" />
-        ) : isDowngrade || !needsRazorpay ? (
-          <Send className="h-4 w-4" />
+        ) : isDowngrade || fullyCoveredByWallet || listPrice <= 0 ? (
+          <Wallet className="h-4 w-4" />
         ) : method === 'RAZORPAY' ? (
           <CreditCard className="h-4 w-4" />
         ) : (
@@ -733,11 +935,13 @@ export function SubscriptionPaymentPanel({
             ? 'Select a plan first'
             : isDowngrade
               ? `Confirm downgrade to ${selectedPlan.displayName ?? selectedPlan.planType}`
-              : !needsRazorpay
-                ? 'Confirm plan change'
-                : method === 'RAZORPAY'
-                  ? 'Upgrade — Pay with Razorpay'
-                  : 'Upgrade — Submit Payment Proof'}
+              : fullyCoveredByWallet
+                ? `Upgrade with wallet — ${formatInr(0)} to pay`
+                : listPrice <= 0
+                  ? 'Confirm plan change'
+                  : method === 'RAZORPAY'
+                    ? `Upgrade — Pay ${formatInr(amountDue)} with Razorpay`
+                    : `Upgrade — Submit proof for ${formatInr(amountDue)}`}
       </button>
     </div>
   );
