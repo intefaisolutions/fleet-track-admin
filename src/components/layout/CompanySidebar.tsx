@@ -12,7 +12,6 @@ import {
   Settings,
   LogOut,
   Wallet,
-  UserCircle,
 } from 'lucide-react';
 import { ROUTES, ROLES } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';

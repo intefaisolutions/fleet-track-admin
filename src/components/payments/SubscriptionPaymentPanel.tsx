@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
   Building2,
   CreditCard,
+  Eye,
+  ImagePlus,
   Landmark,
   Loader2,
   Send,
   Smartphone,
+  Trash2,
+  Upload,
 } from 'lucide-react';
 import { paymentsService } from '../../services/payments.service';
 import type { SubscriptionPlanRecord } from '../../services/platform.service';
@@ -79,6 +83,7 @@ export function SubscriptionPaymentPanel({
   const [transactionId, setTransactionId] = useState('');
   const [paidAt, setPaidAt] = useState('');
   const [proofUrl, setProofUrl] = useState('');
+  const [proofFileName, setProofFileName] = useState('');
   const [uploadingProof, setUploadingProof] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
@@ -86,12 +91,15 @@ export function SubscriptionPaymentPanel({
     paidAt?: string;
     proofUrl?: string;
   }>({});
+  const proofInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setTransactionId('');
     setPaidAt('');
     setProofUrl('');
+    setProofFileName('');
     setFieldErrors({});
+    if (proofInputRef.current) proofInputRef.current.value = '';
   }, [method]);
 
   const listPrice =
@@ -317,7 +325,9 @@ export function SubscriptionPaymentPanel({
       setTransactionId('');
       setPaidAt('');
       setProofUrl('');
+      setProofFileName('');
       setFieldErrors({});
+      if (proofInputRef.current) proofInputRef.current.value = '';
       onSuccess?.();
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Could not submit payment proof'));
@@ -326,23 +336,31 @@ export function SubscriptionPaymentPanel({
     }
   };
 
+  const clearProof = () => {
+    setProofUrl('');
+    setProofFileName('');
+    if (proofInputRef.current) proofInputRef.current.value = '';
+    setFieldErrors((prev) => ({
+      ...prev,
+      proofUrl: 'Payment screenshot / receipt is required',
+    }));
+  };
+
   const handleProofFile = async (file: File | null) => {
     if (!file) {
-      setProofUrl('');
-      setFieldErrors((prev) => ({
-        ...prev,
-        proofUrl: 'Payment screenshot / receipt is required',
-      }));
+      clearProof();
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Proof image must be under 5MB');
+      if (proofInputRef.current) proofInputRef.current.value = '';
       return;
     }
     setUploadingProof(true);
     try {
       const { url } = await uploadImage(file, 'receipts');
       setProofUrl(url);
+      setProofFileName(file.name);
       setFieldErrors((prev) => {
         const next = { ...prev };
         delete next.proofUrl;
@@ -351,11 +369,117 @@ export function SubscriptionPaymentPanel({
       toast.success('Payment proof uploaded');
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Proof upload failed'));
+      if (proofInputRef.current) proofInputRef.current.value = '';
     } finally {
       setUploadingProof(false);
     }
   };
 
+  const renderProofUpload = (label: string) => (
+    <div>
+      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+        {label} <span className="text-red-500">*</span>
+      </label>
+      <input
+        ref={proofInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/webp"
+        className="hidden"
+        disabled={uploadingProof}
+        onChange={(e) => void handleProofFile(e.target.files?.[0] ?? null)}
+      />
+
+      {!proofUrl ? (
+        <div
+          className={`rounded-xl border border-dashed px-4 py-5 ${
+            fieldErrors.proofUrl
+              ? 'border-red-300 bg-red-50'
+              : 'border-slate-300 bg-slate-50'
+          }`}
+        >
+          <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
+              <ImagePlus className="h-5 w-5 text-fleet-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-slate-800">
+                Upload payment screenshot
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                PNG, JPG or WebP · max 5MB
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={uploadingProof}
+              onClick={() => proofInputRef.current?.click()}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-fleet-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
+            >
+              {uploadingProof ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {uploadingProof ? 'Uploading…' : 'Choose file'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <img
+              src={proofUrl}
+              alt="Payment proof"
+              className="h-16 w-16 shrink-0 rounded-lg border border-slate-200 object-cover bg-white"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-900">
+                {proofFileName || 'Payment proof uploaded'}
+              </p>
+              <p className="mt-0.5 text-xs text-emerald-700">Ready to submit</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={proofUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                View
+              </a>
+              <button
+                type="button"
+                disabled={uploadingProof}
+                onClick={() => proofInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {uploadingProof ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )}
+                Change
+              </button>
+              <button
+                type="button"
+                disabled={uploadingProof}
+                onClick={clearProof}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fieldErrors.proofUrl ? (
+        <p className="mt-1.5 text-xs text-red-600">{fieldErrors.proofUrl}</p>
+      ) : null}
+    </div>
+  );
   const handlePay = () => {
     if (isDowngrade || !needsRazorpay) return confirmWithoutRazorpay();
     if (method === 'RAZORPAY') return payWithRazorpay();
@@ -504,36 +628,7 @@ export function SubscriptionPaymentPanel({
                   <p className="mt-1 text-xs text-red-600">{fieldErrors.paidAt}</p>
                 ) : null}
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Screenshot / proof <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  disabled={uploadingProof}
-                  onChange={(e) => void handleProofFile(e.target.files?.[0] ?? null)}
-                  className="w-full text-sm text-slate-600"
-                />
-                {uploadingProof ? (
-                  <p className="mt-1 text-xs text-slate-500">Uploading…</p>
-                ) : null}
-                {proofUrl ? (
-                  <a
-                    href={proofUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 inline-block text-xs font-semibold text-fleet-600 hover:underline"
-                  >
-                    View uploaded proof
-                  </a>
-                ) : null}
-                {fieldErrors.proofUrl ? (
-                  <p className="mt-1 text-xs text-red-600">{fieldErrors.proofUrl}</p>
-                ) : (
-                  <p className="mt-1 text-xs text-slate-500">PNG/JPG/WebP, max 5MB</p>
-                )}
-              </div>
+              {renderProofUpload('Screenshot / proof')}
             </div>
           )}
 
@@ -607,36 +702,7 @@ export function SubscriptionPaymentPanel({
                   <p className="mt-1 text-xs text-red-600">{fieldErrors.paidAt}</p>
                 ) : null}
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Bank receipt / screenshot <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  disabled={uploadingProof}
-                  onChange={(e) => void handleProofFile(e.target.files?.[0] ?? null)}
-                  className="w-full text-sm text-slate-600"
-                />
-                {uploadingProof ? (
-                  <p className="mt-1 text-xs text-slate-500">Uploading…</p>
-                ) : null}
-                {proofUrl ? (
-                  <a
-                    href={proofUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 inline-block text-xs font-semibold text-fleet-600 hover:underline"
-                  >
-                    View uploaded proof
-                  </a>
-                ) : null}
-                {fieldErrors.proofUrl ? (
-                  <p className="mt-1 text-xs text-red-600">{fieldErrors.proofUrl}</p>
-                ) : (
-                  <p className="mt-1 text-xs text-slate-500">PNG/JPG/WebP, max 5MB</p>
-                )}
-              </div>
+              {renderProofUpload('Bank receipt / screenshot')}
             </div>
           )}
         </>
