@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 import { CloudUpload, Save, X } from 'lucide-react';
 import { driversService, type DriverRecord } from '../../services/drivers.service';
@@ -90,6 +90,7 @@ export function OwnerVehicleFormDrawer({
   const isEdit = Boolean(vehicle?._id);
   const [form, setForm] = useState(emptyForm);
   const [drivers, setDrivers] = useState<DriverRecord[]>([]);
+  const [fleetVehicles, setFleetVehicles] = useState<VehicleRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -102,6 +103,10 @@ export function OwnerVehicleFormDrawer({
       .list()
       .then((res) => setDrivers(res.data ?? []))
       .catch(() => setDrivers([]));
+    vehiclesService
+      .list()
+      .then((res) => setFleetVehicles(res.data ?? []))
+      .catch(() => setFleetVehicles([]));
     if (vehicle) {
       setForm(vehicleToForm(vehicle));
       setImagePreview(vehicle.imageUrl ?? null);
@@ -110,6 +115,19 @@ export function OwnerVehicleFormDrawer({
       setImagePreview(null);
     }
   }, [open, vehicle]);
+
+  const selectableDrivers = useMemo(() => {
+    const keepDriverId = form.assignedDriverId;
+    const keepVehicleId = vehicle?._id;
+    const busy = new Set<string>();
+    for (const v of fleetVehicles) {
+      const dId = driverIdFromRef(v.assignedDriverId);
+      if (!dId) continue;
+      if (keepVehicleId && v._id === keepVehicleId) continue;
+      busy.add(dId);
+    }
+    return drivers.filter((d) => !busy.has(d._id) || d._id === keepDriverId);
+  }, [drivers, fleetVehicles, form.assignedDriverId, vehicle?._id]);
 
   if (!open) return null;
 
@@ -399,12 +417,15 @@ export function OwnerVehicleFormDrawer({
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
               >
                 <option value="">Select a driver...</option>
-                {drivers.map((d) => (
+                {selectableDrivers.map((d) => (
                   <option key={d._id} value={d._id}>
                     {d.fullName}
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-slate-500">
+                One vehicle ↔ one driver. Drivers already assigned elsewhere are hidden.
+              </p>
             </div>
 
             <div>

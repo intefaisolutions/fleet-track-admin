@@ -97,13 +97,13 @@ export function OwnerDriverDetailModal({
 
         <div className="mt-5 border-t border-slate-100 pt-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Assigned Vehicles
+            Assigned Vehicle
           </p>
           {assignedVehicles.length === 0 ? (
             <p className="mt-2 text-sm text-slate-400">Not assigned to any vehicle</p>
           ) : (
             <ul className="mt-2 space-y-1">
-              {assignedVehicles.map((v) => (
+              {assignedVehicles.slice(0, 1).map((v) => (
                 <li key={v._id} className="text-sm font-medium text-slate-800">
                   {v.registrationNumber}
                   {v.modelName ? ` · ${v.make ?? ''} ${v.modelName}`.trim() : ''}

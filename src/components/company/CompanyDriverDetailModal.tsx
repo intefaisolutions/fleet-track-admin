@@ -144,7 +144,7 @@ export function CompanyDriverDetailModal({
             <p className="mt-2 text-sm text-slate-400">Not assigned to any vehicle</p>
           ) : (
             <ul className="mt-2 space-y-2">
-              {assignedVehicles.map((v) => (
+              {assignedVehicles.slice(0, 1).map((v) => (
                 <li
                   key={v._id}
                   className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm"
@@ -163,7 +163,7 @@ export function CompanyDriverDetailModal({
         </div>
 
         <p className="mt-5 text-center text-xs text-slate-400">
-          View only — Vehicle Owners manage driver assignments.
+          View only — one vehicle ↔ one driver. Vehicle Owners manage assignments.
         </p>
       </div>
     </>

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
 import { Link2, X } from 'lucide-react';
 import type { DriverRecord } from '../../services/drivers.service';
@@ -46,12 +46,28 @@ export function OwnerAssignDriverModal({
     setDriverIdValue(initialDriverId ?? '');
   }, [open, initialDriverId, initialVehicleId]);
 
-  if (!open) return null;
-
   const selectedVehicle = vehicles.find((v) => v._id === vehicleId);
   const currentDriverOnVehicle = selectedVehicle
     ? driverId(selectedVehicle.assignedDriverId)
     : '';
+
+  /** One driver ↔ one vehicle: only free drivers (+ current on this vehicle). */
+  const selectableDrivers = useMemo(() => {
+    const assignedElsewhere = new Set<string>();
+    for (const v of vehicles) {
+      const dId = driverId(v.assignedDriverId);
+      if (!dId) continue;
+      if (vehicleId && v._id === vehicleId) continue;
+      assignedElsewhere.add(dId);
+    }
+    return drivers
+      .filter((d) => d.status === 'ACTIVE' || d.status === 'active')
+      .filter(
+        (d) => !assignedElsewhere.has(d._id) || d._id === currentDriverOnVehicle,
+      );
+  }, [drivers, vehicles, vehicleId, currentDriverOnVehicle]);
+
+  if (!open) return null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -82,8 +98,8 @@ export function OwnerAssignDriverModal({
   const title = mode === 'change' ? 'Change Driver' : 'Assign Driver to Vehicle';
   const subtitle =
     mode === 'change'
-      ? 'Reassign this vehicle to a different driver from your company list.'
-      : 'Link a driver created by Company Admin to one of your vehicles.';
+      ? 'One vehicle can have only one driver. Reassign from available drivers.'
+      : 'One vehicle ↔ one driver. Only unassigned drivers are listed.';
 
   return (
     <>
@@ -116,7 +132,10 @@ export function OwnerAssignDriverModal({
             <select
               required
               value={vehicleId}
-              onChange={(e) => setVehicleId(e.target.value)}
+              onChange={(e) => {
+                setVehicleId(e.target.value);
+                setDriverIdValue('');
+              }}
               disabled={Boolean(initialVehicleId) && mode === 'change'}
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 disabled:bg-slate-50"
             >
@@ -141,18 +160,27 @@ export function OwnerAssignDriverModal({
               required
               value={driverIdValue}
               onChange={(e) => setDriverIdValue(e.target.value)}
-              disabled={Boolean(initialDriverId) && mode === 'assign' && Boolean(initialVehicleId)}
+              disabled={
+                Boolean(initialDriverId) && mode === 'assign' && Boolean(initialVehicleId)
+              }
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 disabled:bg-slate-50"
             >
               <option value="">Select driver...</option>
-              {drivers
-                .filter((d) => d.status === 'ACTIVE' || d.status === 'active')
-                .map((d) => (
-                  <option key={d._id} value={d._id}>
-                    {d.fullName}
-                  </option>
-                ))}
+              {selectableDrivers.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {d.fullName}
+                </option>
+              ))}
             </select>
+            {selectableDrivers.length === 0 ? (
+              <p className="mt-1.5 text-xs text-amber-700">
+                No free drivers. Unassign a driver from another vehicle first.
+              </p>
+            ) : (
+              <p className="mt-1.5 text-xs text-slate-500">
+                Drivers already on another vehicle are hidden (1:1 rule).
+              </p>
+            )}
           </div>
 
           {selectedVehicle && currentDriverOnVehicle && mode === 'change' && (
@@ -163,7 +191,7 @@ export function OwnerAssignDriverModal({
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || selectableDrivers.length === 0}
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-fleet-500 py-3 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
           >
             <Link2 className="h-4 w-4" />
@@ -174,4 +202,3 @@ export function OwnerAssignDriverModal({
     </>
   );
 }
-
