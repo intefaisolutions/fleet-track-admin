@@ -89,6 +89,7 @@ export function SubscriptionPaymentPanel({
   const [transactionId, setTransactionId] = useState('');
   const [paidAt, setPaidAt] = useState('');
   const [proofUrl, setProofUrl] = useState('');
+  const [proofPreviewUrl, setProofPreviewUrl] = useState('');
   const [proofFileName, setProofFileName] = useState('');
   const [uploadingProof, setUploadingProof] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -107,6 +108,10 @@ export function SubscriptionPaymentPanel({
     setTransactionId('');
     setPaidAt('');
     setProofUrl('');
+    setProofPreviewUrl((prev) => {
+      if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return '';
+    });
     setProofFileName('');
     setFieldErrors({});
     if (proofInputRef.current) proofInputRef.current.value = '';
@@ -426,6 +431,10 @@ export function SubscriptionPaymentPanel({
       setTransactionId('');
       setPaidAt('');
       setProofUrl('');
+      setProofPreviewUrl((prev) => {
+        if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return '';
+      });
       setProofFileName('');
       setFieldErrors({});
       if (proofInputRef.current) proofInputRef.current.value = '';
@@ -439,6 +448,10 @@ export function SubscriptionPaymentPanel({
 
   const clearProof = () => {
     setProofUrl('');
+    setProofPreviewUrl((prev) => {
+      if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return '';
+    });
     setProofFileName('');
     if (proofInputRef.current) proofInputRef.current.value = '';
     setFieldErrors((prev) => ({
@@ -458,10 +471,19 @@ export function SubscriptionPaymentPanel({
       return;
     }
     setUploadingProof(true);
+    const localPreview = URL.createObjectURL(file);
+    setProofPreviewUrl((prev) => {
+      if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return localPreview;
+    });
+    setProofFileName(file.name);
     try {
-      const { url } = await uploadImage(file, 'receipts');
+      const { url, viewUrl } = await uploadImage(file, 'receipts');
       setProofUrl(url);
-      setProofFileName(file.name);
+      setProofPreviewUrl((prev) => {
+        if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return viewUrl || url;
+      });
       setFieldErrors((prev) => {
         const next = { ...prev };
         delete next.proofUrl;
@@ -470,6 +492,12 @@ export function SubscriptionPaymentPanel({
       toast.success('Payment proof uploaded');
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Proof upload failed'));
+      setProofUrl('');
+      setProofPreviewUrl((prev) => {
+        if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return '';
+      });
+      setProofFileName('');
       if (proofInputRef.current) proofInputRef.current.value = '';
     } finally {
       setUploadingProof(false);
@@ -490,7 +518,7 @@ export function SubscriptionPaymentPanel({
         onChange={(e) => void handleProofFile(e.target.files?.[0] ?? null)}
       />
 
-      {!proofUrl ? (
+      {!proofUrl && !proofPreviewUrl ? (
         <div
           className={`rounded-xl border border-dashed px-4 py-5 ${
             fieldErrors.proofUrl
@@ -529,7 +557,7 @@ export function SubscriptionPaymentPanel({
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <img
-              src={proofUrl}
+              src={proofPreviewUrl || proofUrl}
               alt="Payment proof"
               className="h-16 w-16 shrink-0 rounded-lg border border-slate-200 object-cover bg-white"
             />
@@ -537,11 +565,13 @@ export function SubscriptionPaymentPanel({
               <p className="truncate text-sm font-semibold text-slate-900">
                 {proofFileName || 'Payment proof uploaded'}
               </p>
-              <p className="mt-0.5 text-xs text-emerald-700">Ready to submit</p>
+              <p className="mt-0.5 text-xs text-emerald-700">
+                {proofUrl ? 'Ready to submit' : 'Uploading…'}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <a
-                href={proofUrl}
+                href={proofPreviewUrl || proofUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"

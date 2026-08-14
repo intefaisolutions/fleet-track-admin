@@ -70,6 +70,7 @@ export function ExpenseFormBody({
 }) {
   const { user } = useAuth();
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [receiptPreview, setReceiptPreview] = useState('');
   const meta = getCategoryMeta(category);
   const autoAmount = isAmountAutoCalculated(category);
   const isFuel = category === 'FUEL';
@@ -142,8 +143,9 @@ export function ExpenseFormBody({
     }
     setUploadingReceipt(true);
     try {
-      const { url } = await uploadImage(file, 'receipts');
+      const { url, viewUrl } = await uploadImage(file, 'receipts');
       setReceiptUrl(url);
+      setReceiptPreview(viewUrl || url);
       toast.success('Receipt uploaded to cloud storage');
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Receipt upload failed'));
@@ -439,14 +441,14 @@ export function ExpenseFormBody({
                 onChange={(e) => void onReceiptFile(e.target.files?.[0] ?? null)}
               />
             </label>
-            {receiptUrl && (
+            {(receiptPreview || receiptUrl) && (
               <a
-                href={receiptUrl}
+                href={receiptPreview || receiptUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs font-medium text-emerald-700 hover:underline"
               >
-                Receipt saved (Supabase)
+                Receipt ready — view
               </a>
             )}
           </div>

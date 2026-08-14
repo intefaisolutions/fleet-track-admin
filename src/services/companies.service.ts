@@ -20,6 +20,8 @@ export interface CompanyDetail {
   city?: string;
   country?: string;
   logoUrl?: string;
+  /** Presigned / browser-ready logo when S3 bucket is private */
+  logoViewUrl?: string;
   licenseKey?: string;
   licenseValidUntil?: string;
   status?: string;

@@ -1,11 +1,14 @@
 import api from './api';
 import type { ApiResponse } from '../types/api';
 
-export type StorageFolder = 'receipts' | 'vehicles' | 'profiles';
+export type StorageFolder = 'receipts' | 'vehicles' | 'profiles' | 'companies';
 
 export interface UploadImageResult {
+  /** Canonical URL to store in MongoDB */
   url: string;
   path: string;
+  /** Browser-ready URL (presigned when S3 bucket is private) */
+  viewUrl: string;
 }
 
 export async function uploadImage(
@@ -23,5 +26,8 @@ export async function uploadImage(
   if (!body.success || !body.data?.url) {
     throw new Error(body.message || 'Image upload failed');
   }
-  return body.data;
+  return {
+    ...body.data,
+    viewUrl: body.data.viewUrl || body.data.url,
+  };
 }

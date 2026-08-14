@@ -41,10 +41,14 @@ export function AdminProfileSection() {
     }
     setUploadingAvatar(true);
     try {
-      const { url } = await uploadImage(file, 'profiles');
+      const { url, viewUrl } = await uploadImage(file, 'profiles');
       const res = await authService.updateProfile({ profileImage: url });
       if (res.data) {
-        setUser({ ...user, ...res.data });
+        setUser({
+          ...user,
+          ...res.data,
+          profileImage: viewUrl || url,
+        });
       }
       toast.success('Profile photo updated');
     } catch (err: unknown) {

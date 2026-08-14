@@ -15,6 +15,7 @@ import {
 import { subscriptionsService } from '../../services/subscriptions.service';
 import { copyToClipboard } from '../../utils/clipboard';
 import { getApiErrorMessage } from '../../utils/validation';
+import { uploadImage } from '../../services/storage.service';
 
 function formatExpiry(iso?: string) {
   if (!iso) return '—';
@@ -45,6 +46,8 @@ export function CompanySettingsPage() {
   const [periodEnd, setPeriodEnd] = useState<string>();
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
 
   const load = useCallback(async () => {
     if (!user?.companyId) return;
@@ -65,6 +68,7 @@ export function CompanySettingsPage() {
           country: c.country ?? '',
           logoUrl: c.logoUrl ?? '',
         });
+        setLogoPreviewUrl(c.logoViewUrl || c.logoUrl || '');
         const key = c.licenseKey?.trim();
         setLicenseKey(key || '—');
         const expiry = c.licenseValidUntil ?? subs[0]?.currentPeriodEnd;
@@ -127,18 +131,29 @@ export function CompanySettingsPage() {
     }
   };
 
-  const onLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const onLogoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
-      if (dataUrl) {
-        setCompanyForm((prev) => ({ ...prev, logoUrl: dataUrl }));
-        toast.success('Logo selected');
-      }
-    };
-    reader.readAsDataURL(file);
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose a JPEG, PNG, or WebP image');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Logo must be 5MB or smaller');
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const uploaded = await uploadImage(file, 'companies');
+      setCompanyForm((prev) => ({ ...prev, logoUrl: uploaded.url }));
+      setLogoPreviewUrl(uploaded.viewUrl || uploaded.url);
+      toast.success('Logo uploaded');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Logo upload failed'));
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   return (
@@ -163,9 +178,9 @@ export function CompanySettingsPage() {
             </h2>
             <div className="mt-6 flex flex-col gap-8 sm:flex-row">
               <div className="flex flex-col items-center gap-2">
-                {companyForm.logoUrl ? (
+                {logoPreviewUrl || companyForm.logoUrl ? (
                   <img
-                    src={companyForm.logoUrl}
+                    src={logoPreviewUrl || companyForm.logoUrl}
                     alt="Company logo"
                     className="h-24 w-24 rounded-full object-cover"
                   />
@@ -174,10 +189,20 @@ export function CompanySettingsPage() {
                     <Building2 className="h-14 w-14 text-fleet-500" />
                   </div>
                 )}
-                <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <label
+                  className={`inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 ${
+                    uploadingLogo ? 'pointer-events-none opacity-60' : ''
+                  }`}
+                >
                   <Upload className="h-4 w-4" />
-                  Upload Company Logo
-                  <input type="file" accept="image/*" className="hidden" onChange={onLogoUpload} />
+                  {uploadingLogo ? 'Uploading…' : 'Upload Company Logo'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={uploadingLogo}
+                    onChange={onLogoUpload}
+                  />
                 </label>
               </div>
 

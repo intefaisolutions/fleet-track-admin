@@ -139,8 +139,8 @@ export function OwnerVehicleFormDrawer({
     }
     setUploadingImage(true);
     try {
-      const { url } = await uploadImage(file, 'vehicles');
-      setImagePreview(url);
+      const { url, viewUrl } = await uploadImage(file, 'vehicles');
+      setImagePreview(viewUrl || url);
       setForm((f) => ({ ...f, imageUrl: url }));
       toast.success('Vehicle photo uploaded');
     } catch (err: unknown) {
