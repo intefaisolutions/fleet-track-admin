@@ -9,6 +9,7 @@ export type NotificationType =
   | 'DRIVER_ASSIGNMENT'
   | 'REPAIR_REQUEST'
   | 'SERVICE_ALERT'
+  | 'DAILY_REPORT'
   | 'SYSTEM';
 
 export interface NotificationRecord {
