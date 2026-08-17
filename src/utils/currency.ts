@@ -74,16 +74,16 @@ export function formatInr(
   options?: { fractionDigits?: number; compact?: boolean },
 ): string {
   const n = Number(amount);
-  if (!Number.isFinite(n)) return '₹0';
+  if (!Number.isFinite(n)) return '\u20B90';
 
   if (options?.compact) {
     const abs = Math.abs(n);
-    if (abs >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
-    if (abs >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
+    if (abs >= 10000000) return `\u20B9${(n / 10000000).toFixed(2)} Cr`;
+    if (abs >= 100000) return `\u20B9${(n / 100000).toFixed(2)} L`;
   }
 
   const digits = options?.fractionDigits;
-  return `₹${n.toLocaleString('en-IN', {
+  return `\u20B9${n.toLocaleString('en-IN', {
     minimumFractionDigits: digits ?? 0,
     maximumFractionDigits: digits ?? 2,
   })}`;
@@ -109,8 +109,8 @@ export function formatInrForExcel(
 /** Compact KPI style (L / k) — still Indian-aware for full amounts under 1k. */
 export function formatInrShort(amount: number): string {
   const n = Number(amount);
-  if (!Number.isFinite(n)) return '₹0';
-  if (Math.abs(n) >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-  if (Math.abs(n) >= 1000) return `₹${(n / 1000).toFixed(1)}k`;
+  if (!Number.isFinite(n)) return '\u20B90';
+  if (Math.abs(n) >= 100000) return `\u20B9${(n / 100000).toFixed(1)}L`;
+  if (Math.abs(n) >= 1000) return `\u20B9${(n / 1000).toFixed(1)}k`;
   return formatInr(n, { fractionDigits: 0 });
 }
