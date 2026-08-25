@@ -47,6 +47,8 @@ import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RoleProtectedRoute } from './routes/RoleProtectedRoute';
 import { CompanyLicenseActivatedRoute } from './routes/CompanyLicenseActivatedRoute';
 import { ROUTES, ROLES } from './config/constants';
+import LandingPage from './pages/landing/LandingPage';
+import OnboardingPage from './pages/public/OnboardingPage';
 
 function App() {
   return (
@@ -117,7 +119,8 @@ function App() {
             <Route path={ROUTES.DRIVER_DASHBOARD} element={<DriverDashboardPage />} />
           </Route>
 
-          <Route path="/" element={<Navigate to={ROUTES.SIGN_IN} replace />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="*" element={<Navigate to={ROUTES.SIGN_IN} replace />} />
         </Routes>
       </BrowserRouter>
