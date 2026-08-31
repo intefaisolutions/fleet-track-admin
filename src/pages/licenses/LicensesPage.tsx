@@ -6,10 +6,10 @@ import {
   type Dispatch,
   type FormEvent,
   type SetStateAction,
-} from 'react';
-import { Link } from 'react-router-dom';
-import Swal from 'sweetalert2';
-import { toast } from 'react-toastify';
+} from "react";
+import { Link } from "react-router-dom";
+import Swal from "sweetalert2";
+import { toast } from "react-toastify";
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,40 +21,62 @@ import {
   Sparkles,
   TrendingUp,
   X,
-} from 'lucide-react';
-import { ROUTES } from '../../config/constants';
+} from "lucide-react";
+import { ROUTES } from "../../config/constants";
 import {
   LicenseSuccessModal,
   type GeneratedLicense,
-} from '../../components/licenses/LicenseSuccessModal';
+} from "../../components/licenses/LicenseSuccessModal";
 import {
   licensesService,
   type CreateLicensePayload,
   type CreatedLicense,
-} from '../../services/licenses.service';
-import { platformService } from '../../services/platform.service';
-import { copyToClipboard } from '../../utils/clipboard';
-import { getApiErrorMessage } from '../../utils/validation';
+} from "../../services/licenses.service";
+import { platformService } from "../../services/platform.service";
+import { copyToClipboard } from "../../utils/clipboard";
+import { getApiErrorMessage } from "../../utils/validation";
 
-const PLAN_TYPES = ['FREE', 'BASIC', 'STANDARD', 'PREMIUM', 'ENTERPRISE'] as const;
-const STATUS_OPTIONS = ['', 'ACTIVE', 'UNUSED', 'EXPIRED', 'REVOKED', 'CANCELLED'];
+const PLAN_TYPES = [
+  "FREE",
+  "BASIC",
+  "STANDARD",
+  "PREMIUM",
+  "ENTERPRISE",
+] as const;
+const STATUS_OPTIONS = [
+  "",
+  "ACTIVE",
+  "UNUSED",
+  "EXPIRED",
+  "REVOKED",
+  "CANCELLED",
+];
 const PAGE_SIZE = 10;
 
 interface LicenseRow {
   _id: string;
   licenseKey: string;
   intendedCompanyName?: string;
+  companyId?: string | { name?: string };
   planType: string;
   status: string;
   validUntil?: string;
 }
 
+function licenseCompanyName(license: LicenseRow) {
+  if (license.intendedCompanyName) return license.intendedCompanyName;
+  if (license.companyId && typeof license.companyId === "object") {
+    return license.companyId.name ?? "";
+  }
+  return "";
+}
+
 const PLAN_LABELS: Record<string, string> = {
-  FREE: 'Free',
-  BASIC: 'Basic',
-  STANDARD: 'Standard',
-  PREMIUM: 'Pro',
-  ENTERPRISE: 'Enterprise',
+  FREE: "Free",
+  BASIC: "Basic",
+  STANDARD: "Standard",
+  PREMIUM: "Pro",
+  ENTERPRISE: "Enterprise",
 };
 
 function planLabel(plan: string) {
@@ -62,30 +84,32 @@ function planLabel(plan: string) {
 }
 
 function formatDate(iso?: string) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-IN', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-IN", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
 function StatusBadge({ status }: { status: string }) {
   const s = status.toUpperCase();
   const styles =
-    s === 'ACTIVE' || s === 'UNUSED'
-      ? 'bg-emerald-100 text-emerald-800'
-      : s === 'EXPIRED'
-        ? 'bg-red-100 text-red-800'
-        : s === 'REVOKED' || s === 'CANCELLED'
-          ? 'bg-amber-100 text-amber-800'
-          : 'bg-slate-100 text-slate-600';
+    s === "ACTIVE" || s === "UNUSED"
+      ? "bg-emerald-100 text-emerald-800"
+      : s === "EXPIRED"
+        ? "bg-red-100 text-red-800"
+        : s === "REVOKED" || s === "CANCELLED"
+          ? "bg-amber-100 text-amber-800"
+          : "bg-slate-100 text-slate-600";
 
   const label =
-    s === 'UNUSED' ? 'Active' : s.charAt(0) + s.slice(1).toLowerCase();
+    s === "UNUSED" ? "Active" : s.charAt(0) + s.slice(1).toLowerCase();
 
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles}`}>
+    <span
+      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles}`}
+    >
       {label}
     </span>
   );
@@ -101,15 +125,15 @@ type PlanMeta = {
 };
 
 const initialForm = {
-  intendedCompanyName: '',
-  contactEmail: '',
-  contactPhone: '',
-  planType: 'PREMIUM',
-  maxAdmins: '1',
-  maxOwners: '2',
-  maxDrivers: '10',
-  maxVehicles: '',
-  validUntil: '',
+  intendedCompanyName: "",
+  contactEmail: "",
+  contactPhone: "",
+  planType: "PREMIUM",
+  maxAdmins: "1",
+  maxOwners: "2",
+  maxDrivers: "10",
+  maxVehicles: "",
+  validUntil: "",
 };
 
 function applyPlanLimitsToForm(
@@ -167,7 +191,9 @@ function CreateLicensePanel({
         );
       })
       .catch(() => {
-        setPlansMeta(PLAN_TYPES.map((p) => ({ planType: p, label: planLabel(p) })));
+        setPlansMeta(
+          PLAN_TYPES.map((p) => ({ planType: p, label: planLabel(p) })),
+        );
       });
   }, [open]);
 
@@ -183,12 +209,12 @@ function CreateLicensePanel({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     if (form.contactPhone && form.contactPhone.trim().length !== 10) {
-      toast.error('Contact phone must be exactly 10 digits');
+      toast.error("Contact phone must be exactly 10 digits");
       return;
     }
-    
+
     setLoading(true);
     try {
       const payload: CreateLicensePayload = {
@@ -207,14 +233,14 @@ function CreateLicensePanel({
       const res = await licensesService.create(payload);
       const created = res.data as CreatedLicense | undefined;
       if (!created?.licenseKey) {
-        toast.error('License created but key missing in response');
+        toast.error("License created but key missing in response");
         return;
       }
       setForm(initialForm);
       onClose();
       onGenerated(created);
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Failed to generate license'));
+      toast.error(getApiErrorMessage(err, "Failed to generate license"));
     } finally {
       setLoading(false);
     }
@@ -231,12 +257,19 @@ function CreateLicensePanel({
       <aside className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-900">Create License</h2>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-y-auto px-6 py-5">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-y-auto px-6 py-5"
+        >
           <div className="space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -244,7 +277,9 @@ function CreateLicensePanel({
               </label>
               <input
                 value={form.intendedCompanyName}
-                onChange={(e) => setForm({ ...form, intendedCompanyName: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, intendedCompanyName: e.target.value })
+                }
                 placeholder="e.g. Acme Corp"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
               />
@@ -256,8 +291,10 @@ function CreateLicensePanel({
               <input
                 type="email"
                 value={form.contactEmail}
-                onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
-                placeholder="admin@company.com"
+                onChange={(e) =>
+                  setForm({ ...form, contactEmail: e.target.value })
+                }
+                placeholder="Enter your Email"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
               />
             </div>
@@ -269,7 +306,7 @@ function CreateLicensePanel({
                 type="tel"
                 value={form.contactPhone}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                   setForm({ ...form, contactPhone: val });
                 }}
                 placeholder="+91 9876543210"
@@ -286,10 +323,13 @@ function CreateLicensePanel({
                 onChange={(e) => setForm({ ...form, planType: e.target.value })}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
               >
-                {(plansMeta.length ? plansMeta : PLAN_TYPES.map((p) => ({
-                  planType: p,
-                  label: planLabel(p),
-                }))).map((p) => (
+                {(plansMeta.length
+                  ? plansMeta
+                  : PLAN_TYPES.map((p) => ({
+                      planType: p,
+                      label: planLabel(p),
+                    }))
+                ).map((p) => (
                   <option key={p.planType} value={p.planType}>
                     {p.label}
                   </option>
@@ -304,9 +344,9 @@ function CreateLicensePanel({
               <div className="grid grid-cols-3 gap-3">
                 {(
                   [
-                    ['maxAdmins', 'Sub-Admins'],
-                    ['maxOwners', 'Owners'],
-                    ['maxDrivers', 'Drivers'],
+                    ["maxAdmins", "Sub-Admins"],
+                    ["maxOwners", "Owners"],
+                    ["maxDrivers", "Drivers"],
                   ] as const
                 ).map(([key, label]) => (
                   <div key={key}>
@@ -319,7 +359,9 @@ function CreateLicensePanel({
                       min={1}
                       required
                       value={form[key]}
-                      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, [key]: e.target.value })
+                      }
                       className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-fleet-500"
                     />
                   </div>
@@ -341,7 +383,9 @@ function CreateLicensePanel({
                 type="number"
                 min={1}
                 value={form.maxVehicles}
-                onChange={(e) => setForm({ ...form, maxVehicles: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, maxVehicles: e.target.value })
+                }
                 placeholder="From selected plan"
                 className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-fleet-500 focus:ring-1 focus:ring-fleet-500/30"
               />
@@ -355,9 +399,11 @@ function CreateLicensePanel({
               <input
                 type="date"
                 required
-                min={new Date().toISOString().split('T')[0]}
+                min={new Date().toISOString().split("T")[0]}
                 value={form.validUntil}
-                onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, validUntil: e.target.value })
+                }
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500"
               />
             </div>
@@ -365,10 +411,13 @@ function CreateLicensePanel({
             <div className="flex gap-3 rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm text-slate-600">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-fleet-500" />
               <p>
-                Generates a key in{' '}
-                <span className="font-mono text-xs">FLT-XXXX-YYYY-ZZZZ-WWWW</span> format. After{' '}
-                <strong>Valid Until</strong>, company users may still log in for{' '}
-                <strong>7 days</strong> (grace period), then login is blocked until renewal.
+                Generates a key in{" "}
+                <span className="font-mono text-xs">
+                  FLT-XXXX-YYYY-ZZZZ-WWWW
+                </span>{" "}
+                format. After <strong>Valid Until</strong>, company users may
+                still log in for <strong>7 days</strong> (grace period), then
+                login is blocked until renewal.
               </p>
             </div>
           </div>
@@ -380,7 +429,7 @@ function CreateLicensePanel({
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-fleet-500 py-3 text-sm font-semibold text-white hover:bg-fleet-600 disabled:opacity-60"
             >
               <Sparkles className="h-4 w-4" />
-              {loading ? 'Generating...' : 'Generate License'}
+              {loading ? "Generating..." : "Generate License"}
             </button>
           </div>
         </form>
@@ -392,15 +441,16 @@ function CreateLicensePanel({
 export function LicensesPage() {
   const [licenses, setLicenses] = useState<LicenseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [planFilter, setPlanFilter] = useState('');
-  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
+  const [planFilter, setPlanFilter] = useState("");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [generatedLicense, setGeneratedLicense] = useState<GeneratedLicense | null>(null);
+  const [generatedLicense, setGeneratedLicense] =
+    useState<GeneratedLicense | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [extendTarget, setExtendTarget] = useState<LicenseRow | null>(null);
-  const [extendDate, setExtendDate] = useState('');
+  const [extendDate, setExtendDate] = useState("");
   const [menuId, setMenuId] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -409,7 +459,7 @@ export function LicensesPage() {
       .list(statusFilter || undefined)
       .then((res) => setLicenses((res.data as LicenseRow[]) ?? []))
       .catch((err: unknown) =>
-        toast.error(getApiErrorMessage(err, 'Failed to load licenses')),
+        toast.error(getApiErrorMessage(err, "Failed to load licenses")),
       )
       .finally(() => setLoading(false));
   }, [statusFilter]);
@@ -423,14 +473,16 @@ export function LicensesPage() {
     return licenses.filter((l) => {
       if (planFilter && l.planType !== planFilter) return false;
       if (!q) return true;
-      const key = (l.licenseKey ?? '').toLowerCase();
-      const company = (l.intendedCompanyName ?? '').toLowerCase();
+      const key = (l.licenseKey ?? "").toLowerCase();
+      const company = licenseCompanyName(l).toLowerCase();
       return key.includes(q) || company.includes(q);
     });
   }, [licenses, planFilter, search]);
 
   const activeCount = useMemo(
-    () => licenses.filter((l) => l.status === 'ACTIVE' || l.status === 'UNUSED').length,
+    () =>
+      licenses.filter((l) => l.status === "ACTIVE" || l.status === "UNUSED")
+        .length,
     [licenses],
   );
 
@@ -445,17 +497,17 @@ export function LicensesPage() {
     if (!menuId) return;
     const closeOnOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target.closest('[data-license-actions]')) return;
+      if (target.closest("[data-license-actions]")) return;
       setMenuId(null);
     };
-    document.addEventListener('mousedown', closeOnOutside);
-    return () => document.removeEventListener('mousedown', closeOnOutside);
+    document.addEventListener("mousedown", closeOnOutside);
+    return () => document.removeEventListener("mousedown", closeOnOutside);
   }, [menuId]);
 
   const copyKey = async (key: string) => {
     const ok = await copyToClipboard(key);
-    if (ok) toast.success('License key copied');
-    else toast.error('Could not copy license key');
+    if (ok) toast.success("License key copied");
+    else toast.error("Could not copy license key");
     setMenuId(null);
   };
 
@@ -463,7 +515,7 @@ export function LicensesPage() {
     title: string;
     text: string;
     confirmText: string;
-    icon: 'warning' | 'question' | 'success';
+    icon: "warning" | "question" | "success";
     confirmButtonColor: string;
   }) => {
     const result = await Swal.fire({
@@ -472,15 +524,15 @@ export function LicensesPage() {
       icon: options.icon,
       showCancelButton: true,
       confirmButtonText: options.confirmText,
-      cancelButtonText: 'Cancel',
+      cancelButtonText: "Cancel",
       reverseButtons: true,
       confirmButtonColor: options.confirmButtonColor,
-      cancelButtonColor: '#94a3b8',
+      cancelButtonColor: "#94a3b8",
       focusCancel: true,
       customClass: {
-        popup: 'rounded-xl',
-        confirmButton: 'rounded-md',
-        cancelButton: 'rounded-md',
+        popup: "rounded-xl",
+        confirmButton: "rounded-md",
+        cancelButton: "rounded-md",
       },
     });
     return result.isConfirmed;
@@ -488,18 +540,22 @@ export function LicensesPage() {
 
   const handleRevoke = async (id: string) => {
     const result = await Swal.fire({
-      title: 'Revoke license?',
-      text: 'The linked company will lose access. You can specify a grace period (in hours) before they are deactivated.',
-      input: 'number',
-      inputLabel: 'Grace Period (Hours)',
+      title: "Revoke license?",
+      text: "The linked company will lose access. You can specify a grace period (in hours) before they are deactivated.",
+      input: "number",
+      inputLabel: "Grace Period (Hours)",
       inputValue: 48,
-      icon: 'warning',
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonText: 'Yes, revoke',
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#d97706',
-      inputAttributes: { min: '0', step: '1' },
-      customClass: { popup: 'rounded-xl', confirmButton: 'rounded-md', cancelButton: 'rounded-md' }
+      confirmButtonText: "Yes, revoke",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#d97706",
+      inputAttributes: { min: "0", step: "1" },
+      customClass: {
+        popup: "rounded-xl",
+        confirmButton: "rounded-md",
+        cancelButton: "rounded-md",
+      },
     });
 
     if (!result.isConfirmed) return;
@@ -507,10 +563,10 @@ export function LicensesPage() {
 
     try {
       await licensesService.revoke(id, gracePeriodHours);
-      toast.success('License revoked');
+      toast.success("License revoked");
       load();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Revoke failed'));
+      toast.error(getApiErrorMessage(err, "Revoke failed"));
     } finally {
       setMenuId(null);
     }
@@ -518,19 +574,19 @@ export function LicensesPage() {
 
   const handleCancel = async (id: string) => {
     const ok = await confirmAction({
-      title: 'Cancel license permanently?',
-      text: 'This will permanently cancel this license key.',
-      confirmText: 'Yes, cancel',
-      icon: 'warning',
-      confirmButtonColor: '#dc2626',
+      title: "Cancel license permanently?",
+      text: "This will permanently cancel this license key.",
+      confirmText: "Yes, cancel",
+      icon: "warning",
+      confirmButtonColor: "#dc2626",
     });
     if (!ok) return;
     try {
       await licensesService.cancel(id);
-      toast.success('License cancelled');
+      toast.success("License cancelled");
       load();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Cancel failed'));
+      toast.error(getApiErrorMessage(err, "Cancel failed"));
     } finally {
       setMenuId(null);
     }
@@ -539,13 +595,16 @@ export function LicensesPage() {
   const handleExtendSubmit = async () => {
     if (!extendTarget || !extendDate) return;
     try {
-      await licensesService.extend(extendTarget._id, new Date(extendDate).toISOString());
-      toast.success('License extended');
+      await licensesService.extend(
+        extendTarget._id,
+        new Date(extendDate).toISOString(),
+      );
+      toast.success("License extended");
       setExtendTarget(null);
-      setExtendDate('');
+      setExtendDate("");
       load();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Extend failed'));
+      toast.error(getApiErrorMessage(err, "Extend failed"));
     }
   };
 
@@ -553,11 +612,11 @@ export function LicensesPage() {
     setSendingEmail(true);
     try {
       await licensesService.sendEmail(license._id);
-      toast.success('License key emailed');
+      toast.success("License key emailed");
       setGeneratedLicense((prev) => (prev ? { ...prev, emailed: true } : prev));
       load();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Failed to send email'));
+      toast.error(getApiErrorMessage(err, "Failed to send email"));
     } finally {
       setSendingEmail(false);
     }
@@ -566,9 +625,9 @@ export function LicensesPage() {
   const handleResendFromTable = async (id: string) => {
     try {
       await licensesService.sendEmail(id);
-      toast.success('License key emailed');
+      toast.success("License key emailed");
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Failed to send email'));
+      toast.error(getApiErrorMessage(err, "Failed to send email"));
     } finally {
       setMenuId(null);
     }
@@ -586,7 +645,9 @@ export function LicensesPage() {
             <span className="mx-1.5">›</span>
             <span className="text-slate-600">License Management</span>
           </p>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">License Keys</h1>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">
+            License Keys
+          </h1>
         </div>
         <button
           type="button"
@@ -639,9 +700,11 @@ export function LicensesPage() {
 
         <div className="flex h-[4.25rem] min-w-[200px] flex-1 items-center justify-between rounded-xl border border-slate-200 bg-white px-5 shadow-sm lg:max-w-xs lg:ml-auto">
           <div>
-            <p className="text-xs font-medium text-slate-500">Active Licenses</p>
+            <p className="text-xs font-medium text-slate-500">
+              Active Licenses
+            </p>
             <p className="mt-1 text-2xl font-bold text-slate-900">
-              {activeCount.toLocaleString('en-IN')}
+              {activeCount.toLocaleString("en-IN")}
             </p>
           </div>
           <div className="flex h-10 w-16 items-end justify-center gap-0.5 rounded-lg bg-fleet-50 px-2 py-1">
@@ -674,13 +737,19 @@ export function LicensesPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-slate-400">
+                  <td
+                    colSpan={6}
+                    className="px-5 py-12 text-center text-slate-400"
+                  >
                     Loading licenses...
                   </td>
                 </tr>
               ) : pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-slate-400">
+                  <td
+                    colSpan={6}
+                    className="px-5 py-12 text-center text-slate-400"
+                  >
                     No licenses found. Create your first license key.
                   </td>
                 </tr>
@@ -694,18 +763,27 @@ export function LicensesPage() {
                       {l.licenseKey}
                     </td>
                     <td className="px-5 py-4 font-medium text-slate-900">
-                      {l.intendedCompanyName ?? '—'}
+                      {licenseCompanyName(l) || "—"}
                     </td>
-                    <td className="px-5 py-4 text-slate-600">{planLabel(l.planType)}</td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {planLabel(l.planType)}
+                    </td>
                     <td className="px-5 py-4">
                       <StatusBadge status={l.status} />
                     </td>
-                    <td className="px-5 py-4 text-slate-600">{formatDate(l.validUntil)}</td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {formatDate(l.validUntil)}
+                    </td>
                     <td className="relative px-5 py-4">
-                      <div className="relative inline-block" data-license-actions>
+                      <div
+                        className="relative inline-block"
+                        data-license-actions
+                      >
                         <button
                           type="button"
-                          onClick={() => setMenuId(menuId === l._id ? null : l._id)}
+                          onClick={() =>
+                            setMenuId(menuId === l._id ? null : l._id)
+                          }
                           className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
                           aria-expanded={menuId === l._id}
                           aria-haspopup="menu"
@@ -717,54 +795,57 @@ export function LicensesPage() {
                             role="menu"
                             className="absolute right-0 top-full z-10 mt-1 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
                           >
-                          <button
-                            type="button"
-                            onClick={() => copyKey(l.licenseKey)}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            Copy Key
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setExtendTarget(l);
-                              setExtendDate(
-                                l.validUntil
-                                  ? new Date(l.validUntil).toISOString().slice(0, 10)
-                                  : '',
-                              );
-                              setMenuId(null);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                          >
-                            Extend
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleResendFromTable(l._id)}
-                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                          >
-                            Resend Email
-                          </button>
-                          {l.status !== 'REVOKED' && l.status !== 'CANCELLED' && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleRevoke(l._id)}
-                                className="w-full px-4 py-2 text-left text-sm text-amber-700 hover:bg-amber-50"
-                              >
-                                Revoke
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleCancel(l._id)}
-                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => copyKey(l.licenseKey)}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              Copy Key
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExtendTarget(l);
+                                setExtendDate(
+                                  l.validUntil
+                                    ? new Date(l.validUntil)
+                                        .toISOString()
+                                        .slice(0, 10)
+                                    : "",
+                                );
+                                setMenuId(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                            >
+                              Extend
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleResendFromTable(l._id)}
+                              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                            >
+                              Resend Email
+                            </button>
+                            {l.status !== "REVOKED" &&
+                              l.status !== "CANCELLED" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRevoke(l._id)}
+                                    className="w-full px-4 py-2 text-left text-sm text-amber-700 hover:bg-amber-50"
+                                  >
+                                    Revoke
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancel(l._id)}
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              )}
                           </div>
                         )}
                       </div>
@@ -779,7 +860,7 @@ export function LicensesPage() {
         <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500">
             {filtered.length === 0
-              ? '0 licenses'
+              ? "0 licenses"
               : `Showing ${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length} licenses`}
           </p>
           <div className="flex items-center gap-1">
@@ -791,13 +872,18 @@ export function LicensesPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+            {Array.from(
+              { length: Math.min(totalPages, 5) },
+              (_, i) => i + 1,
+            ).map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => setPage(p)}
                 className={`min-w-8 rounded-lg px-2 py-1 text-sm font-medium ${
-                  p === page ? 'bg-fleet-500 text-white' : 'text-slate-600 hover:bg-slate-100'
+                  p === page
+                    ? "bg-fleet-500 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 {p}
@@ -842,13 +928,15 @@ export function LicensesPage() {
           />
           <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-900">Extend License</h3>
-            <p className="mt-1 font-mono text-xs text-slate-500">{extendTarget.licenseKey}</p>
+            <p className="mt-1 font-mono text-xs text-slate-500">
+              {extendTarget.licenseKey}
+            </p>
             <label className="mt-4 block text-sm font-medium text-slate-700">
               New expiry date
             </label>
             <input
               type="date"
-              min={new Date().toISOString().split('T')[0]}
+              min={new Date().toISOString().split("T")[0]}
               value={extendDate}
               onChange={(e) => setExtendDate(e.target.value)}
               className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm"

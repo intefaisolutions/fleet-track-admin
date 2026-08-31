@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   ArrowRight,
   Building2,
@@ -12,21 +18,21 @@ import {
   Phone,
   Truck,
   User,
-} from 'lucide-react';
-import { ROUTES } from '../../config/constants';
-import { companiesService } from '../../services/companies.service';
-import { AuthPageFooter } from '../../components/auth/AuthPageFooter';
-import { AuthPageBrand } from '../../components/auth/AuthPageBrand';
-import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
-import { getApiErrorMessage } from '../../utils/validation';
-import { decodeGoogleJwt } from '../../utils/googleJwt';
+} from "lucide-react";
+import { ROUTES } from "../../config/constants";
+import { companiesService } from "../../services/companies.service";
+import { AuthPageFooter } from "../../components/auth/AuthPageFooter";
+import { AuthPageBrand } from "../../components/auth/AuthPageBrand";
+import { GoogleSignInButton } from "../../components/auth/GoogleSignInButton";
+import { getApiErrorMessage } from "../../utils/validation";
+import { decodeGoogleJwt } from "../../utils/googleJwt";
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 const LICENSE_KEY_PATTERN =
   /^FLT-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i;
 
 function normalizeLicenseKey(value: string): string {
-  return value.trim().toUpperCase().replace(/\s+/g, '');
+  return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
 function FleetIllustration() {
@@ -68,26 +74,26 @@ export function RegisterCompanyPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [form, setForm] = useState({
-    licenseKey: '',
-    companyName: '',
-    adminName: '',
-    phone: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    licenseKey: "",
+    companyName: "",
+    adminName: "",
+    phone: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
-  const [lockedEmail, setLockedEmail] = useState('');
+  const [lockedEmail, setLockedEmail] = useState("");
 
   const inputClass =
-    'w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20';
+    "w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20";
   const requiredAsterisk = <span className="ml-1 text-red-500">*</span>;
 
   useEffect(() => {
-    const email = searchParams.get('email')?.trim() ?? '';
-    const company = searchParams.get('companyName')?.trim() ?? '';
-    const phone = searchParams.get('phone')?.trim() ?? '';
+    const email = searchParams.get("email")?.trim() ?? "";
+    const company = searchParams.get("companyName")?.trim() ?? "";
+    const phone = searchParams.get("phone")?.trim() ?? "";
     const licenseKey = normalizeLicenseKey(
-      searchParams.get('licenseKey')?.trim() ?? '',
+      searchParams.get("licenseKey")?.trim() ?? "",
     );
 
     if (!email && !company && !phone && !licenseKey) return;
@@ -105,9 +111,9 @@ export function RegisterCompanyPage() {
   const fromInvitation = useMemo(
     () =>
       !!(
-        searchParams.get('email')?.trim() ||
-        searchParams.get('companyName')?.trim() ||
-        searchParams.get('licenseKey')?.trim()
+        searchParams.get("email")?.trim() ||
+        searchParams.get("companyName")?.trim() ||
+        searchParams.get("licenseKey")?.trim()
       ),
     [searchParams],
   );
@@ -119,10 +125,14 @@ export function RegisterCompanyPage() {
       setGoogleLoading(true);
       try {
         const profile = decodeGoogleJwt(idToken);
-        const googleEmail = profile.email?.trim().toLowerCase() ?? '';
+        const googleEmail = profile.email?.trim().toLowerCase() ?? "";
 
-        if (lockedEmail && googleEmail && lockedEmail.toLowerCase() !== googleEmail) {
-          toast.error('Google email must match the invitation email');
+        if (
+          lockedEmail &&
+          googleEmail &&
+          lockedEmail.toLowerCase() !== googleEmail
+        ) {
+          toast.error("Google email must match the invitation email");
           return;
         }
 
@@ -133,7 +143,7 @@ export function RegisterCompanyPage() {
           adminName: profile.name?.trim() || prev.adminName,
         }));
 
-        toast.success('Google account linked — complete registration');
+        toast.success("Google account linked — complete registration");
       } finally {
         setGoogleLoading(false);
       }
@@ -145,30 +155,30 @@ export function RegisterCompanyPage() {
     e.preventDefault();
     if (loading) return;
     if (!acceptedLegal) {
-      toast.error('Please accept the Terms of Service and Privacy Policy');
+      toast.error("Please accept the Terms of Service and Privacy Policy");
       return;
     }
     if (!usingGoogle) {
       if (form.password.length < 8) {
-        toast.error('Password must be at least 8 characters');
+        toast.error("Password must be at least 8 characters");
         return;
       }
       if (form.password !== form.confirmPassword) {
-        toast.error('Passwords do not match');
+        toast.error("Passwords do not match");
         return;
       }
     }
     if (!form.companyName.trim()) {
-      toast.error('Please enter your company name.');
+      toast.error("Please enter your company name.");
       return;
     }
     const licenseKey = normalizeLicenseKey(form.licenseKey);
     if (!licenseKey) {
-      toast.error('License key is required.');
+      toast.error("License key is required.");
       return;
     }
     if (licenseKey.length < 10 || !LICENSE_KEY_PATTERN.test(licenseKey)) {
-      toast.error('Invalid license key. Expected FLT-XXXX-YYYY-ZZZZ-WWWW.');
+      toast.error("Invalid license key. Expected FLT-XXXX-YYYY-ZZZZ-WWWW.");
       return;
     }
     setLoading(true);
@@ -186,17 +196,17 @@ export function RegisterCompanyPage() {
       toast.success(
         res.message ||
           (usingGoogle
-            ? 'Company registered! Sign in with Google, then activate your license key.'
-            : 'Company registered! Log in, then activate your license key.'),
+            ? "Company registered! Sign in with Google, then activate your license key."
+            : "Company registered! Log in, then activate your license key."),
       );
       navigate(ROUTES.SIGN_IN);
     } catch (err: unknown) {
-      const message = getApiErrorMessage(err, 'Registration failed');
+      const message = getApiErrorMessage(err, "Registration failed");
       const lower = message.toLowerCase();
       if (
-        lower.includes('already exists') ||
-        lower.includes('already registered') ||
-        lower.includes('email already')
+        lower.includes("already exists") ||
+        lower.includes("already registered") ||
+        lower.includes("email already")
       ) {
         toast.error(
           `${message} If you already registered, please log in instead.`,
@@ -214,7 +224,7 @@ export function RegisterCompanyPage() {
       <div className="flex flex-1">
         <div
           className="relative hidden w-[42%] flex-col items-center justify-center px-10 lg:flex"
-          style={{ backgroundColor: '#00AEEF' }}
+          style={{ backgroundColor: "#00AEEF" }}
         >
           <FleetIllustration />
           <h1 className="mt-10 max-w-sm text-center text-3xl font-bold leading-snug tracking-tight text-white">
@@ -242,8 +252,9 @@ export function RegisterCompanyPage() {
                   className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
                   role="status"
                 >
-                  Invitation details were pre-filled, including your license key.
-                  Complete registration, then log in to activate the license.
+                  Invitation details were pre-filled, including your license
+                  key. Complete registration, then log in to activate the
+                  license.
                 </div>
               )}
 
@@ -264,8 +275,8 @@ export function RegisterCompanyPage() {
 
               {usingGoogle && (
                 <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                  Signed in with Google as <strong>{form.email}</strong>. Password is
-                  not required — tap Register to continue.
+                  Signed in with Google as <strong>{form.email}</strong>.
+                  Password is not required — tap Register to continue.
                 </p>
               )}
 
@@ -297,7 +308,8 @@ export function RegisterCompanyPage() {
                     />
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    Enter the key from your invitation email / FleetTrack portal.
+                    Enter the key from your invitation email / FleetTrack
+                    portal.
                   </p>
                 </div>
 
@@ -315,8 +327,10 @@ export function RegisterCompanyPage() {
                       id="companyName"
                       required
                       value={form.companyName}
-                      onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-                      placeholder="e.g. Global Logistics Inc."
+                      onChange={(e) =>
+                        setForm({ ...form, companyName: e.target.value })
+                      }
+                      placeholder="Enter Company Name"
                       className={inputClass}
                     />
                   </div>
@@ -336,8 +350,10 @@ export function RegisterCompanyPage() {
                       id="adminName"
                       required
                       value={form.adminName}
-                      onChange={(e) => setForm({ ...form, adminName: e.target.value })}
-                      placeholder="John Doe"
+                      onChange={(e) =>
+                        setForm({ ...form, adminName: e.target.value })
+                      }
+                      placeholder="Enter your Name "
                       className={inputClass}
                     />
                   </div>
@@ -358,7 +374,9 @@ export function RegisterCompanyPage() {
                       type="tel"
                       required
                       value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, phone: e.target.value })
+                      }
                       placeholder="+91 9876543210"
                       className={inputClass}
                     />
@@ -382,9 +400,10 @@ export function RegisterCompanyPage() {
                       required
                       value={form.email}
                       onChange={(e) => {
-                        if (!lockedEmail) setForm({ ...form, email: e.target.value });
+                        if (!lockedEmail)
+                          setForm({ ...form, email: e.target.value });
                       }}
-                      placeholder="admin@company.com"
+                      placeholder="Enter your Email"
                       className={inputClass}
                       readOnly={!!lockedEmail}
                     />
@@ -410,12 +429,14 @@ export function RegisterCompanyPage() {
                         <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                         <input
                           id="password"
-                          type={showPassword ? 'text' : 'password'}
+                          type={showPassword ? "text" : "password"}
                           autoComplete="new-password"
                           required
                           minLength={8}
                           value={form.password}
-                          onChange={(e) => setForm({ ...form, password: e.target.value })}
+                          onChange={(e) =>
+                            setForm({ ...form, password: e.target.value })
+                          }
                           placeholder="Min 8 characters"
                           className={`${inputClass} pr-11`}
                         />
@@ -423,7 +444,9 @@ export function RegisterCompanyPage() {
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
                         >
                           {showPassword ? (
                             <EyeOff className="h-5 w-5" />
@@ -446,12 +469,15 @@ export function RegisterCompanyPage() {
                         <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                         <input
                           id="confirmPassword"
-                          type={showConfirm ? 'text' : 'password'}
+                          type={showConfirm ? "text" : "password"}
                           autoComplete="new-password"
                           required
                           value={form.confirmPassword}
                           onChange={(e) =>
-                            setForm({ ...form, confirmPassword: e.target.value })
+                            setForm({
+                              ...form,
+                              confirmPassword: e.target.value,
+                            })
                           }
                           placeholder="Re-enter password"
                           className={`${inputClass} pr-11`}
@@ -460,7 +486,9 @@ export function RegisterCompanyPage() {
                           type="button"
                           onClick={() => setShowConfirm(!showConfirm)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                          aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                          aria-label={
+                            showConfirm ? "Hide password" : "Show password"
+                          }
                         >
                           {showConfirm ? (
                             <EyeOff className="h-5 w-5" />
@@ -481,23 +509,23 @@ export function RegisterCompanyPage() {
                     className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#00AEEF] focus:ring-[#00AEEF]/30"
                   />
                   <span>
-                    I agree to the{' '}
+                    I agree to the{" "}
                     <Link
                       to={ROUTES.TERMS_OF_SERVICE}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium hover:underline"
-                      style={{ color: '#00AEEF' }}
+                      style={{ color: "#00AEEF" }}
                     >
                       Terms of Service
-                    </Link>{' '}
-                    and{' '}
+                    </Link>{" "}
+                    and{" "}
                     <Link
                       to={ROUTES.PRIVACY_POLICY}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium hover:underline"
-                      style={{ color: '#00AEEF' }}
+                      style={{ color: "#00AEEF" }}
                     >
                       Privacy Policy
                     </Link>
@@ -506,27 +534,32 @@ export function RegisterCompanyPage() {
                 </label>
 
                 <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                  After registration, log in and activate the same license key to unlock
-                  the dashboard. Don&apos;t have a key? Contact FleetTrack support.
+                  After registration, log in and activate the same license key
+                  to unlock the dashboard. Don&apos;t have a key? Contact
+                  FleetTrack support.
                 </p>
 
                 <button
                   type="submit"
                   disabled={loading || googleLoading || !acceptedLegal}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
-                  style={{ backgroundColor: '#00AEEF' }}
+                  style={{ backgroundColor: "#00AEEF" }}
                 >
-                  {loading ? 'Registering...' : usingGoogle ? 'Register with Google' : 'Register'}
+                  {loading
+                    ? "Registering..."
+                    : usingGoogle
+                      ? "Register with Google"
+                      : "Register"}
                   {!loading && <ArrowRight className="h-4 w-4" />}
                 </button>
               </form>
 
               <p className="mt-6 text-center text-sm text-slate-500">
-                Already registered?{' '}
+                Already registered?{" "}
                 <Link
                   to={ROUTES.SIGN_IN}
                   className="font-semibold hover:underline"
-                  style={{ color: '#00AEEF' }}
+                  style={{ color: "#00AEEF" }}
                 >
                   Login
                 </Link>

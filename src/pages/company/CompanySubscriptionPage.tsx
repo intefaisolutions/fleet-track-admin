@@ -1,39 +1,39 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "react-toastify";
 import {
   CheckCircle2,
   Clock3,
   CreditCard,
   ShieldCheck,
   Wallet,
-} from 'lucide-react';
-import { SubscriptionPaymentPanel } from '../../components/payments/SubscriptionPaymentPanel';
-import { PlanDetailsModal } from '../../components/payments/PlanDetailsModal';
-import { useAuth } from '../../context/AuthContext';
+} from "lucide-react";
+import { SubscriptionPaymentPanel } from "../../components/payments/SubscriptionPaymentPanel";
+import { PlanDetailsModal } from "../../components/payments/PlanDetailsModal";
+import { useAuth } from "../../context/AuthContext";
 import {
   companiesService,
   type CompanyDetail,
-} from '../../services/companies.service';
+} from "../../services/companies.service";
 import {
   subscriptionsService,
   type SubscriptionRecord,
-} from '../../services/subscriptions.service';
+} from "../../services/subscriptions.service";
 import {
   platformService,
   type SubscriptionPlanRecord,
-} from '../../services/platform.service';
-import { paymentsService } from '../../services/payments.service';
-import { getApiErrorMessage } from '../../utils/validation';
-import { formatInr } from '../../utils/currency';
+} from "../../services/platform.service";
+import { paymentsService } from "../../services/payments.service";
+import { getApiErrorMessage } from "../../utils/validation";
+import { formatInr } from "../../utils/currency";
 
 function formatDate(value?: string) {
-  if (!value) return '—';
+  if (!value) return "—";
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-IN', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-IN", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
@@ -46,14 +46,14 @@ function planTitle(planType: string, plans: SubscriptionPlanRecord[]) {
 function planChangeKind(
   target: SubscriptionPlanRecord,
   current: SubscriptionPlanRecord | null | undefined,
-): 'current' | 'upgrade' | 'downgrade' {
-  if (!current || target.planType === current.planType) return 'current';
-  if (target.monthlyPriceInr > current.monthlyPriceInr) return 'upgrade';
-  if (target.monthlyPriceInr < current.monthlyPriceInr) return 'downgrade';
+): "current" | "upgrade" | "downgrade" {
+  if (!current || target.planType === current.planType) return "current";
+  if (target.monthlyPriceInr > current.monthlyPriceInr) return "upgrade";
+  if (target.monthlyPriceInr < current.monthlyPriceInr) return "downgrade";
   // Same price, different plan — treat as upgrade/change toward higher vehicle limit
-  if (target.vehicleLimit > current.vehicleLimit) return 'upgrade';
-  if (target.vehicleLimit < current.vehicleLimit) return 'downgrade';
-  return 'upgrade';
+  if (target.vehicleLimit > current.vehicleLimit) return "upgrade";
+  if (target.vehicleLimit < current.vehicleLimit) return "downgrade";
+  return "upgrade";
 }
 
 /** Savings vs paying monthly × 12 when yearly price is lower. */
@@ -67,24 +67,33 @@ function yearlySavingsPercent(plan: SubscriptionPlanRecord) {
 function yearlySavingsAmount(plan: SubscriptionPlanRecord) {
   const monthlyYear = plan.monthlyPriceInr * 12;
   if (monthlyYear <= 0 || plan.yearlyPriceInr <= 0) return 0;
-  return Math.max(0, Math.round((monthlyYear - plan.yearlyPriceInr) * 100) / 100);
+  return Math.max(
+    0,
+    Math.round((monthlyYear - plan.yearlyPriceInr) * 100) / 100,
+  );
 }
 
-type PaymentStatus = 'NOT_PAID' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+type PaymentStatus = "NOT_PAID" | "PENDING" | "VERIFIED" | "REJECTED";
 
 export function CompanySubscriptionPage() {
   const { user } = useAuth();
   const [company, setCompany] = useState<CompanyDetail | null>(null);
   const [plans, setPlans] = useState<SubscriptionPlanRecord[]>([]);
-  const [currentSubscription, setCurrentSubscription] = useState<SubscriptionRecord | null>(
+  const [currentSubscription, setCurrentSubscription] =
+    useState<SubscriptionRecord | null>(null);
+  const [paymentSettings, setPaymentSettings] = useState<
+    Record<string, string>
+  >({});
+  const [latestPaymentStatus, setLatestPaymentStatus] =
+    useState<PaymentStatus>("NOT_PAID");
+  const [selectedPlanType, setSelectedPlanType] = useState("");
+  const [billingPeriod, setBillingPeriod] = useState<"MONTHLY" | "YEARLY">(
+    "MONTHLY",
+  );
+  const [loading, setLoading] = useState(true);
+  const [detailPlan, setDetailPlan] = useState<SubscriptionPlanRecord | null>(
     null,
   );
-  const [paymentSettings, setPaymentSettings] = useState<Record<string, string>>({});
-  const [latestPaymentStatus, setLatestPaymentStatus] = useState<PaymentStatus>('NOT_PAID');
-  const [selectedPlanType, setSelectedPlanType] = useState('');
-  const [billingPeriod, setBillingPeriod] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
-  const [loading, setLoading] = useState(true);
-  const [detailPlan, setDetailPlan] = useState<SubscriptionPlanRecord | null>(null);
   const [paymentsHistory, setPaymentsHistory] = useState<
     Array<{
       _id: string;
@@ -111,63 +120,74 @@ export function CompanySubscriptionPage() {
       platformService.getPaymentSettings(),
       paymentsService.list(),
     ])
-      .then(([companyResult, subsResult, plansResult, settingsResult, paymentsResult]) => {
-        let companyData: CompanyDetail | null = null;
-        if (companyResult.status === 'fulfilled') {
-          companyData = (companyResult.value.data as CompanyDetail) ?? null;
-          setCompany(companyData);
-        }
+      .then(
+        ([
+          companyResult,
+          subsResult,
+          plansResult,
+          settingsResult,
+          paymentsResult,
+        ]) => {
+          let companyData: CompanyDetail | null = null;
+          if (companyResult.status === "fulfilled") {
+            companyData = (companyResult.value.data as CompanyDetail) ?? null;
+            setCompany(companyData);
+          }
 
-        let activeSub: SubscriptionRecord | null = null;
-        if (subsResult.status === 'fulfilled') {
-          const list = subsResult.value.data ?? [];
-          activeSub =
-            list.find((s) => s.status === 'ACTIVE') ??
-            list.find((s) => s.status === 'TRIAL') ??
-            list[0] ??
-            null;
-          setCurrentSubscription(activeSub);
-        }
+          let activeSub: SubscriptionRecord | null = null;
+          if (subsResult.status === "fulfilled") {
+            const list = subsResult.value.data ?? [];
+            activeSub =
+              list.find((s) => s.status === "ACTIVE") ??
+              list.find((s) => s.status === "TRIAL") ??
+              list[0] ??
+              null;
+            setCurrentSubscription(activeSub);
+          }
 
-        let planRows: SubscriptionPlanRecord[] = [];
-        if (plansResult.status === 'fulfilled') {
-          planRows = (plansResult.value.data as SubscriptionPlanRecord[]) ?? [];
-          setPlans(planRows);
-        }
+          let planRows: SubscriptionPlanRecord[] = [];
+          if (plansResult.status === "fulfilled") {
+            planRows =
+              (plansResult.value.data as SubscriptionPlanRecord[]) ?? [];
+            setPlans(planRows);
+          }
 
-        // Prefer company.planType (license / DB source of truth) over stale subscription
-        const currentType =
-          companyData?.planType ||
-          companyData?.subscription?.planType ||
-          activeSub?.planType ||
-          '';
-        setSelectedPlanType((prev) => {
-          if (prev) return prev;
-          const upgradeCandidate = planRows.find(
-            (p) => p.planType !== currentType && p.monthlyPriceInr > 0,
-          );
-          return upgradeCandidate?.planType ?? planRows[0]?.planType ?? '';
-        });
+          // Prefer company.planType (license / DB source of truth) over stale subscription
+          const currentType =
+            companyData?.planType ||
+            companyData?.subscription?.planType ||
+            activeSub?.planType ||
+            "";
+          setSelectedPlanType((prev) => {
+            if (prev) return prev;
+            const upgradeCandidate = planRows.find(
+              (p) => p.planType !== currentType && p.monthlyPriceInr > 0,
+            );
+            return upgradeCandidate?.planType ?? planRows[0]?.planType ?? "";
+          });
 
-        if (settingsResult.status === 'fulfilled') {
-          setPaymentSettings((settingsResult.value.data as Record<string, string>) ?? {});
-        } else {
-          setPaymentSettings({});
-        }
+          if (settingsResult.status === "fulfilled") {
+            setPaymentSettings(
+              (settingsResult.value.data as Record<string, string>) ?? {},
+            );
+          } else {
+            setPaymentSettings({});
+          }
 
-        if (paymentsResult.status === 'fulfilled') {
-          const rows =
-            (paymentsResult.value.data as typeof paymentsHistory) ?? [];
-          setPaymentsHistory(rows);
-          const latest = rows[0]?.status?.toUpperCase();
-          if (latest === 'VERIFIED') setLatestPaymentStatus('VERIFIED');
-          else if (latest === 'PENDING') setLatestPaymentStatus('PENDING');
-          else if (latest === 'REJECTED') setLatestPaymentStatus('REJECTED');
-          else setLatestPaymentStatus('NOT_PAID');
-        }
-      })
+          if (paymentsResult.status === "fulfilled") {
+            const rows =
+              (paymentsResult.value.data as typeof paymentsHistory) ?? [];
+            setPaymentsHistory(rows);
+            const latest = rows[0]?.status?.toUpperCase();
+            if (latest === "VERIFIED") setLatestPaymentStatus("VERIFIED");
+            else if (latest === "PENDING") setLatestPaymentStatus("PENDING");
+            else if (latest === "REJECTED") setLatestPaymentStatus("REJECTED");
+            else setLatestPaymentStatus("NOT_PAID");
+          }
+        },
+      )
       .catch((err: unknown) =>
-        toast.error(getApiErrorMessage(err, 'Failed to load subscription')),
+        toast.error(getApiErrorMessage(err, "Failed to load subscription")),
       )
       .finally(() => setLoading(false));
   }, [user?.companyId]);
@@ -191,10 +211,20 @@ export function CompanySubscriptionPage() {
     company?.planType ||
     company?.subscription?.planType ||
     currentSubscription?.planType ||
-    'FREE';
+    "FREE";
 
   const currentPlanMeta = plans.find((p) => p.planType === currentPlanType);
   const currentPlanName = planTitle(currentPlanType, plans);
+  const currentBillingPeriod =
+    (company?.subscription?.billingPeriod ??
+      currentSubscription?.billingPeriod) === "YEARLY"
+      ? "YEARLY"
+      : "MONTHLY";
+  const currentPlanPrice = currentPlanMeta
+    ? currentBillingPeriod === "YEARLY"
+      ? currentPlanMeta.yearlyPriceInr
+      : currentPlanMeta.monthlyPriceInr
+    : 0;
 
   const vehicleLimit =
     company?.vehicleLimit ??
@@ -203,18 +233,17 @@ export function CompanySubscriptionPage() {
     currentPlanMeta?.vehicleLimit ??
     0;
 
-  const currentForCompare: SubscriptionPlanRecord =
-    currentPlanMeta ?? {
-      planType: currentPlanType,
-      displayName: currentPlanName,
-      monthlyPriceInr: 0,
-      yearlyPriceInr: 0,
-      vehicleLimit,
-    };
+  const currentForCompare: SubscriptionPlanRecord = currentPlanMeta ?? {
+    planType: currentPlanType,
+    displayName: currentPlanName,
+    monthlyPriceInr: 0,
+    yearlyPriceInr: 0,
+    vehicleLimit,
+  };
 
   const selectedChangeKind = selectedPlan
     ? planChangeKind(selectedPlan, currentForCompare)
-    : 'current';
+    : "current";
 
   const expiresAt =
     company?.licenseValidUntil ||
@@ -230,8 +259,9 @@ export function CompanySubscriptionPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">Subscription</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-500">
-          Plans priced higher than your current plan show Upgrade. Lower-priced plans show
-          Downgrade. Pay with Razorpay (instant) or manual UPI / bank transfer.
+          Plans priced higher than your current plan show Upgrade. Lower-priced
+          plans show Downgrade. Pay with Razorpay (instant) or manual UPI / bank
+          transfer.
         </p>
       </section>
 
@@ -250,36 +280,51 @@ export function CompanySubscriptionPage() {
             <p className="mt-3 text-sm text-slate-400">Loading…</p>
           ) : (
             <>
-              <p className="mt-3 text-2xl font-bold text-slate-900">{currentPlanName}</p>
-              <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-400">
-                {currentPlanType}
+              <p className="mt-3 text-2xl font-bold text-slate-900">
+                {currentPlanName}
+              </p>
+              <p className="mt-2 text-lg font-bold text-fleet-700">
+                {formatInr(currentPlanPrice)}
+                <span className="ml-1 text-sm font-medium text-slate-500">
+                  /{currentBillingPeriod === "YEARLY" ? "year" : "month"}
+                </span>
               </p>
               <dl className="mt-4 space-y-2 text-sm text-slate-600">
                 <div className="flex justify-between gap-3 border-b border-slate-100 pb-2">
                   <dt>Vehicle limit</dt>
-                  <dd className="font-semibold text-slate-900">{vehicleLimit}</dd>
+                  <dd className="font-semibold text-slate-900">
+                    {vehicleLimit}
+                  </dd>
                 </div>
                 {company?.maxOwners != null ? (
                   <div className="flex justify-between gap-3 border-b border-slate-100 pb-2">
                     <dt>Max owners</dt>
-                    <dd className="font-semibold text-slate-900">{company.maxOwners}</dd>
+                    <dd className="font-semibold text-slate-900">
+                      {company.maxOwners}
+                    </dd>
                   </div>
                 ) : null}
                 {company?.maxDrivers != null ? (
                   <div className="flex justify-between gap-3 border-b border-slate-100 pb-2">
                     <dt>Max drivers</dt>
-                    <dd className="font-semibold text-slate-900">{company.maxDrivers}</dd>
+                    <dd className="font-semibold text-slate-900">
+                      {company.maxDrivers}
+                    </dd>
                   </div>
                 ) : null}
                 {company?.maxAdmins != null ? (
                   <div className="flex justify-between gap-3 border-b border-slate-100 pb-2">
                     <dt>Sub-admin seats</dt>
-                    <dd className="font-semibold text-slate-900">{company.maxAdmins}</dd>
+                    <dd className="font-semibold text-slate-900">
+                      {company.maxAdmins}
+                    </dd>
                   </div>
                 ) : null}
                 <div className="flex justify-between gap-3">
                   <dt>Valid until</dt>
-                  <dd className="font-semibold text-slate-900">{formatDate(expiresAt)}</dd>
+                  <dd className="font-semibold text-slate-900">
+                    {formatDate(expiresAt)}
+                  </dd>
                 </div>
               </dl>
               {currentPlanMeta ? (
@@ -314,7 +359,9 @@ export function CompanySubscriptionPage() {
                 <p className="flex items-start gap-2">
                   <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-fleet-600" />
                   <span>
-                    <span className="block text-xs text-slate-400">Bank A/C</span>
+                    <span className="block text-xs text-slate-400">
+                      Bank A/C
+                    </span>
                     {paymentSettings.bankAccountNumber}
                   </span>
                 </p>
@@ -322,8 +369,8 @@ export function CompanySubscriptionPage() {
             </div>
           ) : (
             <p className="mt-3 text-sm text-slate-500">
-              Super Admin has not published UPI / bank details yet. You can still pay with
-              Razorpay when available.
+              Super Admin has not published UPI / bank details yet. You can
+              still pay with Razorpay when available.
             </p>
           )}
         </div>
@@ -333,17 +380,17 @@ export function CompanySubscriptionPage() {
             Latest Payment Status
           </p>
           <div className="mt-3">
-            {latestPaymentStatus === 'VERIFIED' ? (
+            {latestPaymentStatus === "VERIFIED" ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Active (Verified)
               </span>
-            ) : latestPaymentStatus === 'PENDING' ? (
+            ) : latestPaymentStatus === "PENDING" ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
                 <Clock3 className="h-3.5 w-3.5" />
                 Pending Verification
               </span>
-            ) : latestPaymentStatus === 'REJECTED' ? (
+            ) : latestPaymentStatus === "REJECTED" ? (
               <span className="inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
                 Rejected
               </span>
@@ -353,7 +400,8 @@ export function CompanySubscriptionPage() {
                   No upgrade payment yet
                 </span>
                 <p className="mt-2 text-xs text-slate-500">
-                  License plan is active. Payments here appear after you upgrade.
+                  License plan is active. Payments here appear after you
+                  upgrade.
                 </p>
               </div>
             )}
@@ -364,37 +412,41 @@ export function CompanySubscriptionPage() {
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Available Plans</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              Available Plans
+            </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Higher price than current = Upgrade. Lower = Downgrade. Open View full plan
-              for features and seats.
+              Higher price than current = Upgrade. Lower = Downgrade. Open View
+              full plan for features and seats.
             </p>
           </div>
           <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
             <button
               type="button"
-              onClick={() => setBillingPeriod('MONTHLY')}
+              onClick={() => setBillingPeriod("MONTHLY")}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                billingPeriod === 'MONTHLY'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-white'
+                billingPeriod === "MONTHLY"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-white"
               }`}
             >
               Monthly
             </button>
             <button
               type="button"
-              onClick={() => setBillingPeriod('YEARLY')}
+              onClick={() => setBillingPeriod("YEARLY")}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                billingPeriod === 'YEARLY'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-white'
+                billingPeriod === "YEARLY"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-white"
               }`}
             >
               Yearly
               <span
                 className={`ml-1.5 text-[10px] font-bold ${
-                  billingPeriod === 'YEARLY' ? 'text-emerald-300' : 'text-emerald-600'
+                  billingPeriod === "YEARLY"
+                    ? "text-emerald-300"
+                    : "text-emerald-600"
                 }`}
               >
                 Save
@@ -411,32 +463,32 @@ export function CompanySubscriptionPage() {
               const isSelected = selectedPlanType === plan.planType;
               const changeKind = planChangeKind(plan, currentForCompare);
               const price =
-                billingPeriod === 'YEARLY'
+                billingPeriod === "YEARLY"
                   ? plan.yearlyPriceInr
                   : plan.monthlyPriceInr;
               const savePct = yearlySavingsPercent(plan);
               const saveAmt = yearlySavingsAmount(plan);
               const monthlyYearCost = plan.monthlyPriceInr * 12;
               const actionLabel =
-                changeKind === 'current'
-                  ? 'Current plan'
-                  : changeKind === 'upgrade'
-                    ? 'Upgrade'
-                    : 'Downgrade';
+                changeKind === "current"
+                  ? "Current plan"
+                  : changeKind === "upgrade"
+                    ? "Upgrade"
+                    : "Downgrade";
 
               return (
                 <div
                   key={plan.planType}
                   className={`relative flex flex-col rounded-xl border p-4 text-left transition ${
                     isSelected
-                      ? changeKind === 'downgrade'
-                        ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-400/25'
-                        : changeKind === 'upgrade'
-                          ? 'border-fleet-500 bg-fleet-50 ring-2 ring-fleet-500/25'
-                          : 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400/20'
+                      ? changeKind === "downgrade"
+                        ? "border-amber-400 bg-amber-50 ring-2 ring-amber-400/25"
+                        : changeKind === "upgrade"
+                          ? "border-fleet-500 bg-fleet-50 ring-2 ring-fleet-500/25"
+                          : "border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400/20"
                       : isCurrent
-                        ? 'border-emerald-300 bg-emerald-50/40'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
+                        ? "border-emerald-300 bg-emerald-50/40"
+                        : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
                   <button
@@ -453,7 +505,7 @@ export function CompanySubscriptionPage() {
                           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
                             Current
                           </span>
-                        ) : changeKind === 'upgrade' ? (
+                        ) : changeKind === "upgrade" ? (
                           <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-800">
                             Upgrade
                           </span>
@@ -467,7 +519,7 @@ export function CompanySubscriptionPage() {
                             Selected
                           </span>
                         ) : null}
-                        {billingPeriod === 'YEARLY' && savePct > 0 ? (
+                        {billingPeriod === "YEARLY" && savePct > 0 ? (
                           <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
                             Save {savePct}%
                           </span>
@@ -475,16 +527,20 @@ export function CompanySubscriptionPage() {
                       </div>
                     </div>
 
-                    {billingPeriod === 'MONTHLY' ? (
+                    {billingPeriod === "MONTHLY" ? (
                       <p className="mt-3 text-2xl font-bold text-slate-900">
                         {formatInr(price)}
-                        <span className="text-sm font-medium text-slate-500">/month</span>
+                        <span className="text-sm font-medium text-slate-500">
+                          /month
+                        </span>
                       </p>
                     ) : (
                       <>
                         <p className="mt-3 text-2xl font-bold text-slate-900">
                           {formatInr(price)}
-                          <span className="text-sm font-medium text-slate-500">/year</span>
+                          <span className="text-sm font-medium text-slate-500">
+                            /year
+                          </span>
                         </p>
                         {plan.monthlyPriceInr > 0 && monthlyYearCost > 0 ? (
                           <p className="mt-1 text-xs text-slate-500">
@@ -499,14 +555,17 @@ export function CompanySubscriptionPage() {
                                 </span>
                               </>
                             ) : (
-                              <>Same as 12 × monthly ({formatInr(monthlyYearCost)})</>
+                              <>
+                                Same as 12 × monthly (
+                                {formatInr(monthlyYearCost)})
+                              </>
                             )}
                           </p>
                         ) : null}
                         {plan.yearlyPriceInr > 0 ? (
                           <p className="mt-0.5 text-xs text-slate-500">
-                            ≈ {formatInr(Math.round(plan.yearlyPriceInr / 12))}/month billed
-                            yearly
+                            ≈ {formatInr(Math.round(plan.yearlyPriceInr / 12))}
+                            /month billed yearly
                           </p>
                         ) : null}
                       </>
@@ -514,8 +573,10 @@ export function CompanySubscriptionPage() {
 
                     <ul className="mt-3 space-y-1 text-xs text-slate-600">
                       <li>
-                        Up to{' '}
-                        {plan.vehicleLimit >= 9999 ? 'unlimited' : plan.vehicleLimit}{' '}
+                        Up to{" "}
+                        {plan.vehicleLimit >= 9999
+                          ? "unlimited"
+                          : plan.vehicleLimit}{" "}
                         vehicles
                       </li>
                       {plan.maxOwners != null ? (
@@ -527,7 +588,7 @@ export function CompanySubscriptionPage() {
                       {plan.features?.length ? (
                         <li className="text-slate-500">
                           {plan.features.length} feature
-                          {plan.features.length === 1 ? '' : 's'} included
+                          {plan.features.length === 1 ? "" : "s"} included
                         </li>
                       ) : null}
                     </ul>
@@ -540,18 +601,18 @@ export function CompanySubscriptionPage() {
                       onClick={() => setSelectedPlanType(plan.planType)}
                       className={`w-full rounded-lg px-3 py-2 text-sm font-semibold disabled:cursor-default ${
                         isCurrent
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : changeKind === 'downgrade'
+                          ? "bg-emerald-100 text-emerald-800"
+                          : changeKind === "downgrade"
                             ? isSelected
-                              ? 'bg-amber-500 text-white hover:bg-amber-600'
-                              : 'border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                              ? "bg-amber-500 text-white hover:bg-amber-600"
+                              : "border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
                             : isSelected
-                              ? 'bg-fleet-500 text-white hover:bg-fleet-600'
-                              : 'border border-fleet-300 bg-fleet-50 text-fleet-800 hover:bg-fleet-100'
+                              ? "bg-fleet-500 text-white hover:bg-fleet-600"
+                              : "border border-fleet-300 bg-fleet-50 text-fleet-800 hover:bg-fleet-100"
                       }`}
                     >
                       {isSelected && !isCurrent
-                        ? changeKind === 'upgrade'
+                        ? changeKind === "upgrade"
                           ? `Upgrade to ${plan.displayName ?? plan.planType}`
                           : `Downgrade to ${plan.displayName ?? plan.planType}`
                         : actionLabel}
@@ -576,40 +637,40 @@ export function CompanySubscriptionPage() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-bold text-slate-900">
-          {selectedChangeKind === 'downgrade'
-            ? 'Downgrade & Pay'
-            : selectedChangeKind === 'upgrade'
-              ? 'Upgrade & Pay'
-              : 'Change plan & Pay'}
+          {selectedChangeKind === "downgrade"
+            ? "Downgrade & Pay"
+            : selectedChangeKind === "upgrade"
+              ? "Upgrade & Pay"
+              : "Change plan & Pay"}
         </h2>
         <p className="mt-2 text-sm text-slate-500">
           {selectedPlan
-            ? selectedChangeKind === 'current'
+            ? selectedChangeKind === "current"
               ? `“${planTitle(selectedPlan.planType, plans)}” is already your current plan. Pick a higher plan to upgrade or a lower plan to downgrade.`
-              : selectedChangeKind === 'upgrade'
-                ? `Upgrade to ${planTitle(selectedPlan.planType, plans)} (${billingPeriod === 'YEARLY' ? 'Yearly' : 'Monthly'}). Optionally use wallet, then pay any remaining amount.`
+              : selectedChangeKind === "upgrade"
+                ? `Upgrade to ${planTitle(selectedPlan.planType, plans)} (${billingPeriod === "YEARLY" ? "Yearly" : "Monthly"}). Optionally use wallet, then pay any remaining amount.`
                 : `Downgrade to ${planTitle(selectedPlan.planType, plans)} — confirm below. No Razorpay; unused value goes to your wallet.`
-            : 'Select a plan above, then pay.'}
+            : "Select a plan above, then pay."}
         </p>
-        {selectedPlan && selectedChangeKind !== 'current' ? (
+        {selectedPlan && selectedChangeKind !== "current" ? (
           <div
             className={`mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${
-              selectedChangeKind === 'downgrade'
-                ? 'border-amber-200 bg-amber-50 text-amber-900'
-                : 'border-sky-200 bg-sky-50 text-sky-900'
+              selectedChangeKind === "downgrade"
+                ? "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-sky-200 bg-sky-50 text-sky-900"
             }`}
           >
             <span>
-              {selectedChangeKind === 'upgrade' ? 'Upgrade' : 'Downgrade'} ·{' '}
+              {selectedChangeKind === "upgrade" ? "Upgrade" : "Downgrade"} ·{" "}
               {selectedPlan.vehicleLimit >= 9999
-                ? 'Unlimited vehicles'
+                ? "Unlimited vehicles"
                 : `${selectedPlan.vehicleLimit} vehicles`}
               {selectedPlan.maxOwners != null
                 ? ` · ${selectedPlan.maxOwners} owners`
-                : ''}
+                : ""}
               {selectedPlan.maxDrivers != null
                 ? ` · ${selectedPlan.maxDrivers} drivers`
-                : ''}
+                : ""}
             </span>
             <button
               type="button"
@@ -634,12 +695,12 @@ export function CompanySubscriptionPage() {
         <div className="mt-4">
           <SubscriptionPaymentPanel
             selectedPlan={
-              selectedChangeKind === 'current' ? null : selectedPlan
+              selectedChangeKind === "current" ? null : selectedPlan
             }
             paymentSettings={paymentSettings}
             billingPeriod={billingPeriod}
             changeKind={
-              selectedChangeKind === 'current' ? undefined : selectedChangeKind
+              selectedChangeKind === "current" ? undefined : selectedChangeKind
             }
             onSuccess={() => setTimeout(() => reload(), 800)}
           />
@@ -649,8 +710,9 @@ export function CompanySubscriptionPage() {
       <section className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
         <p className="font-semibold">Note</p>
         <p className="mt-1">
-          Razorpay payments activate after verification. Manual UPI / bank transfer stays
-          pending until Super Admin verifies. All payments are non-refundable.
+          Razorpay payments activate after verification. Manual UPI / bank
+          transfer stays pending until Super Admin verifies. All payments are
+          non-refundable.
         </p>
       </section>
 
@@ -681,28 +743,28 @@ export function CompanySubscriptionPage() {
                       {payment.planType}
                     </td>
                     <td className="px-4 py-3 text-xs">
-                      {payment.paymentMethod || payment.paymentGateway || '—'}
+                      {payment.paymentMethod || payment.paymentGateway || "—"}
                     </td>
                     <td className="px-4 py-3">{formatInr(payment.amount)}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide ${
-                          payment.status === 'VERIFIED'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : payment.status === 'REJECTED'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-amber-100 text-amber-700'
+                          payment.status === "VERIFIED"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : payment.status === "REJECTED"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-amber-100 text-amber-700"
                         }`}
                       >
-                        {payment.status === 'VERIFIED'
-                          ? 'APPROVED'
-                          : payment.status === 'PENDING'
-                            ? 'PENDING VERIFICATION'
+                        {payment.status === "VERIFIED"
+                          ? "APPROVED"
+                          : payment.status === "PENDING"
+                            ? "PENDING VERIFICATION"
                             : payment.status}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">
-                      {payment.transactionId || '—'}
+                      {payment.transactionId || "—"}
                     </td>
                   </tr>
                 ))}

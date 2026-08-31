@@ -1,8 +1,8 @@
-import api, { postData } from './api';
+import { postData } from "./api";
 
 export interface CreateOrderPayload {
   planId: string;
-  billingPeriod: 'MONTHLY' | 'YEARLY';
+  billingPeriod: "MONTHLY" | "YEARLY";
   companyName: string;
   adminName: string;
   email: string;
@@ -19,11 +19,14 @@ export interface VerifyPaymentPayload {
 
 class OnboardingService {
   async createOrder(payload: CreateOrderPayload) {
-    return postData<any>('/platform/public-registration/create-order', payload);
+    return postData<any>("/platform/public-registration/create-order", payload);
   }
 
   async verifyPayment(payload: VerifyPaymentPayload) {
-    return postData<any>('/platform/public-registration/verify-payment', payload);
+    return postData<any>(
+      "/platform/public-registration/verify-payment",
+      payload,
+    );
   }
 }
 

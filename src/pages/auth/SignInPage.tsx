@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   Truck,
   MapPin,
@@ -9,16 +15,16 @@ import {
   Lock,
   Eye,
   EyeOff,
-} from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { ROUTES, ROLES, homeRouteForRole } from '../../config/constants';
-import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
-import { AuthPageFooter } from '../../components/auth/AuthPageFooter';
-import { AuthPageBrand } from '../../components/auth/AuthPageBrand';
-import { getApiErrorMessage } from '../../utils/validation';
-import { showDriverApkRequiredDialog } from '../../utils/driverWebAccess';
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { ROUTES, ROLES, homeRouteForRole } from "../../config/constants";
+import { GoogleSignInButton } from "../../components/auth/GoogleSignInButton";
+import { AuthPageFooter } from "../../components/auth/AuthPageFooter";
+import { AuthPageBrand } from "../../components/auth/AuthPageBrand";
+import { getApiErrorMessage } from "../../utils/validation";
+import { showDriverApkRequiredDialog } from "../../utils/driverWebAccess";
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 
 export function SignInPage() {
   const {
@@ -31,8 +37,15 @@ export function SignInPage() {
     loading: authLoading,
   } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
+  const registerHref = returnTo?.startsWith(
+    `${ROUTES.REGISTER_COMPANY}?planId=`,
+  )
+    ? returnTo
+    : ROUTES.REGISTER_COMPANY;
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -56,7 +69,9 @@ export function SignInPage() {
       void rejectDriverWebLogin();
       return;
     }
-    navigate(homeRouteForRole(role, user?.permissions ?? []), { replace: true });
+    navigate(homeRouteForRole(role, user?.permissions ?? []), {
+      replace: true,
+    });
   }, [
     authLoading,
     isAuthenticated,
@@ -70,7 +85,11 @@ export function SignInPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { role: nextRole, permissions, licenseNotice } = await login({
+      const {
+        role: nextRole,
+        permissions,
+        licenseNotice,
+      } = await login({
         email,
         password,
       });
@@ -78,14 +97,14 @@ export function SignInPage() {
         await rejectDriverWebLogin();
         return;
       }
-      toast.success('Welcome back!');
+      toast.success("Welcome back!");
       if (licenseNotice?.message) {
         toast.warn(licenseNotice.message, { autoClose: 12000 });
       }
       // Company Admin always goes License Verification → Dashboard (if already verified)
       navigate(homeRouteForRole(nextRole, permissions), { replace: true });
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Login failed'));
+      toast.error(getApiErrorMessage(err, "Login failed"));
     } finally {
       setLoading(false);
     }
@@ -95,19 +114,22 @@ export function SignInPage() {
     async (idToken: string) => {
       setGoogleLoading(true);
       try {
-        const { role: nextRole, permissions, licenseNotice } =
-          await loginWithGoogle(idToken);
+        const {
+          role: nextRole,
+          permissions,
+          licenseNotice,
+        } = await loginWithGoogle(idToken);
         if (nextRole === ROLES.DRIVER) {
           await rejectDriverWebLogin();
           return;
         }
-        toast.success('Signed in with Google');
+        toast.success("Signed in with Google");
         if (licenseNotice?.message) {
           toast.warn(licenseNotice.message, { autoClose: 12000 });
         }
         navigate(homeRouteForRole(nextRole, permissions), { replace: true });
       } catch (err: unknown) {
-        toast.error(getApiErrorMessage(err, 'Google sign-in failed'));
+        toast.error(getApiErrorMessage(err, "Google sign-in failed"));
       } finally {
         setGoogleLoading(false);
       }
@@ -119,18 +141,22 @@ export function SignInPage() {
     <div className="flex min-h-screen">
       <div
         className="relative hidden w-[42%] flex-col items-center justify-center px-10 lg:flex"
-        style={{ backgroundColor: '#00AEEF' }}
+        style={{ backgroundColor: "#00AEEF" }}
       >
         <div className="flex flex-col items-center text-center">
           <div className="relative mb-8">
             <div
               className="flex h-28 w-28 items-center justify-center rounded-2xl shadow-lg"
-              style={{ backgroundColor: '#0096D6' }}
+              style={{ backgroundColor: "#0096D6" }}
             >
               <Truck className="h-14 w-14 text-white" strokeWidth={1.5} />
             </div>
             <div className="absolute -top-3 left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full bg-white shadow-md">
-              <MapPin className="h-5 w-5" style={{ color: '#00AEEF' }} fill="#00AEEF" />
+              <MapPin
+                className="h-5 w-5"
+                style={{ color: "#00AEEF" }}
+                fill="#00AEEF"
+              />
             </div>
           </div>
           <h1 className="max-w-xs text-3xl font-bold leading-snug tracking-tight text-white">
@@ -150,14 +176,19 @@ export function SignInPage() {
           <AuthPageBrand />
 
           <div className="mx-auto w-full max-w-md">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Welcome Back</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Welcome Back
+            </h2>
             <p className="mt-2 text-sm text-slate-500">
               Log in to manage your fleet operations.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div>
-                <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
+                <label
+                  htmlFor="email"
+                  className="mb-1.5 block text-sm font-medium text-slate-700"
+                >
                   Email Address
                 </label>
                 <div className="relative">
@@ -177,13 +208,16 @@ export function SignInPage() {
 
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <label htmlFor="password" className="text-sm font-medium text-slate-700">
+                  <label
+                    htmlFor="password"
+                    className="text-sm font-medium text-slate-700"
+                  >
                     Password
                   </label>
                   <Link
                     to={ROUTES.FORGOT_PASSWORD}
                     className="text-sm font-medium hover:underline"
-                    style={{ color: '#00AEEF' }}
+                    style={{ color: "#00AEEF" }}
                   >
                     Forgot Password?
                   </Link>
@@ -192,7 +226,7 @@ export function SignInPage() {
                   <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <input
                     id="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
                     value={password}
@@ -204,9 +238,15 @@ export function SignInPage() {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -215,9 +255,9 @@ export function SignInPage() {
                 type="submit"
                 disabled={loading || googleLoading}
                 className="w-full rounded-lg py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60"
-                style={{ backgroundColor: '#00AEEF' }}
+                style={{ backgroundColor: "#00AEEF" }}
               >
-                {loading ? 'Logging in...' : 'Login'}
+                {loading ? "Logging in..." : "Login"}
               </button>
             </form>
 
@@ -237,11 +277,11 @@ export function SignInPage() {
             />
 
             <p className="mt-8 text-center text-sm text-slate-500">
-              Don&apos;t have an account?{' '}
+              Don&apos;t have an account?{" "}
               <Link
-                to={ROUTES.REGISTER_COMPANY}
+                to={registerHref}
                 className="font-semibold hover:underline"
-                style={{ color: '#00AEEF' }}
+                style={{ color: "#00AEEF" }}
               >
                 Register Your Company
               </Link>
