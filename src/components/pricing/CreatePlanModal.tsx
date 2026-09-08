@@ -26,6 +26,7 @@ const emptyForm = {
   maxDrivers: '15',
   features: '',
   isActive: true,
+  isPopular: false,
 };
 
 function planToForm(plan: SubscriptionPlanRecord) {
@@ -42,6 +43,7 @@ function planToForm(plan: SubscriptionPlanRecord) {
     maxDrivers: String(plan.maxDrivers ?? 15),
     features: (plan.features ?? []).join('\n'),
     isActive: plan.isActive !== false,
+    isPopular: Boolean(plan.isPopular),
   };
 }
 
@@ -114,6 +116,7 @@ export function PlanFormModal({
       maxDrivers: Number(form.maxDrivers),
       features: features.length ? features : undefined,
       isActive: form.isActive,
+      isPopular: form.isPopular,
     };
 
     if (
@@ -342,15 +345,30 @@ export function PlanFormModal({
             />
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-              className="rounded border-slate-300"
-            />
-            Active (available for new subscriptions)
-          </label>
+          <div className="space-y-2.5 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isPopular}
+                onChange={(e) => setForm({ ...form, isPopular: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+              />
+              <span className="flex items-center gap-1.5">
+                 <span className="font-semibold text-slate-800">Mark as Most Popular</span>
+                <span className="text-xs text-slate-500 font-normal">(Highlighted badge on Landing Page)</span>
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                className="h-4 w-4 rounded border-slate-300 text-fleet-600 focus:ring-fleet-500"
+              />
+              <span>Active (available for new subscriptions)</span>
+            </label>
+          </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <button

@@ -725,15 +725,18 @@ const LandingPage: React.FC = () => {
                 <p>No pricing plans available at the moment.</p>
               </div>
             ) : (
-              plans.map((plan, index) => {
-                const isFeatured =
-                  plan.planType.toUpperCase() === "STANDARD" ||
-                  plan.planType.toUpperCase() === "PRO";
-                const isFree =
-                  plan.monthlyPriceInr === 0 && plan.yearlyPriceInr === 0;
-                const isPremium =
-                  plan.planType.toUpperCase() === "PREMIUM" ||
-                  plan.planType.toUpperCase() === "ENTERPRISE";
+              (() => {
+                const hasExplicitPopular = plans.some((p) => Boolean(p.isPopular));
+                return plans.map((plan, index) => {
+                  const isFeatured = hasExplicitPopular
+                    ? Boolean(plan.isPopular)
+                    : plan.planType.toUpperCase() === "STANDARD" ||
+                      plan.planType.toUpperCase() === "PRO";
+                  const isFree =
+                    plan.monthlyPriceInr === 0 && plan.yearlyPriceInr === 0;
+                  const isPremium =
+                    plan.planType.toUpperCase() === "PREMIUM" ||
+                    plan.planType.toUpperCase() === "ENTERPRISE";
 
                 return (
                   <div
@@ -807,7 +810,14 @@ const LandingPage: React.FC = () => {
                     </ul>
                     <div className="pricing-footer">
                       <button
-                        className={isFeatured ? "btn-primary" : "btn-outline"}
+                        type="button"
+                        className={`plan-cta-btn ${
+                          isFeatured
+                            ? "btn-primary"
+                            : isFree
+                              ? "btn-free"
+                              : "btn-outline"
+                        }`}
                         onClick={() => {
                           trackButtonClick(`${plan.planType} Plan`);
                           navigate(
@@ -815,13 +825,14 @@ const LandingPage: React.FC = () => {
                           );
                         }}
                       >
-                        {isFree ? "Get Started" : "Subscribe Now"}
+                        <span>{isFree ? "Get Started Free" : "Subscribe Now"}</span>
+                        <i className="fas fa-arrow-right btn-arrow"></i>
                       </button>
                     </div>
                   </div>
                 );
-              })
-            )}
+              });
+            })())}
           </div>
         </div>
       </section>

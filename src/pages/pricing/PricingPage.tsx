@@ -172,9 +172,16 @@ export function PricingPage() {
                         className={`border-b border-slate-200 ${active ? '' : 'bg-slate-50 opacity-80'}`}
                       >
                         <td className="px-3 py-3">
-                          <p className="text-sm font-semibold text-slate-900">
-                            {plan.displayName || plan.planType}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-semibold text-slate-900">
+                              {plan.displayName || plan.planType}
+                            </p>
+                            {plan.isPopular && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                                 Popular
+                              </span>
+                            )}
+                          </div>
                           <p className="font-mono text-xs text-slate-400">{plan.planType}</p>
                         </td>
                         <td className="px-3 py-3 text-sm text-slate-700">

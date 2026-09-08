@@ -20,6 +20,7 @@ export interface SubscriptionPlanRecord {
   dataRetentionDays?: number;
   isSystem?: boolean;
   isActive?: boolean;
+  isPopular?: boolean;
   vehicleLimit: number;
   monthlyPriceInr: number;
   yearlyPriceInr: number;
@@ -41,6 +42,7 @@ export interface CreatePlanPayload {
   maxDrivers?: number;
   features?: string[];
   isActive?: boolean;
+  isPopular?: boolean;
 }
 
 export type UpdatePlanPayload = Partial<CreatePlanPayload>;

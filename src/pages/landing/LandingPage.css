@@ -949,26 +949,102 @@
 
 .pricing-footer {
     margin-top: auto;
+    padding-top: 1.25rem;
     text-align: center;
 }
 
-.pricing-footer .btn-primary,
-.pricing-footer .btn-outline {
+.plan-cta-btn {
     width: 100%;
+    min-height: 48px;
+    padding: 0.85rem 1.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 14px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    padding: 0.8rem 1.5rem;
-    font-size: 0.9rem;
+    gap: 0.6rem;
+    letter-spacing: 0.3px;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
 }
 
-.pricing-footer .btn-outline {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+.plan-cta-btn .btn-arrow {
+    font-size: 0.85rem;
+    transition: transform 0.25s ease;
 }
 
-.pricing-footer .btn-outline:hover {
-    background: rgba(99, 102, 241, 0.15);
-    border-color: var(--primary);
-    color: var(--primary);
+.plan-cta-btn:hover .btn-arrow {
+    transform: translateX(4px);
+}
+
+/* 1. Featured / Popular Plan Button */
+.plan-cta-btn.btn-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%);
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.plan-cta-btn.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    filter: brightness(1.08);
+}
+
+.plan-cta-btn.btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+}
+
+/* 2. Free Plan Button */
+.plan-cta-btn.btn-free {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399 !important;
+    border: 1.5px solid rgba(16, 185, 129, 0.45);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.plan-cta-btn.btn-free:hover {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff !important;
+    border-color: #10b981;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(16, 185, 129, 0.45);
+}
+
+.plan-cta-btn.btn-free:active {
+    transform: translateY(0);
+}
+
+/* 3. Regular Plan Button (btn-outline) - Modern Interactive Gradient/Glass */
+.plan-cta-btn.btn-outline {
+    background: rgba(99, 102, 241, 0.12);
+    color: #ffffff !important;
+    border: 1.5px solid rgba(99, 102, 241, 0.45);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.plan-cta-btn.btn-outline:hover {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #ffffff !important;
+    border-color: #6366f1;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(99, 102, 241, 0.5);
+}
+
+.plan-cta-btn.btn-outline:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+/* Fallback for general .pricing-footer button */
+.pricing-footer button {
+    cursor: pointer;
 }
 
 /* ============================================
