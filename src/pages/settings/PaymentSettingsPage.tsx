@@ -11,7 +11,7 @@ import { ROUTES } from '../../config/constants';
 import { platformService } from '../../services/platform.service';
 import { paymentsService } from '../../services/payments.service';
 import { getApiErrorMessage } from '../../utils/validation';
-import { formatInr } from '../../utils/currency';
+import { formatInr, formatInrShort } from '../../utils/currency';
 
 interface PaymentRow {
   _id: string;
@@ -70,19 +70,21 @@ export function PaymentSettingsPage() {
     bankAccountNumber: '',
     ifscCode: '',
     accountHolderName: '',
+    revenueTarget: 170000,
   });
 
   const loadSettings = useCallback(() => {
     platformService
       .getPaymentSettings()
       .then((res) => {
-        const d = res.data as Record<string, string> | null;
+        const d = res.data as (Record<string, unknown> & { revenueTarget?: number }) | null;
         if (d) {
           setForm({
-            upiId: d.upiId ?? '',
-            bankAccountNumber: d.bankAccountNumber ?? '',
-            ifscCode: d.ifscCode ?? '',
-            accountHolderName: d.accountHolderName ?? '',
+            upiId: (d.upiId as string) ?? '',
+            bankAccountNumber: (d.bankAccountNumber as string) ?? '',
+            ifscCode: (d.ifscCode as string) ?? '',
+            accountHolderName: (d.accountHolderName as string) ?? '',
+            revenueTarget: typeof d.revenueTarget === 'number' && d.revenueTarget > 0 ? d.revenueTarget : 170000,
           });
         }
       })
@@ -242,12 +244,41 @@ export function PaymentSettingsPage() {
                 />
               </div>
 
+              <div className="border-t border-slate-100 pt-5">
+                <label
+                  htmlFor="revenueTarget"
+                  className="mb-1.5 block text-sm font-medium text-slate-700"
+                >
+                  Monthly Revenue Target (₹)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                    ₹
+                  </span>
+                  <input
+                    id="revenueTarget"
+                    type="number"
+                    min="1"
+                    step="any"
+                    placeholder="170000"
+                    value={form.revenueTarget || ''}
+                    onChange={(e) =>
+                      setForm({ ...form, revenueTarget: Number(e.target.value) || 0 })
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-8 pr-4 py-3 text-sm outline-none focus:border-fleet-500 focus:bg-white focus:ring-2 focus:ring-fleet-500/20"
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-slate-400">
+                  Target used to calculate the Revenue Goal progress bar on the main dashboard ({formatInrShort(form.revenueTarget || 0)}).
+                </p>
+              </div>
+
               <button
                 type="submit"
                 disabled={saving}
                 className="w-full rounded-xl bg-fleet-500 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-fleet-600 disabled:opacity-60 sm:w-auto sm:min-w-[220px]"
               >
-                {saving ? 'Saving...' : 'Save Payment Details'}
+                {saving ? 'Saving...' : 'Save Settings'}
               </button>
             </form>
           </div>

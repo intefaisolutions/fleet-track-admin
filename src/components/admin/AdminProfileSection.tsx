@@ -4,12 +4,11 @@ import { Pencil, UserCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/auth.service';
 import { uploadImage } from '../../services/storage.service';
-import { ROLES } from '../../config/constants';
+import { STORAGE_KEYS } from '../../config/constants';
 import { getApiErrorMessage, validateEmail, validatePhone } from '../../utils/validation';
 
 export function AdminProfileSection() {
   const { user, setUser } = useAuth();
-  const canChangeEmail = user?.role === ROLES.SUPER_ADMIN;
   const [profile, setProfile] = useState({
     fullName: '',
     email: '',
@@ -60,12 +59,10 @@ export function AdminProfileSection() {
 
   const handleSaveProfile = async (e: FormEvent) => {
     e.preventDefault();
-    if (canChangeEmail) {
-      const emailErr = validateEmail(profile.email);
-      if (emailErr) {
-        toast.error(emailErr);
-        return;
-      }
+    const emailErr = validateEmail(profile.email);
+    if (emailErr) {
+      toast.error(emailErr);
+      return;
     }
     const phoneErr = validatePhone(profile.phone, true);
     if (phoneErr) {
@@ -77,10 +74,12 @@ export function AdminProfileSection() {
       const res = await authService.updateProfile({
         fullName: profile.fullName.trim(),
         phone: profile.phone.trim(),
-        ...(canChangeEmail ? { email: profile.email.trim().toLowerCase() } : {}),
+        email: profile.email.trim().toLowerCase(),
       });
       if (res.data && user) {
-        setUser({ ...user, ...res.data });
+        const nextUser = { ...user, ...res.data };
+        localStorage.setItem(STORAGE_KEYS.ADMIN_USER, JSON.stringify(nextUser));
+        setUser(nextUser);
       }
       if (passwords.oldPassword && passwords.newPassword) {
         await authService.changePassword(passwords.oldPassword, passwords.newPassword);
@@ -152,24 +151,14 @@ export function AdminProfileSection() {
             </label>
             <input
               type="email"
-              required={canChangeEmail}
-              readOnly={!canChangeEmail}
+              required
               value={profile.email}
-              onChange={(e) => {
-                if (!canChangeEmail) return;
-                setProfile({ ...profile, email: e.target.value });
-              }}
-              className={
-                canChangeEmail
-                  ? 'w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20'
-                  : 'w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500'
-              }
+              onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-fleet-500 focus:ring-2 focus:ring-fleet-500/20"
             />
-            {canChangeEmail ? (
-              <p className="mt-1 text-xs text-slate-500">
-                After changing email, use the new address to sign in.
-              </p>
-            ) : null}
+            <p className="mt-1 text-xs text-slate-500">
+              After changing email, use the new address to sign in.
+            </p>
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">

@@ -530,7 +530,7 @@ export function SettingsPage() {
       )}
 
       <footer className="flex flex-wrap gap-4 border-t border-slate-200 pt-4 text-xs text-slate-400">
-        <span>© 2024 FleetTrack Inc.</span>
+        <span>© {new Date().getFullYear()} FleetTrack Inc.</span>
         <button type="button" className="hover:text-slate-600">
           Privacy Policy
         </button>

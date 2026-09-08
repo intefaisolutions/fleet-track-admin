@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import {
+  AlertCircle,
   CheckCircle2,
   Clock3,
   CreditCard,
@@ -104,6 +105,7 @@ export function CompanySubscriptionPage() {
       transactionId?: string;
       paymentMethod?: string;
       paymentGateway?: string;
+      rejectionReason?: string;
     }>
   >([]);
 
@@ -264,6 +266,25 @@ export function CompanySubscriptionPage() {
           transfer.
         </p>
       </section>
+
+      {paymentsHistory[0]?.status === "REJECTED" && (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 flex items-start gap-3 shadow-sm">
+          <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-bold text-red-900">
+              Recent payment request for {paymentsHistory[0].planType || "subscription"} was rejected
+            </p>
+            {paymentsHistory[0].rejectionReason ? (
+              <p className="mt-1 font-medium text-red-800">
+                Reason: <span className="font-semibold">{paymentsHistory[0].rejectionReason}</span>
+              </p>
+            ) : null}
+            <p className="mt-1 text-xs text-red-600">
+              Please check your payment details or transaction reference and submit a new payment proof below.
+            </p>
+          </div>
+        </section>
+      )}
 
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-fleet-200 bg-gradient-to-br from-fleet-50 to-white p-5 shadow-sm">
@@ -747,21 +768,29 @@ export function CompanySubscriptionPage() {
                     </td>
                     <td className="px-4 py-3">{formatInr(payment.amount)}</td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide ${
-                          payment.status === "VERIFIED"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : payment.status === "REJECTED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-amber-100 text-amber-700"
-                        }`}
-                      >
-                        {payment.status === "VERIFIED"
-                          ? "APPROVED"
-                          : payment.status === "PENDING"
-                            ? "PENDING VERIFICATION"
-                            : payment.status}
-                      </span>
+                      <div className="flex flex-col gap-1.5 items-start">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide ${
+                            payment.status === "VERIFIED"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : payment.status === "REJECTED"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {payment.status === "VERIFIED"
+                            ? "APPROVED"
+                            : payment.status === "PENDING"
+                              ? "PENDING VERIFICATION"
+                              : payment.status}
+                        </span>
+                        {payment.status === "REJECTED" && payment.rejectionReason ? (
+                          <div className="rounded-md border border-red-200 bg-red-50/90 px-2 py-1 text-xs text-red-700 max-w-xs shadow-xs">
+                            <span className="font-semibold text-red-800">Reason: </span>
+                            <span className="font-medium break-words">{payment.rejectionReason}</span>
+                          </div>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">
                       {payment.transactionId || "—"}

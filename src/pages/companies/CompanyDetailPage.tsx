@@ -630,17 +630,24 @@ export function CompanyDetailPage() {
                           {String(p.paymentMethod ?? p.paymentGateway ?? '—')}
                         </td>
                         <td className="px-3 py-2.5">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              p.status === 'VERIFIED'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : p.status === 'REJECTED'
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-amber-100 text-amber-700'
-                            }`}
-                          >
-                            {String(p.status ?? '—')}
-                          </span>
+                          <div className="flex flex-col gap-1 items-start">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                p.status === 'VERIFIED'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : p.status === 'REJECTED'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-amber-100 text-amber-700'
+                              }`}
+                            >
+                              {String(p.status ?? '—')}
+                            </span>
+                            {p.status === 'REJECTED' && (p as { rejectionReason?: string }).rejectionReason ? (
+                              <span className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700">
+                                Reason: {(p as { rejectionReason?: string }).rejectionReason}
+                              </span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">
                           {String(p.transactionId ?? '—')}

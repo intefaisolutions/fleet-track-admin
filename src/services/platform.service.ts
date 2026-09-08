@@ -187,7 +187,7 @@ export const platformService = {
   /** @deprecated use getDashboard */
   ownerDashboard: () => getData<SuperAdminDashboardData>('/platform/dashboard'),
   getPaymentSettings: () => getData('/platform/payment-settings'),
-  updatePaymentSettings: (data: Record<string, string>) =>
+  updatePaymentSettings: (data: Record<string, unknown>) =>
     patchData('/platform/payment-settings', data),
   getSupportAdmins: () =>
     getData<{ name: string; email: string; permissions: string[] }[]>(

@@ -9,6 +9,8 @@ import {
   Plus,
   TrendingUp,
   AlertCircle,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ROUTES, ROLES, supportAdminHasPermission } from '../../config/constants';
@@ -123,6 +125,9 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [chartMode, setChartMode] = useState<'monthly' | 'daily'>('monthly');
+  const [targetModalOpen, setTargetModalOpen] = useState(false);
+  const [targetInputValue, setTargetInputValue] = useState('');
+  const [savingTarget, setSavingTarget] = useState(false);
 
   const canLoadDashboard =
     user?.role === ROLES.SUPER_ADMIN ||
@@ -142,6 +147,38 @@ export function DashboardPage() {
       )
       .finally(() => setLoading(false));
   }, [canLoadDashboard, navigate]);
+
+  const handleSaveRevenueTarget = async (targetValue: number) => {
+    if (isNaN(targetValue) || targetValue <= 0) {
+      toast.error('Please enter a valid target amount greater than 0');
+      return;
+    }
+    setSavingTarget(true);
+    try {
+      await platformService.updatePaymentSettings({ revenueTarget: targetValue });
+      toast.success(`Revenue goal target updated to ${formatInr(targetValue)}`);
+      setData((prev) => {
+        if (!prev) return prev;
+        const rev = prev.stats?.revenueThisMonth ?? prev.revenueThisMonth ?? 0;
+        const pct = targetValue > 0 ? Math.min(100, Math.round((rev / targetValue) * 100)) : 0;
+        return {
+          ...prev,
+          revenueTarget: targetValue,
+          revenueGoalPercent: pct,
+          stats: {
+            ...prev.stats,
+            revenueTarget: targetValue,
+            revenueGoalPercent: pct,
+          },
+        };
+      });
+      setTargetModalOpen(false);
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Failed to update revenue target'));
+    } finally {
+      setSavingTarget(false);
+    }
+  };
 
   const stats = data?.stats;
   const revenueThisMonth = stats?.revenueThisMonth ?? data?.revenueThisMonth ?? 0;
@@ -190,7 +227,23 @@ export function DashboardPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Revenue Goal</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-slate-500">Revenue Goal</p>
+            {user?.role === ROLES.SUPER_ADMIN && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetInputValue(String(revenueTarget));
+                  setTargetModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-fleet-600 transition-colors"
+                title="Change monthly revenue target"
+              >
+                <Pencil className="h-3 w-3" />
+                <span>Set Target</span>
+              </button>
+            )}
+          </div>
           <p className="mt-2 text-3xl font-bold text-slate-900">
             {loading ? '—' : `${revenueGoalPercent}%`}
           </p>
@@ -417,6 +470,103 @@ export function DashboardPage() {
           </table>
         </div>
       </div>
+
+      {targetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs"
+            onClick={() => setTargetModalOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Set Monthly Revenue Target</h3>
+                <p className="text-xs text-slate-500">Target for measuring your SaaS monthly goal progress</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTargetModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveRevenueTarget(Number(targetInputValue));
+              }}
+              className="mt-5 space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                  Target Amount (₹)
+                </label>
+                <div className="relative mt-2">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base font-semibold text-slate-400">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="any"
+                    autoFocus
+                    required
+                    value={targetInputValue}
+                    onChange={(e) => setTargetInputValue(e.target.value)}
+                    placeholder="170000"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-9 pr-4 py-3 text-lg font-bold text-slate-900 outline-none focus:border-fleet-500 focus:bg-white focus:ring-2 focus:ring-fleet-500/20"
+                  />
+                </div>
+                {Number(targetInputValue) > 0 && (
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Preview: <span className="font-semibold text-slate-800">{formatInr(Number(targetInputValue))}</span> ({formatInrShort(Number(targetInputValue))} Target)
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-2">Quick Presets</p>
+                <div className="flex flex-wrap gap-2">
+                  {[50000, 100000, 170000, 250000, 500000, 1000000].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setTargetInputValue(String(preset))}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                        Number(targetInputValue) === preset
+                          ? 'bg-fleet-500 text-white font-semibold'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      {formatInrShort(preset)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setTargetModalOpen(false)}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingTarget}
+                  className="rounded-lg bg-fleet-500 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-fleet-600 disabled:opacity-60"
+                >
+                  {savingTarget ? 'Saving...' : 'Save Target'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

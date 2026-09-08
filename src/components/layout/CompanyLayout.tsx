@@ -62,7 +62,7 @@ export function CompanyLayout() {
           <Outlet context={{ companyName }} />
         </main>
         <footer className="no-print shrink-0 border-t border-slate-200 bg-white px-4 py-3 text-center text-xs text-slate-400 md:px-6">
-          © 2024 FleetTrack Management Systems. All rights reserved. Version 4.2.1-stable
+          © {new Date().getFullYear()} FleetTrack Management Systems. All rights reserved. Version 4.2.1-stable
         </footer>
       </div>
     </div>

@@ -1009,7 +1009,8 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
             <form className="contact-form" onSubmit={handleContactSubmit}>
-              <div className="form-group">
+              <div className="contact-input-group">
+                <i className="fas fa-user"></i>
                 <input
                   type="text"
                   placeholder="Your Name"
@@ -1019,9 +1020,9 @@ const LandingPage: React.FC = () => {
                     setContactForm({ ...contactForm, name: e.target.value })
                   }
                 />
-                <i className="fas fa-user"></i>
               </div>
-              <div className="form-group">
+              <div className="contact-input-group">
+                <i className="fas fa-envelope"></i>
                 <input
                   type="email"
                   placeholder="Your Email"
@@ -1031,9 +1032,9 @@ const LandingPage: React.FC = () => {
                     setContactForm({ ...contactForm, email: e.target.value })
                   }
                 />
-                <i className="fas fa-envelope"></i>
               </div>
-              <div className="form-group">
+              <div className="contact-input-group">
+                <i className="fas fa-phone"></i>
                 <input
                   type="tel"
                   placeholder="Your Phone Number"
@@ -1042,9 +1043,9 @@ const LandingPage: React.FC = () => {
                     setContactForm({ ...contactForm, phone: e.target.value })
                   }
                 />
-                <i className="fas fa-phone"></i>
               </div>
-              <div className="form-group">
+              <div className="contact-input-group textarea-group">
+                <i className="fas fa-comment"></i>
                 <textarea
                   rows={4}
                   placeholder="Your Message"
@@ -1053,7 +1054,6 @@ const LandingPage: React.FC = () => {
                     setContactForm({ ...contactForm, message: e.target.value })
                   }
                 ></textarea>
-                <i className="fas fa-comment"></i>
               </div>
               <button
                 type="submit"
