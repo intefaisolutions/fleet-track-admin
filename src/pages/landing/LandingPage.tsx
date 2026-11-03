@@ -9,13 +9,6 @@ const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const [timeLeft, setTimeLeft] = useState({
-    days: "00",
-    hours: "00",
-    minutes: "00",
-    seconds: "00",
-  });
-
   const [toast, setToast] = useState<{
     message: string;
     isError: boolean;
@@ -23,7 +16,6 @@ const LandingPage: React.FC = () => {
   }>({ message: "", isError: false, show: false });
   const [isYearly, setIsYearly] = useState(false);
 
-  const [email, setEmail] = useState("");
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -58,68 +50,11 @@ const LandingPage: React.FC = () => {
       });
   }, []);
 
-  useEffect(() => {
-    const launchDate = new Date();
-    launchDate.setDate(launchDate.getDate() + 3);
-    launchDate.setHours(0, 0, 0, 0);
-
-    const updateCountdown = () => {
-      const now = new Date();
-      const diff = launchDate.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        setTimeLeft({ days: "00", hours: "00", minutes: "00", seconds: "00" });
-        return;
-      }
-
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor(
-        (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-      );
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeLeft({
-        days: days.toString().padStart(2, "0"),
-        hours: hours.toString().padStart(2, "0"),
-        minutes: minutes.toString().padStart(2, "0"),
-        seconds: seconds.toString().padStart(2, "0"),
-      });
-    };
-
-    const timer = setInterval(updateCountdown, 1000);
-    updateCountdown();
-
-    return () => clearInterval(timer);
-  }, []);
-
   const showToast = (message: string, isError = false) => {
     setToast({ message, isError, show: true });
     setTimeout(() => {
       setToast((prev) => ({ ...prev, show: false }));
     }, 3000);
-  };
-
-  const handleSignupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      let subscribers = JSON.parse(
-        localStorage.getItem("fleettrack_subscribers") || "[]",
-      );
-      if (!subscribers.includes(email)) {
-        subscribers.push(email);
-        localStorage.setItem(
-          "fleettrack_subscribers",
-          JSON.stringify(subscribers),
-        );
-        showToast("Thanks! We'll notify you when we launch 🚀");
-      } else {
-        showToast("You're already subscribed!");
-      }
-      setEmail("");
-    } else {
-      showToast("Please enter a valid email address", true);
-    }
   };
 
   const handleContactSubmit = (e: React.FormEvent) => {
@@ -398,8 +333,8 @@ const LandingPage: React.FC = () => {
         <div className="hero-content">
           <div className="badge">
             <span className="badge-pulse"></span>
-            <i className="fas fa-rocket"></i>
-            <span>Launching Soon</span>
+            <i className="fab fa-android"></i>
+            <span>Driver App Available</span>
           </div>
           <h1 className="hero-title">
             Smart Fleet Management
@@ -410,50 +345,44 @@ const LandingPage: React.FC = () => {
             effortlessly with our powerful multi-tenant SaaS platform.
           </p>
 
-          <div className="countdown">
-            <div className="countdown-item">
-              <div className="countdown-number">{timeLeft.days}</div>
-              <div className="countdown-label">Days</div>
-            </div>
-            <div className="countdown-separator">:</div>
-            <div className="countdown-item">
-              <div className="countdown-number">{timeLeft.hours}</div>
-              <div className="countdown-label">Hours</div>
-            </div>
-            <div className="countdown-separator">:</div>
-            <div className="countdown-item">
-              <div className="countdown-number">{timeLeft.minutes}</div>
-              <div className="countdown-label">Minutes</div>
-            </div>
-            <div className="countdown-separator">:</div>
-            <div className="countdown-item">
-              <div className="countdown-number">{timeLeft.seconds}</div>
-              <div className="countdown-label">Seconds</div>
-            </div>
+          <div className="hero-cta-group">
+            <a
+              href="https://fleettrack-driver-apk.s3.ap-south-1.amazonaws.com/Fleet-Driver-app.apk"
+              download
+              className="btn-download-hero"
+              onClick={handleApkDownload}
+            >
+              <i className="fab fa-android download-icon-android"></i>
+              <div className="btn-download-hero-text">
+                <span className="btn-download-hero-title">Download Driver APK</span>
+                <span className="btn-download-hero-sub">Direct Download · Android</span>
+              </div>
+              <i className="fas fa-arrow-down download-icon-arrow"></i>
+            </a>
+
+            <button
+              type="button"
+              className="btn-outline hero-btn-secondary"
+              onClick={(e) => {
+                trackButtonClick("Get Started Hero");
+                scrollToTarget(e, "#pricing");
+              }}
+            >
+              Get Started <i className="fas fa-arrow-right"></i>
+            </button>
           </div>
 
-          <form className="signup-form" onSubmit={handleSignupSubmit}>
-            <div className="input-group">
-              <i className="fas fa-envelope"></i>
-              <input
-                type="email"
-                placeholder="Enter your email for early access"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn-primary"
-              onClick={() => trackButtonClick("Notify Me")}
-            >
-              Notify Me <i className="fas fa-arrow-right"></i>
-            </button>
-          </form>
-          <p className="form-note">
-            <i className="fas fa-shield-alt"></i> No spam, only launch updates
-          </p>
+          <div className="hero-download-meta">
+            <span>
+              <i className="fas fa-shield-alt"></i> Verified APK
+            </span>
+            <span>
+              <i className="fas fa-code-branch"></i> Version 1.0.0
+            </span>
+            <span>
+              <i className="fas fa-file-arrow-down"></i> 67 MB
+            </span>
+          </div>
         </div>
 
         <div className="hero-visual">

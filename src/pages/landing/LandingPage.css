@@ -321,6 +321,107 @@
     line-height: 1.7;
 }
 
+/* Hero CTA Group */
+.hero-cta-group {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.btn-download-hero {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    padding: 0.85rem 1.6rem;
+    border-radius: 14px;
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-download-hero:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px -5px rgba(99, 102, 241, 0.6);
+    color: #ffffff;
+}
+
+.btn-download-hero .download-icon-android {
+    font-size: 1.8rem;
+    color: #ffffff;
+}
+
+.btn-download-hero-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    line-height: 1.2;
+}
+
+.btn-download-hero-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.btn-download-hero-sub {
+    font-size: 0.72rem;
+    font-weight: 500;
+    opacity: 0.85;
+    letter-spacing: 0.02em;
+}
+
+.btn-download-hero .download-icon-arrow {
+    font-size: 0.85rem;
+    margin-left: 0.3rem;
+    background: rgba(255, 255, 255, 0.2);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+
+.btn-download-hero:hover .download-icon-arrow {
+    transform: translateY(2px);
+}
+
+.hero-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.95rem 1.6rem;
+    border-radius: 14px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.hero-download-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--gray);
+    flex-wrap: wrap;
+}
+
+.hero-download-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.hero-download-meta span i {
+    color: var(--success);
+}
+
 /* Countdown */
 .countdown {
     display: flex;
@@ -1577,6 +1678,14 @@
         margin-left: auto;
         margin-right: auto;
     }
+
+    .hero-cta-group {
+        justify-content: center;
+    }
+
+    .hero-download-meta {
+        justify-content: center;
+    }
     
     .signup-form {
         flex-direction: column;
@@ -1647,6 +1756,18 @@
 @media (max-width: 640px) {
     .hero-title {
         font-size: 2.2rem;
+    }
+
+    .hero-cta-group {
+        flex-direction: column;
+        width: 100%;
+        gap: 0.8rem;
+    }
+
+    .btn-download-hero,
+    .hero-btn-secondary {
+        width: 100%;
+        justify-content: center;
     }
     
     .countdown-item {
