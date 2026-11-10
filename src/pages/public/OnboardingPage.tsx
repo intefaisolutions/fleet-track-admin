@@ -8,15 +8,20 @@ import { ROUTES } from "../../config/constants";
 import { AuthPageBrand } from "../../components/auth/AuthPageBrand";
 import { AuthPageFooter } from "../../components/auth/AuthPageFooter";
 import {
+  ArrowLeft,
   ArrowRight,
   Building2,
+  CheckCircle2,
   Eye,
   EyeOff,
+  FileText,
+  Loader2,
   Lock,
   Mail,
   Phone,
   Truck,
   User,
+  Users,
 } from "lucide-react";
 import "./OnboardingPage.css";
 
@@ -234,6 +239,7 @@ const OnboardingPage: React.FC = () => {
             required
             type="text"
             name="companyName"
+            autoComplete="organization"
             value={formData.companyName}
             onChange={handleInputChange}
             placeholder="Enter your company name"
@@ -252,108 +258,111 @@ const OnboardingPage: React.FC = () => {
             required
             type="text"
             name="adminName"
+            autoComplete="name"
             value={formData.adminName}
             onChange={handleInputChange}
-            placeholder="Enter your Name "
+            placeholder="Enter your full name"
             minLength={2}
           />
         </div>
       </div>
 
       <div className="form-group">
-        <div className="form-group">
-          <label>
-            Email Address <span className="required">*</span>
-          </label>
-          <div className="input-with-icon">
-            <Mail />
-            <input
-              required
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="Enter your Email"
-            />
-          </div>
-        </div>
-        <div className="form-group">
-          <label>
-            Phone Number <span className="required">*</span>
-          </label>
-          <div className="input-with-icon">
-            <Phone />
-            <input
-              required
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  phone: e.target.value.replace(/\D/g, "").slice(0, 10),
-                })
-              }
-              placeholder="9876543210"
-              inputMode="numeric"
-              maxLength={10}
-              pattern="[0-9]{10}"
-              title="Phone number must be exactly 10 digits"
-            />
-          </div>
+        <label>
+          Email Address <span className="required">*</span>
+        </label>
+        <div className="input-with-icon">
+          <Mail />
+          <input
+            required
+            type="email"
+            name="email"
+            autoComplete="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            placeholder="Enter your email address"
+          />
         </div>
       </div>
 
       <div className="form-group">
-        <div className="form-group">
-          <label>
-            Password <span className="required">*</span>
-          </label>
-          <div className="input-with-icon password-input">
-            <Lock />
-            <input
-              required
-              type={showPassword ? "text" : "password"}
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              placeholder="Min 8 characters"
-              minLength={8}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? <EyeOff /> : <Eye />}
-            </button>
-          </div>
+        <label>
+          Phone Number <span className="required">*</span>
+        </label>
+        <div className="input-with-icon">
+          <Phone />
+          <input
+            required
+            type="tel"
+            name="phone"
+            autoComplete="tel"
+            value={formData.phone}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+              })
+            }
+            placeholder="9876543210"
+            inputMode="numeric"
+            maxLength={10}
+            pattern="[0-9]{10}"
+            title="Phone number must be exactly 10 digits"
+          />
         </div>
-        <div className="form-group">
-          <label>
-            Confirm Password <span className="required">*</span>
-          </label>
-          <div className="input-with-icon password-input">
-            <Lock />
-            <input
-              required
-              type={showConfirmPassword ? "text" : "password"}
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleInputChange}
-              placeholder="Re-enter password"
-              minLength={8}
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              aria-label={
-                showConfirmPassword ? "Hide password" : "Show password"
-              }
-            >
-              {showConfirmPassword ? <EyeOff /> : <Eye />}
-            </button>
-          </div>
+      </div>
+
+      <div className="form-group">
+        <label>
+          Password <span className="required">*</span>
+        </label>
+        <div className="input-with-icon password-input">
+          <Lock />
+          <input
+            required
+            type={showPassword ? "text" : "password"}
+            name="password"
+            autoComplete="new-password"
+            value={formData.password}
+            onChange={handleInputChange}
+            placeholder="Min 8 characters"
+            minLength={8}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOff /> : <Eye />}
+          </button>
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label>
+          Confirm Password <span className="required">*</span>
+        </label>
+        <div className="input-with-icon password-input">
+          <Lock />
+          <input
+            required
+            type={showConfirmPassword ? "text" : "password"}
+            name="confirmPassword"
+            autoComplete="new-password"
+            value={formData.confirmPassword}
+            onChange={handleInputChange}
+            placeholder="Re-enter password"
+            minLength={8}
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            aria-label={
+              showConfirmPassword ? "Hide password" : "Show password"
+            }
+          >
+            {showConfirmPassword ? <EyeOff /> : <Eye />}
+          </button>
         </div>
       </div>
 
@@ -411,7 +420,7 @@ const OnboardingPage: React.FC = () => {
     return (
       <div className="onboarding-summary">
         <div className="summary-header-icon">
-          <i className="fas fa-file-invoice-dollar"></i>
+          <FileText className="h-9 w-9 text-[#00AEEF]" />
         </div>
         <h2>Order Summary</h2>
         <p>Review your details before securely proceeding to payment.</p>
@@ -427,15 +436,15 @@ const OnboardingPage: React.FC = () => {
           </div>
           <div className="plan-features-list">
             <div className="feature-item">
-              <i className="fas fa-truck text-primary"></i>
+              <Truck className="h-4 w-4 text-[#00AEEF] shrink-0" />
               <span>Up to {selectedPlan.vehicleLimit} Vehicles</span>
             </div>
             <div className="feature-item">
-              <i className="fas fa-user-tie text-primary"></i>
+              <Users className="h-4 w-4 text-[#00AEEF] shrink-0" />
               <span>Up to {selectedPlan.maxAdmins} Admins</span>
             </div>
             <div className="feature-item">
-              <i className="fas fa-id-card text-primary"></i>
+              <User className="h-4 w-4 text-[#00AEEF] shrink-0" />
               <span>Up to {selectedPlan.maxDrivers} Drivers</span>
             </div>
           </div>
@@ -465,7 +474,7 @@ const OnboardingPage: React.FC = () => {
         </div>
 
         <div className="secure-badge">
-          <i className="fas fa-lock"></i> Secured by Razorpay
+          <Lock className="h-4 w-4 text-emerald-600 shrink-0" /> Secured by Razorpay
         </div>
 
         <div className="action-buttons">
@@ -475,7 +484,7 @@ const OnboardingPage: React.FC = () => {
             onClick={() => setStep(1)}
             disabled={isLoading}
           >
-            <i className="fas fa-arrow-left"></i> Edit Details
+            <ArrowLeft className="h-4 w-4 shrink-0 inline mr-1.5" /> Edit Details
           </button>
           <button
             type="button"
@@ -485,7 +494,7 @@ const OnboardingPage: React.FC = () => {
           >
             {isLoading ? (
               <>
-                <i className="fas fa-spinner fa-spin"></i> Processing...
+                <Loader2 className="h-4 w-4 animate-spin shrink-0 inline mr-1.5" /> Processing...
               </>
             ) : (
               `Pay ₹${price} Now`
@@ -499,7 +508,7 @@ const OnboardingPage: React.FC = () => {
   const renderStep3 = () => (
     <div className="onboarding-success">
       <div className="success-icon">
-        <i className="fas fa-check-circle"></i>
+        <CheckCircle2 className="h-16 w-16 text-emerald-600 mx-auto" />
       </div>
       <h2>Registration Successful!</h2>
       <p>

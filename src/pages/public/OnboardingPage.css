@@ -67,20 +67,23 @@
 .onboarding-form .form-group input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, #cbd5e1);
   border-radius: 8px;
-  background: var(--bg-body);
-  color: var(--text-main);
+  background: var(--bg-body, #ffffff);
+  color: var(--text-main, #0f172a);
   font-family: "Inter", sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
   box-sizing: border-box;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .onboarding-container .form-group input:focus,
 .register-page-shell .form-group input:focus,
 .onboarding-form .form-group input:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: #00aeef;
+  box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.15);
 }
 
 .onboarding-container .full-width,
@@ -143,9 +146,17 @@
 }
 
 .success-icon {
-  font-size: 4rem;
-  color: var(--success);
+  color: #16a34a;
   margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.success-icon svg {
+  width: 4.5rem;
+  height: 4.5rem;
+  color: #16a34a;
 }
 
 @media (max-width: 600px) {
@@ -214,15 +225,23 @@
 }
 
 .summary-header-icon {
-  font-size: 3rem;
-  color: var(--primary, #1890ff);
-  margin-bottom: 1rem;
-  background: var(--primary-light, #e6f7ff);
-  width: 80px;
-  height: 80px;
-  line-height: 80px;
+  font-size: 2.5rem;
+  color: #00aeef;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
   margin: 0 auto 1.5rem auto;
+}
+
+.summary-header-icon svg {
+  width: 36px;
+  height: 36px;
+  color: #00aeef;
 }
 
 .summary-card {
@@ -287,11 +306,13 @@
   color: var(--text, #333);
 }
 
+.feature-item svg,
 .feature-item i {
-  width: 20px;
+  width: 1.25rem;
+  height: 1.25rem;
   text-align: center;
-  color: var(--primary, #1890ff);
-  font-size: 1.1rem;
+  color: #00aeef;
+  flex-shrink: 0;
 }
 
 .summary-body {
@@ -306,12 +327,20 @@
 
 .secure-badge {
   font-size: 0.85rem;
-  color: var(--success, #52c41a);
+  color: #16a34a;
   margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+}
+
+.secure-badge svg,
+.secure-badge i {
+  width: 1rem;
+  height: 1rem;
+  color: #16a34a;
+  flex-shrink: 0;
 }
 
 .action-buttons {
@@ -486,44 +515,75 @@
 
 .input-with-icon {
   position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
 }
 
 .input-with-icon > svg {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   top: 50%;
-  left: 0.75rem;
-  width: 1.1rem;
-  height: 1.1rem;
+  left: 0.875rem;
+  width: 1.25rem;
+  height: 1.25rem;
   transform: translateY(-50%);
-  color: #94aaca;
+  color: #94a3b8;
   pointer-events: none;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
 }
 
+.input-with-icon:focus-within > svg {
+  color: #00aeef;
+}
+
+/* Ensure padding-left and padding-right override generic input rules with high specificity */
+.onboarding-container .form-group .input-with-icon input,
+.register-page-shell .form-group .input-with-icon input,
+.onboarding-form .form-group .input-with-icon input,
 .input-with-icon input {
-  padding-left: 2.5rem;
+  padding-left: 2.75rem !important;
+}
+
+.onboarding-container .form-group .password-input input,
+.register-page-shell .form-group .password-input input,
+.onboarding-form .form-group .password-input input,
+.password-input input {
+  padding-right: 2.75rem !important;
 }
 
 .password-input button {
   position: absolute;
   top: 50%;
-  right: 0.75rem;
-  display: flex;
-  padding: 0;
+  right: 0.5rem;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
   border: 0;
-  color: #94aaca;
+  border-radius: 6px;
+  color: #94a3b8;
   background: transparent;
   cursor: pointer;
+  z-index: 2;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  touch-action: manipulation;
+}
+
+.password-input button:hover,
+.password-input button:focus {
+  color: #475569;
+  background-color: #f1f5f9;
 }
 
 .password-input button svg {
-  width: 1.1rem;
-  height: 1.1rem;
-}
-
-.password-input input {
-  padding-right: 2.5rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
 }
 
 .full-width {
@@ -531,16 +591,32 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
   border: 0;
   border-radius: 8px;
   color: #ffffff;
   background: #00aeef;
   cursor: pointer;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.full-width:hover {
+  background: #0096d6;
+}
+
+.full-width:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .full-width svg {
-  width: 1rem;
-  height: 1rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
 }
 
 .legal-consent {
@@ -548,12 +624,12 @@
   align-items: flex-start;
   gap: 0.65rem;
   margin-top: 0.25rem;
-  padding: 0.7rem 0.85rem;
+  padding: 0.75rem 0.85rem;
   border: 1px solid #e2e8f0;
   border-radius: 7px;
   color: #475569;
   background: #f8fafc;
-  font-size: 0.78rem;
+  font-size: 0.825rem;
   line-height: 1.5;
   cursor: pointer;
 }
@@ -562,7 +638,7 @@
   width: 1rem;
   height: 1rem;
   flex: 0 0 auto;
-  margin-top: 0.1rem;
+  margin-top: 0.15rem;
   accent-color: #00aeef;
 }
 
@@ -598,20 +674,80 @@
   .register-content-inner {
     padding: 1.5rem 1rem;
   }
+  .register-form .mb-10 {
+    margin-bottom: 1.5rem;
+  }
+  .register-form h2 {
+    font-size: 1.5rem;
+  }
+  .register-form > p {
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+  .onboarding-container .form-group,
+  .register-page-shell .form-group,
+  .onboarding-form .form-group {
+    margin-bottom: 1.25rem;
+  }
+  .onboarding-container .form-group input,
+  .register-page-shell .form-group input,
+  .onboarding-form .form-group input {
+    font-size: 16px; /* Prevents auto-zoom on iOS mobile browsers */
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  .onboarding-container .form-group .input-with-icon input,
+  .register-page-shell .form-group .input-with-icon input,
+  .onboarding-form .form-group .input-with-icon input,
+  .input-with-icon input {
+    padding-left: 2.75rem !important;
+  }
+  .onboarding-container .form-group .password-input input,
+  .register-page-shell .form-group .password-input input,
+  .onboarding-form .form-group .password-input input,
+  .password-input input {
+    padding-right: 2.75rem !important;
+  }
+  .input-with-icon > svg {
+    left: 0.875rem;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .password-input button {
+    right: 0.4rem;
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  .password-input button svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
   .register-form .form-row {
     gap: 0;
   }
   .selected-plan-banner {
+    flex-direction: column;
     align-items: flex-start;
-    gap: 0.75rem;
-    padding: 1rem;
+    gap: 0.5rem;
+    padding: 0.875rem 1rem;
   }
   .plan-info-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     flex-wrap: wrap;
     gap: 0.5rem;
-    justify-content: flex-end;
   }
   .selected-plan-banner .plan-name {
-    font-size: 1rem;
+    font-size: 0.95rem;
+  }
+  .action-buttons {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+  }
+  .action-buttons button {
+    width: 100%;
+    min-height: 46px;
   }
 }
